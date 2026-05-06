@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100">
+  <rect width="900" height="1100" fill="#0b1220"/>
+  <rect x="130" y="220" width="640" height="420" rx="16" fill="#111827" stroke="#f97316" stroke-width="8"/>
+  <rect x="90" y="650" width="720" height="70" rx="12" fill="#1f2937"/>
+  <text x="450" y="980" fill="#e5e7eb" text-anchor="middle" font-size="52" font-family="Arial">DESIGMA LAPTOP</text>
+</svg>

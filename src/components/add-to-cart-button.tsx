@@ -1,0 +1,44 @@
+"use client";
+
+import { useState } from "react";
+import { useCart } from "@/components/cart-context";
+import { useStoreI18n } from "@/components/storefront/store-i18n";
+
+export function AddToCartButton({
+  productId,
+  disabled,
+  qty = 1,
+}: {
+  productId: string;
+  disabled?: boolean;
+  qty?: number;
+}) {
+  const { addItem } = useCart();
+  const { t } = useStoreI18n();
+  const [showToast, setShowToast] = useState(false);
+
+  const click = () => {
+    if (disabled) return;
+    addItem(productId, qty);
+    setShowToast(true);
+    window.setTimeout(() => setShowToast(false), 1400);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={click}
+        className="w-full rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+      >
+        {disabled ? t("outOfStock") : t("addToCart")}
+      </button>
+      {showToast && (
+        <div className="absolute -top-10 right-0 rounded-lg border border-orange-400/40 bg-zinc-900 px-3 py-1 text-xs text-orange-300">
+          {t("addedToCart")}
+        </div>
+      )}
+    </div>
+  );
+}

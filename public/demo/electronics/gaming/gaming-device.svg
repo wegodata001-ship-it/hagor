@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100">
+  <rect width="900" height="1100" fill="#0b0b10"/>
+  <rect x="180" y="250" width="540" height="300" rx="40" fill="#111827" stroke="#a855f7" stroke-width="8"/>
+  <circle cx="300" cy="400" r="18" fill="#22c55e"/>
+  <circle cx="610" cy="400" r="18" fill="#f97316"/>
+  <text x="450" y="980" fill="#e5e7eb" text-anchor="middle" font-size="52" font-family="Arial">GAMING GEAR</text>
+</svg>

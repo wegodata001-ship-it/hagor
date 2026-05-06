@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100">
+  <rect width="900" height="1100" fill="#0f172a"/>
+  <rect x="220" y="120" width="460" height="860" rx="50" fill="#030712" stroke="#fb923c" stroke-width="8"/>
+  <circle cx="450" cy="180" r="10" fill="#fb923c"/>
+  <text x="450" y="1040" fill="#e5e7eb" text-anchor="middle" font-size="52" font-family="Arial">DESIGMA PHONE</text>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100">
+  <rect width="900" height="1100" fill="#0f172a"/>
+  <circle cx="450" cy="460" r="220" fill="#111827" stroke="#fb923c" stroke-width="10"/>
+  <circle cx="450" cy="460" r="130" fill="#1f2937"/>
+  <text x="450" y="980" fill="#e5e7eb" text-anchor="middle" font-size="52" font-family="Arial">AUDIO PRO</text>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+  <rect width="1200" height="700" fill="#111827"/>
+  <circle cx="840" cy="320" r="130" fill="#0b1220" stroke="#fb923c" stroke-width="10"/>
+  <text x="220" y="250" fill="#fff" font-size="70" font-family="Arial" font-weight="700">AUDIO</text>
+</svg>
