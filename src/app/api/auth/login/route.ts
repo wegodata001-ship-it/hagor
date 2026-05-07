@@ -23,14 +23,42 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid login" }, { status: 400 });
   }
 
-  const user = await prisma.user.findFirst({
-    where: { storeId, email: parsed.data.email.toLowerCase() },
-  });
+  let user:
+    | {
+        id: string;
+        storeId: string | null;
+        role: "CUSTOMER" | "STORE_OWNER" | "SUPER_ADMIN";
+        password: string;
+        emailVerified: boolean;
+      }
+    | null = null;
+  try {
+    user = await prisma.user.findFirst({
+      where: { storeId, email: parsed.data.email.toLowerCase() },
+      select: {
+        id: true,
+        storeId: true,
+        role: true,
+        password: true,
+        emailVerified: true,
+      },
+    });
+  } catch (e) {
+    // This shows up in Vercel runtime logs and helps diagnose DATABASE_URL / Prisma issues.
+    console.error("login: prisma error", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
   if (!user) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const ok = await bcrypt.compare(parsed.data.password, user.password);
+  let ok = false;
+  try {
+    ok = await bcrypt.compare(parsed.data.password, user.password);
+  } catch (e) {
+    console.error("login: bcrypt compare error", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
   if (!ok) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
@@ -41,12 +69,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const token = await signSession({
-    userId: user.id,
-    role: user.role,
-    storeId: user.storeId,
-  });
-  await setSessionCookie(token);
+  try {
+    const token = await signSession({
+      userId: user.id,
+      role: user.role,
+      storeId: user.storeId,
+    });
+    await setSessionCookie(token);
+  } catch (e) {
+    console.error("login: session cookie error", e);
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, role: user.role });
 }

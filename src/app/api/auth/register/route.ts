@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
+import { getAppUrl } from "@/lib/app-url";
 
 const phoneRegex = /^[+]?[0-9\s\-()]{7,20}$/;
 const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
     select: { token: true },
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const verifyUrl = verification
     ? `${appUrl}/api/auth/verify-email?token=${encodeURIComponent(verification.token)}`
     : null;
