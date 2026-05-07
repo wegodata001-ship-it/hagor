@@ -12,6 +12,9 @@ export type SessionPayload = {
 
 function secretKey() {
   const s = process.env.SESSION_SECRET;
+  // TEMP diagnostics for Vercel: do not log the secret value.
+  // Helps verify whether server/edge runtime receives SESSION_SECRET.
+  console.log("SESSION_SECRET exists:", !!s, "len:", s?.length ?? 0, "NEXT_RUNTIME:", process.env.NEXT_RUNTIME);
   if (!s || s.length < 16) throw new Error("SESSION_SECRET must be set (min 16 chars)");
   return new TextEncoder().encode(s);
 }
