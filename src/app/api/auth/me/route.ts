@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   const storeId = STORE_ID;
   const session = await getSession();

@@ -6,6 +6,8 @@ import { ASSETS_FOLDER } from "@/lib/store";
 import { STORAGE_BUCKET } from "@/lib/storage";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
+export const runtime = "nodejs";
+
 const kinds = new Set(["logo", "products", "categories", "banners"]);
 const safeSegment = (v: string) =>
   v

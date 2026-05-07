@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { signSession, setSessionCookie } from "@/lib/auth/session";
 
+export const runtime = "nodejs";
+
 const Schema = z.object({
   email: z.string().email(),
   password: z.string().min(1),

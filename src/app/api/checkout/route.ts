@@ -13,6 +13,8 @@ import {
   snapshotDeliveryName,
 } from "@/lib/checkout/compute-order";
 
+export const runtime = "nodejs";
+
 const Schema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email(),

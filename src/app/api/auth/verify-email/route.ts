@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { setSessionCookie, signSession } from "@/lib/auth/session";
 
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token")?.trim();
   if (!token) {

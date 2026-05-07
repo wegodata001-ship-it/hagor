@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getAppUrl } from "@/lib/app-url";
 
+export const runtime = "nodejs";
+
 const phoneRegex = /^[+]?[0-9\s\-()]{7,20}$/;
 const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
