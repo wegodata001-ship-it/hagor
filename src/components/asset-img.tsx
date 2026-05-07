@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
 
 export function AssetImg({
@@ -22,5 +23,15 @@ export function AssetImg({
     );
   }
   const src = resolvePublicAssetSrc(path);
-  return <img src={src} alt={alt} className={className} />;
+  return (
+    <span className={`relative block h-full w-full ${className ?? ""}`}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+        className={className ?? "h-full w-full object-cover"}
+      />
+    </span>
+  );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { AssetImg } from "@/components/asset-img";
@@ -538,7 +539,13 @@ function ProductForm({
           <ul className="mt-2 flex flex-wrap gap-3">
             {previews.map((p) => (
               <li key={p.url} className="w-20">
-                <img src={p.url} alt={p.name} className="h-20 w-20 rounded border object-cover" />
+                <Image
+                  src={p.url}
+                  alt={p.name}
+                  width={80}
+                  height={80}
+                  className="h-20 w-20 rounded border object-cover"
+                />
               </li>
             ))}
           </ul>

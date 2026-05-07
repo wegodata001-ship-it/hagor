@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /** Supabase storage hosts vary per project; use `<img>` or pass absolute URLs. */
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
   },
   /** Large banner images via Server Actions (upsertBanner FormData). */
   experimental: {

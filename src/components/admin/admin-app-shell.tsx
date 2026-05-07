@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -86,8 +87,13 @@ function AdminAppShellInner({
       >
         <div className="flex h-16 items-center gap-2 border-b border-white/10 px-4">
           {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt="" className="h-9 w-9 rounded-lg object-cover" />
+            <Image
+              src={logoSrc}
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-lg object-cover"
+            />
           ) : (
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-sm font-bold">
               {storeName.slice(0, 1).toUpperCase()}
