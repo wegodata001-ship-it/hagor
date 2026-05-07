@@ -157,6 +157,8 @@ export async function upsertProduct(formData: FormData): Promise<
     };
     const oldPriceRaw = formData.get("oldPrice") as string;
     const discountRaw = formData.get("discountPercent") as string;
+    const variantGroupsRaw = (formData.get("variantGroups") as string) || "";
+    const relatedProductsRaw = (formData.get("relatedProducts") as string) || "";
 
     const base = {
       categoryId,
@@ -184,30 +186,159 @@ export async function upsertProduct(formData: FormData): Promise<
       featured: formData.get("featured") === "on",
     };
 
-    let productId = id;
-    if (id) {
-      await prisma.product.updateMany({
-        where: { id, storeId },
-        data: base,
-      });
-      await logAdminAction({
-        userId,
-        action: "product.update",
-        entity: "Product",
-        entityId: id,
-        metadata: { sku },
-      });
-    } else {
-      const created = await prisma.product.create({ data: { ...base, storeId } });
-      productId = created.id;
-      await logAdminAction({
-        userId,
-        action: "product.create",
-        entity: "Product",
-        entityId: created.id,
-        metadata: { sku },
-      });
-    }
+    type VariantOptionInput = {
+      value: string;
+      priceAdd?: number;
+      stock?: number | null;
+      sku?: string | null;
+      image?: string | null;
+      isDefault?: boolean;
+      sortOrder?: number;
+    };
+    type VariantGroupInput = {
+      name: string;
+      sortOrder?: number;
+      options?: VariantOptionInput[];
+    };
+
+    const parsedGroups: VariantGroupInput[] | null = (() => {
+      const s = variantGroupsRaw.trim();
+      if (!s) return null;
+      try {
+        const val = JSON.parse(s);
+        if (!Array.isArray(val)) return null;
+        return val as VariantGroupInput[];
+      } catch {
+        return null;
+      }
+    })();
+
+    const parsedRelated: Array<{ id: string; sortOrder?: number }> | null = (() => {
+      const s = relatedProductsRaw.trim();
+      if (!s) return null;
+      try {
+        const val = JSON.parse(s);
+        if (!Array.isArray(val)) return null;
+        return val as Array<{ id: string; sortOrder?: number }>;
+      } catch {
+        return null;
+      }
+    })();
+
+    // Normalize variant payload OUTSIDE the transaction (no uploads here; image is already a URL/path).
+    const normalizedGroups =
+      parsedGroups?.map((g, gi) => {
+        const name = String(g?.name ?? "").trim();
+        const optionsRaw = Array.isArray(g.options) ? g.options : [];
+        const options = optionsRaw
+          .map((o, oi) => ({
+            value: String(o?.value ?? "").trim(),
+            priceAdd: Number(o?.priceAdd ?? 0),
+            stock: o?.stock == null || String(o.stock).trim() === "" ? null : Number(o.stock),
+            sku: o?.sku ? String(o.sku) : null,
+            image: o?.image ? String(o.image) : null,
+            isDefault: Boolean(o?.isDefault),
+            sortOrder: Number(o?.sortOrder ?? oi),
+          }))
+          .filter((o) => o.value.length > 0);
+
+        // Ensure at most one default; if none selected, keep first as default.
+        let defaultIdx = options.findIndex((o) => o.isDefault);
+        if (defaultIdx === -1 && options.length > 0) defaultIdx = 0;
+        const optionsWithDefault = options.map((o, idx) => ({ ...o, isDefault: idx === defaultIdx }));
+
+        return {
+          name,
+          sortOrder: Number(g?.sortOrder ?? gi),
+          options: optionsWithDefault,
+        };
+      }).filter((g) => g.name.length > 0) ?? null;
+
+    const normalizedRelated =
+      parsedRelated
+        ?.map((r, idx) => ({
+          id: String(r?.id ?? "").trim(),
+          sortOrder: Number(r?.sortOrder ?? idx),
+        }))
+        .filter((r) => r.id.length > 0) ?? null;
+
+    const { productId, action } = await prisma.$transaction(
+      async (tx) => {
+        let productId = id;
+        let action: "product.update" | "product.create" = "product.update";
+
+        if (id) {
+          await tx.product.updateMany({
+            where: { id, storeId },
+            data: base,
+          });
+        } else {
+          const created = await tx.product.create({ data: { ...base, storeId } });
+          productId = created.id;
+          action = "product.create";
+        }
+
+        // Backward compatible: only touch variants if payload provided.
+        if (normalizedGroups) {
+          // SAFE delete order: options -> groups.
+          await tx.productVariantOption.deleteMany({
+            where: { group: { productId } },
+          });
+          await tx.productVariantGroup.deleteMany({ where: { productId } });
+
+          for (const g of normalizedGroups) {
+            const group = await tx.productVariantGroup.create({
+              data: { productId, name: g.name, sortOrder: g.sortOrder },
+            });
+            if (g.options.length > 0) {
+              await tx.productVariantOption.createMany({
+                data: g.options.map((o) => ({
+                  groupId: group.id,
+                  value: o.value,
+                  priceAdd: new Prisma.Decimal(o.priceAdd),
+                  stock: o.stock,
+                  sku: o.sku,
+                  image: o.image,
+                  isDefault: o.isDefault,
+                  sortOrder: o.sortOrder,
+                })),
+              });
+            }
+          }
+        }
+
+        if (normalizedRelated) {
+          await tx.productRelatedProduct.deleteMany({ where: { productId } });
+          const uniq = Array.from(new Set(normalizedRelated.map((r) => r.id))).filter((rid) => rid !== productId);
+          if (uniq.length > 0) {
+            // Ensure related products exist and belong to same store.
+            const okRelated = await tx.product.findMany({
+              where: { storeId, id: { in: uniq } },
+              select: { id: true },
+            });
+            const okSet = new Set(okRelated.map((p) => p.id));
+            const data = normalizedRelated
+              .filter((r) => okSet.has(r.id) && r.id !== productId)
+              .map((r) => ({ productId, relatedProductId: r.id, sortOrder: r.sortOrder }));
+            if (data.length > 0) {
+              await tx.productRelatedProduct.createMany({ data });
+            }
+          }
+        }
+
+        return { productId, action };
+      },
+      { timeout: 20000 },
+    );
+
+    // Log OUTSIDE the transaction (keeps tx short; avoids interactive timeout).
+    await logAdminAction({
+      userId,
+      action,
+      entity: "Product",
+      entityId: productId,
+      metadata: { sku },
+    });
     revalidatePath("/admin/products");
     return ok({ productId });
   } catch (e) {
@@ -790,13 +921,56 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
     const id = formData.get("id") as string;
     const status = formData.get("status") as string;
     const paymentStatus = formData.get("paymentStatus") as string;
-    await prisma.order.updateMany({
+    // Restore inventory when cancelling a previously active order (best-effort, backward compatible).
+    const prev = await prisma.order.findFirst({
       where: { id, storeId },
-      data: {
-        status: status as never,
-        paymentStatus: paymentStatus as never,
-      },
+      select: { status: true, paymentStatus: true, inventoryReducedAt: true },
     });
+    const nextStatus = status as never;
+    const nextPayment = paymentStatus as never;
+
+    await prisma.$transaction(async (tx) => {
+      if (prev?.status !== "CANCELLED" && status === "CANCELLED" && prev?.inventoryReducedAt) {
+        const items = await tx.orderItem.findMany({
+          where: { orderId: id, storeId },
+          select: { productId: true, quantity: true, variantOptionIds: true },
+        });
+        for (const it of items) {
+          const optionIds = Array.isArray(it.variantOptionIds) ? it.variantOptionIds : [];
+          if (optionIds.length > 0) {
+            // Increment only managed variant options (stock != null)
+            await tx.productVariantOption.updateMany({
+              where: { id: { in: optionIds }, stock: { not: null } },
+              data: { stock: { increment: it.quantity } },
+            });
+          } else {
+            await tx.product.updateMany({
+              where: { id: it.productId, storeId },
+              data: { stock: { increment: it.quantity } },
+            });
+          }
+        }
+        await tx.order.updateMany({
+          where: { id, storeId },
+          data: { inventoryReducedAt: null },
+        });
+      }
+
+      await tx.order.updateMany({
+        where: { id, storeId },
+        data: {
+          status: nextStatus,
+          paymentStatus: nextPayment,
+        },
+      });
+    });
+
+    // If admin marks order as PAID, reduce inventory immediately.
+    if (prev?.paymentStatus !== "PAID" && paymentStatus === "PAID") {
+      // Make sure the order is PAID/PAID in DB (already done above), then reduce inventory.
+      const { reduceInventoryAfterPayment } = await import("@/lib/inventory/updateInventory");
+      await reduceInventoryAfterPayment(id);
+    }
     await logAdminAction({
       userId,
       action: "order.status.update",

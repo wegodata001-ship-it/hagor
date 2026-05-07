@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/categories", label: "categories", Icon: IconGrid },
   { href: "/admin/banners", label: "banners", Icon: IconImage },
   { href: "/admin/orders", label: "orders", Icon: IconCart },
+  { href: "/admin/customers", label: "customer", Icon: IconUsers },
   { href: "/admin/delivery", label: "delivery", Icon: IconTruck },
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
   { href: "/admin/loyalty", label: "loyalty", Icon: IconStar },
@@ -203,6 +204,17 @@ function IconCart({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.591 1.872-5.42 1.872-8.25V6.75A2.25 2.25 0 0018 4.5H6.75a2.25 2.25 0 00-2.25 2.25v5.25c0 .966.784 1.75 1.75 1.75z" />
+    </svg>
+  );
+}
+function IconUsers({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 19.128a9.003 9.003 0 00-6 0M12 12a3 3 0 100-6 3 3 0 000 6zm7.5 8.128a8.97 8.97 0 00-3.216-5.637M4.716 14.49A8.97 8.97 0 013.5 20.128"
+      />
     </svg>
   );
 }

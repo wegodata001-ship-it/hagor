@@ -17,6 +17,18 @@ export default async function ProductPage({
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       category: true,
+      variantGroups: {
+        orderBy: { sortOrder: "asc" },
+        include: { options: { orderBy: { sortOrder: "asc" } } },
+      },
+      relatedProducts: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          relatedProduct: {
+            include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          },
+        },
+      },
     },
   });
   if (!product) notFound();
@@ -41,6 +53,30 @@ export default async function ProductPage({
           name_en: product.category.name_en,
         },
         images: product.images.map((i) => ({ id: i.id, url: i.url })),
+        variantGroups: product.variantGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          sortOrder: g.sortOrder,
+          options: g.options.map((o) => ({
+            id: o.id,
+            value: o.value,
+            priceAdd: Number(o.priceAdd),
+            stock: o.stock ?? null,
+            sku: o.sku ?? null,
+            image: o.image ?? null,
+            isDefault: o.isDefault,
+            sortOrder: o.sortOrder,
+          })),
+        })),
+        relatedProducts: product.relatedProducts.map((rp) => ({
+          id: rp.relatedProduct.id,
+          name_he: rp.relatedProduct.name_he,
+          name_ar: rp.relatedProduct.name_ar,
+          name_en: rp.relatedProduct.name_en,
+          price: Number(rp.relatedProduct.price),
+          stock: rp.relatedProduct.stock,
+          image: rp.relatedProduct.images[0]?.url ?? null,
+        })),
       }}
     />
   );

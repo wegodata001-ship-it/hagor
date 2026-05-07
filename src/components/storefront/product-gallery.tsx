@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AssetImg } from "@/components/asset-img";
 
 export function ProductGallery({
@@ -14,6 +14,11 @@ export function ProductGallery({
   const [selected, setSelected] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const current = safe[selected] ?? safe[0];
+  const sig = useMemo(() => safe.map((i) => i.url).join("|"), [safe]);
+
+  useEffect(() => {
+    setSelected(0);
+  }, [sig]);
   const move = (next: number) => {
     if (safe.length === 0) return;
     const normalized = (next + safe.length) % safe.length;

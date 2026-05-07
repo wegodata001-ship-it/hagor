@@ -2,13 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Fragment } from "react";
-import { AssetImg } from "@/components/asset-img";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
 import { deleteCategory, upsertCategory } from "@/app/admin/actions";
 import { useAdminI18n } from "@/lib/admin-i18n";
 import { uploadAdminAsset } from "@/lib/admin-upload-client";
+import { CategoryTreeTable } from "@/components/admin/category-tree-table";
 
 export type CategoryRow = {
   id: string;
@@ -55,17 +54,6 @@ export function CategoriesAdminClient({ categories }: { categories: CategoryRow[
   const mains = categories
     .filter((c) => c.parentId == null)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const childrenByParent = new Map<string, CategoryRow[]>();
-  for (const c of categories) {
-    if (!c.parentId) continue;
-    const arr = childrenByParent.get(c.parentId) ?? [];
-    arr.push(c);
-    childrenByParent.set(c.parentId, arr);
-  }
-  for (const [k, arr] of childrenByParent) {
-    arr.sort((a, b) => a.sortOrder - b.sortOrder);
-    childrenByParent.set(k, arr);
-  }
 
   return (
     <div>
@@ -89,85 +77,16 @@ export function CategoriesAdminClient({ categories }: { categories: CategoryRow[
         </button>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-              <th className="px-4 py-3">{t("image")}</th>
-              <th className="px-4 py-3">{t("name")}</th>
-              <th className="px-4 py-3">{t("active")}</th>
-              <th className="px-4 py-3">{t("order")}</th>
-              <th className="px-4 py-3 text-end">{t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mains.map((m) => {
-              const children = childrenByParent.get(m.id) ?? [];
-              return (
-                <Fragment key={m.id}>
-                  <tr key={m.id} className="border-b border-slate-100 bg-white">
-                    <td className="px-4 py-2">
-                      <div className="h-12 w-12 overflow-hidden rounded-md border bg-slate-50">
-                        <AssetImg path={m.imageUrl} alt="" className="h-full w-full object-cover" />
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 font-semibold">{m.name_he}</td>
-                    <td className="px-4 py-2">{m.active ? "Yes" : "No"}</td>
-                    <td className="px-4 py-2">{m.sortOrder}</td>
-                    <td className="px-4 py-2 text-end">
-                      <button type="button" className="text-blue-600 hover:underline" onClick={() => setEdit(m)}>
-                        {t("edit")}
-                      </button>
-                      <span className="mx-2 text-slate-300">|</span>
-                      <button
-                        type="button"
-                        className="text-slate-700 hover:underline"
-                        onClick={() => {
-                          setPresetParentId(m.id);
-                          setOpen(true);
-                        }}
-                      >
-                        {t("addSubCategory")}
-                      </button>
-                      <span className="mx-2 text-slate-300">|</span>
-                      <button type="button" className="text-red-600 hover:underline" onClick={() => setDelId(m.id)}>
-                        {t("delete")}
-                      </button>
-                    </td>
-                  </tr>
-                  {children.map((c) => (
-                    <tr key={c.id} className="border-b border-slate-100 bg-slate-50/40">
-                      <td className="px-4 py-2">
-                        <div className="h-10 w-10 overflow-hidden rounded-md border bg-slate-50">
-                          <AssetImg path={c.imageUrl} alt="" className="h-full w-full object-cover" />
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 font-medium">
-                        <span className="text-slate-400">— </span>
-                        {c.name_he}
-                      </td>
-                      <td className="px-4 py-2">{c.active ? "Yes" : "No"}</td>
-                      <td className="px-4 py-2">{c.sortOrder}</td>
-                      <td className="px-4 py-2 text-end">
-                        <button type="button" className="text-blue-600 hover:underline" onClick={() => setEdit(c)}>
-                          {t("edit")}
-                        </button>
-                        <span className="mx-2 text-slate-300">|</span>
-                        <button type="button" className="text-red-600 hover:underline" onClick={() => setDelId(c.id)}>
-                          {t("delete")}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-        {mains.length === 0 && (
-          <p className="p-8 text-center text-sm text-slate-500">{t("noCategories")}</p>
-        )}
-      </div>
+      <CategoryTreeTable
+        categories={categories}
+        onEdit={(cat) => setEdit(cat)}
+        onDelete={(id) => setDelId(id)}
+        onAddChild={(parentId) => {
+          setPresetParentId(parentId);
+          setOpen(true);
+        }}
+        accordionMode
+      />
 
       {pending && (
         <div className="fixed bottom-6 left-6 z-[90] flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-white">

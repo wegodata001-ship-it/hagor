@@ -22,6 +22,18 @@ export default async function AdminProductsPage({
       include: {
         category: true,
         images: { orderBy: { sortOrder: "asc" } },
+        variantGroups: {
+          orderBy: { sortOrder: "asc" },
+          include: { options: { orderBy: { sortOrder: "asc" } } },
+        },
+        relatedProducts: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            relatedProduct: {
+              include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+            },
+          },
+        },
       },
     }),
     prisma.category.findMany({
@@ -52,6 +64,30 @@ export default async function AdminProductsPage({
       url: im.url,
       isMain: im.isMain,
       sortOrder: im.sortOrder,
+    })),
+    variantGroups: p.variantGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      sortOrder: g.sortOrder,
+      options: g.options.map((o) => ({
+        id: o.id,
+        value: o.value,
+        priceAdd: Number(o.priceAdd),
+        stock: o.stock ?? null,
+        sku: o.sku ?? null,
+        image: o.image ?? null,
+        isDefault: o.isDefault,
+        sortOrder: o.sortOrder,
+      })),
+    })),
+    relatedProducts: p.relatedProducts.map((rp) => ({
+      id: rp.relatedProduct.id,
+      name_he: rp.relatedProduct.name_he,
+      name_ar: rp.relatedProduct.name_ar,
+      name_en: rp.relatedProduct.name_en,
+      price: Number(rp.relatedProduct.price),
+      image: rp.relatedProduct.images[0]?.url ?? null,
+      sortOrder: rp.sortOrder,
     })),
   }));
   const byId = new Map(categories.map((c) => [c.id, c] as const));

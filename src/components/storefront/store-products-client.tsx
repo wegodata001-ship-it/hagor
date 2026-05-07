@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { pickLocalized } from "@/lib/localized";
 import type { StoreProductCardData } from "@/components/storefront/product-card";
+import { CategoryAccordion } from "@/components/storefront/category-accordion";
 
 type Category = {
   id: string;
@@ -25,84 +25,44 @@ export function StoreProductsClient({
   products: StoreProductCardData[];
 }) {
   const { lang, dir } = useStoreI18n();
-  const mains = categories.filter((c) => c.parentId == null);
-  const childrenByParent = useMemo(() => {
-    const map = new Map<string, Category[]>();
-    for (const c of categories) {
-      if (!c.parentId) continue;
-      const list = map.get(c.parentId) ?? [];
-      list.push(c);
-      map.set(c.parentId, list);
-    }
-    return map;
-  }, [categories]);
   const selected = selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null;
-  const initialOpen =
-    selected && selected.parentId
-      ? selected.parentId
-      : selected && (childrenByParent.get(selected.id)?.length ?? 0) > 0
-        ? selected.id
-        : null;
-  const [openMain, setOpenMain] = useState<string | null>(initialOpen);
   return (
-    <div dir={dir} className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href="/products" className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-1.5 text-xs text-zinc-200">
-          כל המוצרים
-        </Link>
-        {mains.map((c) => {
-          const children = childrenByParent.get(c.id) ?? [];
-          const isActiveMain = selected?.id === c.id;
-          if (children.length === 0) {
-            return (
-              <Link
-                key={c.id}
-                href={`/products?cat=${encodeURIComponent(c.id)}`}
-                className={`rounded-full border px-4 py-1.5 text-xs ${
-                  isActiveMain ? "border-orange-500 bg-orange-500/20 text-orange-300" : "border-zinc-700 bg-zinc-900 text-zinc-300"
-                }`}
-              >
-                {pickLocalized(c, "name", lang)}
-              </Link>
-            );
-          }
-          const expanded = openMain === c.id;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setOpenMain((prev) => (prev === c.id ? null : c.id))}
-              className={`rounded-full border px-4 py-1.5 text-xs ${
-                expanded || isActiveMain
-                  ? "border-orange-500 bg-orange-500/20 text-orange-300"
-                  : "border-zinc-700 bg-zinc-900 text-zinc-300"
-              }`}
+    <div dir={dir} className="mx-auto max-w-7xl px-4 py-6">
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
+        <aside className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wider text-orange-400/85">Browse</div>
+              <div className="text-lg font-bold text-white">קטגוריות</div>
+            </div>
+            <Link
+              href="/products"
+              className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:border-orange-500/50"
             >
-              {pickLocalized(c, "name", lang)} ▼
-            </button>
-          );
-        })}
-      </div>
-      {openMain && (childrenByParent.get(openMain)?.length ?? 0) > 0 && (
-        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/80 p-2 transition-all">
-          <div className="flex flex-wrap gap-2">
-            {(childrenByParent.get(openMain) ?? []).map((child) => (
-              <Link
-                key={child.id}
-                href={`/products?cat=${encodeURIComponent(child.id)}`}
-                className={`rounded-full border px-3 py-1 text-xs ${
-                  selected?.id === child.id
-                    ? "border-orange-500 bg-orange-500/20 text-orange-300"
-                    : "border-zinc-700 text-zinc-300 hover:border-orange-500/70 hover:text-orange-300"
-                }`}
-              >
-                {pickLocalized(child, "name", lang)}
-              </Link>
-            ))}
+              כל המוצרים
+            </Link>
           </div>
+          <CategoryAccordion
+            categories={categories}
+            selectedId={selected?.id ?? undefined}
+            hrefForId={(id) => `/products?cat=${encodeURIComponent(id)}`}
+            className="space-y-2"
+          />
+        </aside>
+
+        <div className="space-y-6">
+          <div className="text-sm text-zinc-400">
+            {selected ? (
+              <>
+                מציגים: <span className="font-semibold text-zinc-100">{pickLocalized(selected, "name", lang)}</span>
+              </>
+            ) : (
+              "כל המוצרים"
+            )}
+          </div>
+          <ProductGrid title="קטלוג מוצרים" products={products} />
         </div>
-      )}
-      <ProductGrid title="קטלוג מוצרים" products={products} />
+      </div>
     </div>
   );
 }

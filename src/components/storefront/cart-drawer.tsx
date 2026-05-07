@@ -27,7 +27,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       setProducts({});
       return;
     }
-    const ids = items.map((i) => i.productId).join(",");
+    const ids = Array.from(new Set(items.map((i) => i.productId))).join(",");
     fetch(`/api/products/bulk?ids=${ids}`)
       .then((r) => r.json())
       .then((d: { products: ProductRow[] }) => {
@@ -72,7 +72,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             if (!p) return null;
             const name = pickLocalized(p, "name", lang);
             return (
-              <div key={line.productId} className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
+              <div key={line.key} className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
                 <div className="flex gap-3">
                   <div className="h-16 w-16 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
                     <AssetImg path={p.image} alt={name} className="h-full w-full object-cover" />
@@ -83,7 +83,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setQuantity(line.productId, Math.max(1, line.quantity - 1))}
+                        onClick={() => setQuantity(line.key, Math.max(1, line.quantity - 1))}
                         className="h-7 w-7 rounded border border-zinc-700 text-zinc-200"
                       >
                         -
@@ -91,12 +91,12 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                       <span className="w-6 text-center text-sm">{line.quantity}</span>
                       <button
                         type="button"
-                        onClick={() => setQuantity(line.productId, Math.min(p.stock, line.quantity + 1))}
+                        onClick={() => setQuantity(line.key, Math.min(p.stock, line.quantity + 1))}
                         className="h-7 w-7 rounded border border-zinc-700 text-zinc-200"
                       >
                         +
                       </button>
-                      <button type="button" onClick={() => removeItem(line.productId)} className="ml-auto text-xs text-red-400">
+                      <button type="button" onClick={() => removeItem(line.key)} className="ml-auto text-xs text-red-400">
                         הסר
                       </button>
                     </div>

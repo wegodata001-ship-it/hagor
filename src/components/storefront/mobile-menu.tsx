@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import type { UserRole } from "@prisma/client";
-import { useState } from "react";
+import { CategoryAccordion } from "@/components/storefront/category-accordion";
 
 type Category = { id: string; parentId: string | null; name_he: string; name_ar: string; name_en: string };
-
-const pick = (c: Category, lang: "he" | "ar" | "en") =>
-  lang === "ar" ? c.name_ar : lang === "en" ? c.name_en : c.name_he;
 
 export function MobileMenu({
   open,
@@ -23,94 +21,101 @@ export function MobileMenu({
   isLoggedIn: boolean;
   role: UserRole | null;
 }) {
-  const { t, lang } = useStoreI18n();
-  const [openMain, setOpenMain] = useState<string | null>(null);
-  if (!open) return null;
-  const mains = categories.filter((c) => !c.parentId);
-  const childrenByParent = new Map<string, Category[]>();
-  for (const c of categories) {
-    if (!c.parentId) continue;
-    const list = childrenByParent.get(c.parentId) ?? [];
-    list.push(c);
-    childrenByParent.set(c.parentId, list);
-  }
+  const { t } = useStoreI18n();
   return (
-    <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-4 md:hidden">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-white">{t("categories")}</span>
-        <button type="button" onClick={onClose} className="text-zinc-300">
-          ✕
-        </button>
-      </div>
-      <div className="space-y-2">
-        {mains.map((c) => {
-          const children = childrenByParent.get(c.id) ?? [];
-          if (children.length === 0) {
-            return (
-              <Link
-                key={c.id}
-                href={`/products?cat=${encodeURIComponent(c.id)}`}
-                onClick={onClose}
-                className="block rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-200 hover:border-orange-500/50"
-              >
-                {pick(c, lang)}
-              </Link>
-            );
-          }
-          const expanded = openMain === c.id;
-          return (
-            <div key={c.id} className="rounded-lg border border-zinc-800">
+    <AnimatePresence>
+      {open ? (
+        <div className="md:hidden">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[2px]"
+          />
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="fixed right-0 top-0 z-50 h-full w-[86%] max-w-sm border-l border-zinc-800 bg-[#050816] p-4 text-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-400/85">
+                  DESIGMA
+                </div>
+                <div className="text-lg font-bold">{t("categories")}</div>
+              </div>
               <button
                 type="button"
-                onClick={() => setOpenMain((prev) => (prev === c.id ? null : c.id))}
-                className="flex w-full items-center justify-between px-3 py-2 text-sm text-zinc-200"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/40 text-zinc-100 active:scale-[0.98]"
+                aria-label="close"
               >
-                <span>{pick(c, lang)}</span>
-                <span className={`text-orange-400 transition ${expanded ? "rotate-180" : ""}`}>▼</span>
+                ✕
               </button>
-              <div
-                className={`overflow-hidden border-t border-zinc-800 transition-all ${
-                  expanded ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
-                }`}
-              >
-                {children.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/products?cat=${encodeURIComponent(child.id)}`}
-                    onClick={onClose}
-                    className="block px-5 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-orange-300"
-                  >
-                    {pick(child, lang)}
-                  </Link>
-                ))}
-              </div>
             </div>
-          );
-        })}
-      </div>
-      <div className="mt-4 flex gap-2">
-        {!isLoggedIn ? (
-          <>
-            <Link href="/login" onClick={onClose} className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white">
-              התחברות
-            </Link>
-            <Link href="/register" onClick={onClose} className="rounded-lg bg-orange-500 px-3 py-2 text-sm text-white">
-              הרשמה
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link href="/account" onClick={onClose} className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white">
-              {t("myAccount")}
-            </Link>
-            {role === "STORE_OWNER" || role === "SUPER_ADMIN" ? (
-              <Link href="/admin" onClick={onClose} className="rounded-lg bg-orange-500 px-3 py-2 text-sm text-white">
-                Admin
-              </Link>
-            ) : null}
-          </>
-        )}
-      </div>
-    </div>
+
+            <div className="mt-4">
+              <CategoryAccordion
+                categories={categories}
+                onNavigate={onClose}
+                className="space-y-2"
+                hrefForId={(id) => `/products?cat=${encodeURIComponent(id)}`}
+              />
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              {!isLoggedIn ? (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={onClose}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5 text-center text-[13px] font-semibold text-white active:scale-[0.98]"
+                  >
+                    התחברות
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={onClose}
+                    className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-orange-900/25 active:scale-[0.98]"
+                  >
+                    הרשמה
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/account"
+                    onClick={onClose}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5 text-center text-[13px] font-semibold text-white active:scale-[0.98]"
+                  >
+                    {t("myAccount")}
+                  </Link>
+                  {role === "STORE_OWNER" || role === "SUPER_ADMIN" ? (
+                    <Link
+                      href="/admin"
+                      onClick={onClose}
+                      className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-orange-900/25 active:scale-[0.98]"
+                    >
+                      Admin
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="rounded-xl border border-zinc-800 bg-zinc-900/20 px-3 py-2.5 text-center text-[13px] font-semibold text-zinc-300"
+                    >
+                      סגור
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.aside>
+        </div>
+      ) : null}
+    </AnimatePresence>
   );
 }

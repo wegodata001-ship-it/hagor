@@ -65,7 +65,11 @@ export default function CheckoutPage() {
           notes,
           couponCode: couponCode || undefined,
           redeemPoints: redeemPoints || undefined,
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            optionIds: i.optionIds,
+          })),
         }),
       });
       const data = await res.json();

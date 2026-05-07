@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AssetImg } from "@/components/asset-img";
-import { AddToCartButton } from "@/components/add-to-cart-button";
+import { QuickAddToCartButton } from "@/components/storefront/quick-add-to-cart-button";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { pickLocalized } from "@/lib/localized";
 
@@ -25,14 +25,14 @@ export function ProductCard({ product }: { product: StoreProductCardData }) {
   const { lang, t } = useStoreI18n();
   const title = pickLocalized(product, "name", lang);
   return (
-    <article className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-3 shadow-lg shadow-black/30 transition hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-orange-900/20">
+    <article className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-[#111827] p-2.5 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.7)] transition hover:border-orange-500/40 active:scale-[0.99] md:p-3">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-black">
-          <div className="aspect-[4/5]">
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-black/40">
+          <div className="aspect-square">
             <AssetImg
               path={product.image}
               alt={title}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              className="h-full w-full object-contain p-3 transition duration-300 group-hover:scale-[1.03]"
             />
           </div>
           {product.discountPercent ? (
@@ -42,21 +42,30 @@ export function ProductCard({ product }: { product: StoreProductCardData }) {
           ) : null}
         </div>
       </Link>
-      <div className="mt-3 flex flex-1 flex-col space-y-2">
-        <Link href={`/products/${product.id}`} className="line-clamp-2 min-h-11 text-sm font-semibold text-zinc-100 hover:text-orange-300">
+      <div className="mt-2.5 flex flex-1 flex-col gap-2">
+        <Link href={`/products/${product.id}`} className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-snug text-zinc-100 hover:text-orange-300 md:text-sm">
           {title}
         </Link>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-orange-400">₪{product.price.toFixed(2)}</span>
+          <span className="text-base font-bold text-orange-400 md:text-lg">₪{product.price.toFixed(2)}</span>
           {product.oldPrice ? (
             <span className="text-sm text-zinc-500 line-through">₪{product.oldPrice.toFixed(2)}</span>
           ) : null}
         </div>
-        <p className={`text-xs ${product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>
-          {product.stock > 0 ? `${t("inStock")} · ${t("stock")}: ${product.stock}` : t("outOfStock")}
+        <p className={`text-[11px] ${product.stock > 0 ? "text-emerald-400/90" : "text-red-400/90"}`}>
+          {product.stock > 0 ? t("inStock") : t("outOfStock")}
         </p>
         <div className="mt-auto">
-          <AddToCartButton productId={product.id} disabled={product.stock <= 0} />
+          <QuickAddToCartButton
+            disabled={product.stock <= 0}
+            product={{
+              id: product.id,
+              title,
+              price: product.price,
+              image: product.image,
+              stock: product.stock,
+            }}
+          />
         </div>
       </div>
     </article>

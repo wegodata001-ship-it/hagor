@@ -86,6 +86,7 @@ model Store {
   customerProfiles  CustomerProfile[]
   categories        Category[]
   products          Product[]
+  membershipPlans   MembershipPlan[]
   productImages     ProductImage[]
   banners           Banner[]
   deliveryOptions   DeliveryOption[]
@@ -175,11 +176,13 @@ model CustomerProfile {
   pointsBalance Int       @default(0)
   totalOrders   Int       @default(0)
   totalSpent    Decimal   @default(0) @db.Decimal(12, 2)
+  membershipBadge String? // e.g. VIP / GOLD / MEMBER
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   loyaltyTransactions LoyaltyTransaction[]
   orders            Order[]
+  memberships       CustomerMembership[]
 
   @@index([storeId])
 }
@@ -235,11 +238,93 @@ model Product {
   updatedAt        DateTime @updatedAt
 
   images    ProductImage[]
+  variantGroups ProductVariantGroup[]
+  relatedProducts ProductRelatedProduct[] @relation("MainProductRelations")
+  relatedTo ProductRelatedProduct[] @relation("RelatedProducts")
   orderItems OrderItem[]
 
   @@unique([storeId, sku])
   @@index([storeId])
   @@index([categoryId])
+}
+
+model ProductRelatedProduct {
+  id               String   @id @default(cuid())
+  productId        String
+  relatedProductId String
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  product Product @relation("MainProductRelations", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("RelatedProducts", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([relatedProductId])
+  @@unique([productId, relatedProductId])
+}
+
+model ProductVariantGroup {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options ProductVariantOption[]
+
+  @@index([productId])
+}
+
+model ProductVariantOption {
+  id        String   @id @default(cuid())
+  groupId   String
+  value     String
+  priceAdd  Decimal  @default(0) @db.Decimal(12, 2)
+  stock     Int?
+  sku       String?
+  image     String?
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  group ProductVariantGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
+model MembershipPlan {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  type         String   // one_time | monthly | yearly
+  price        Decimal  @db.Decimal(12, 2)
+  durationDays Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  memberships CustomerMembership[]
+
+  @@index([storeId])
+}
+
+model CustomerMembership {
+  id         String   @id @default(cuid())
+  customerId String
+  planId     String
+  startDate  DateTime
+  endDate    DateTime?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan     MembershipPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([planId])
+  @@index([active])
 }
 
 model ProductImage {
@@ -342,6 +427,8 @@ model Order {
   notes                String?
   couponCode           String?
   loyaltyPointsRedeemed Int               @default(0)
+  inventoryReducedAt   DateTime?
+  inventoryError       String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -396,6 +483,7 @@ model OrderItem {
   product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
   productName  String
   productImage String?
+  variantOptionIds String[] @default([])
   quantity     Int
   unitPrice    Decimal  @db.Decimal(12, 2)
   totalPrice   Decimal  @db.Decimal(12, 2)

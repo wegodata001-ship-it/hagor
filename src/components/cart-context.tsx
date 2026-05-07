@@ -9,14 +9,19 @@ import {
   useState,
 } from "react";
 
-export type CartLine = { productId: string; quantity: number };
+export type CartLine = {
+  key: string;
+  productId: string;
+  quantity: number;
+  optionIds: string[];
+};
 
 type CartContextValue = {
   items: CartLine[];
   lastAddedAt: number;
-  setQuantity: (productId: string, quantity: number) => void;
-  addItem: (productId: string, qty?: number) => void;
-  removeItem: (productId: string) => void;
+  setQuantity: (key: string, quantity: number) => void;
+  addItem: (productId: string, qty?: number, optionIds?: string[]) => void;
+  removeItem: (key: string) => void;
   clear: () => void;
 };
 
@@ -31,10 +36,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [lastAddedAt, setLastAddedAt] = useState(0);
 
+  const makeKey = (productId: string, optionIds: string[]) => {
+    const uniq = Array.from(new Set(optionIds.map(String))).sort();
+    return uniq.length ? `${productId}:${uniq.join(",")}` : productId;
+  };
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey());
-      if (raw) setItems(JSON.parse(raw) as CartLine[]);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        const list = Array.isArray(parsed) ? parsed : [];
+        const normalized: CartLine[] = list
+          .map((l) => {
+            if (!l || typeof l !== "object") return null;
+            const rec = l as Record<string, unknown>;
+            const productId = typeof rec.productId === "string" ? rec.productId : "";
+            if (!productId) return null;
+            const quantity = typeof rec.quantity === "number" ? rec.quantity : Number(rec.quantity ?? 1);
+            const optionIds = Array.isArray(rec.optionIds) ? rec.optionIds.filter((x): x is string => typeof x === "string") : [];
+            const key = typeof rec.key === "string" ? rec.key : makeKey(productId, optionIds);
+            return { key, productId, quantity: Number(quantity) || 1, optionIds };
+          })
+          .filter((x): x is CartLine => x != null);
+        setItems(normalized);
+      }
     } catch {
       setItems([]);
     }
@@ -44,27 +70,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(storageKey(), JSON.stringify(items));
   }, [items]);
 
-  const setQuantity = useCallback((productId: string, quantity: number) => {
+  const setQuantity = useCallback((key: string, quantity: number) => {
     setItems((prev) => {
-      const next = prev.filter((p) => p.productId !== productId);
-      if (quantity > 0) next.push({ productId, quantity });
+      const line = prev.find((p) => p.key === key);
+      const next = prev.filter((p) => p.key !== key);
+      if (quantity > 0 && line) next.push({ ...line, quantity });
       return next;
     });
   }, []);
 
-  const addItem = useCallback((productId: string, qty = 1) => {
+  const addItem = useCallback((productId: string, qty = 1, optionIds: string[] = []) => {
     setItems((prev) => {
-      const cur = prev.find((p) => p.productId === productId);
+      const key = makeKey(productId, optionIds);
+      const cur = prev.find((p) => p.key === key);
       const q = (cur?.quantity ?? 0) + qty;
-      const rest = prev.filter((p) => p.productId !== productId);
-      rest.push({ productId, quantity: q });
-      return rest;
+      const rest = prev.filter((p) => p.key !== key);
+      rest.push({ key, productId, quantity: q, optionIds: Array.from(new Set(optionIds.map(String))).sort() });
+      return rest.sort((a, b) => a.key.localeCompare(b.key));
     });
     setLastAddedAt(Date.now());
   }, []);
 
-  const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((p) => p.productId !== productId));
+  const removeItem = useCallback((key: string) => {
+    setItems((prev) => prev.filter((p) => p.key !== key));
   }, []);
 
   const clear = useCallback(() => setItems([]), []);

@@ -29,7 +29,7 @@ export default function CartPage() {
       setLoading(false);
       return;
     }
-    const ids = items.map((i) => i.productId);
+    const ids = Array.from(new Set(items.map((i) => i.productId)));
     fetch(`/api/products/bulk?ids=${ids.join(",")}`)
       .then((r) => r.json())
       .then((data: { products: ProductRow[] }) => {
@@ -66,7 +66,7 @@ export default function CartPage() {
           const lineTotal = p.price * line.quantity;
           return (
             <li
-              key={line.productId}
+              key={line.key}
               className="flex gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
             >
               <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
@@ -86,7 +86,7 @@ export default function CartPage() {
                       max={p.stock}
                       value={line.quantity}
                       onChange={(e) =>
-                        setQuantity(line.productId, Math.max(1, Number(e.target.value) || 1))
+                        setQuantity(line.key, Math.min(p.stock, Math.max(1, Number(e.target.value) || 1)))
                       }
                       className="ml-1 w-16 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200"
                     />
@@ -94,7 +94,7 @@ export default function CartPage() {
                   <button
                     type="button"
                     className="text-sm text-red-400 hover:underline"
-                    onClick={() => removeItem(line.productId)}
+                    onClick={() => removeItem(line.key)}
                   >
                     הסר
                   </button>

@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "../prisma";
 import { STORE_ID } from "@/lib/store";
+import { reduceInventoryAfterPayment } from "@/lib/inventory/updateInventory";
 import {
   notifyOrderConfirmationToCustomer,
   notifyOrderPaidToOwner,
@@ -107,14 +108,6 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
       });
     }
 
-    /* Reduce stock only after confirmed payment (success path). */
-    for (const line of order.items) {
-      await tx.product.updateMany({
-        where: { id: line.productId, storeId },
-        data: { stock: { decrement: line.quantity } },
-      });
-    }
-
     if (order.customerId && order.loyaltyPointsRedeemed > 0) {
       await tx.customerProfile.updateMany({
         where: { id: order.customerId, storeId },
@@ -181,6 +174,15 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
       },
     });
   });
+
+  // Reduce inventory ONLY after verified paid status is persisted.
+  // Centralized logic: supports variants + prevents double-decrement.
+  const inv = await reduceInventoryAfterPayment(order.id);
+  if (!inv.ok) {
+    // Payment is valid, but inventory couldn't be reduced safely.
+    // We keep the order as PAID and store the error on the order.
+    return { ok: false, message: `Inventory error: ${inv.message}` };
+  }
 
   const paidSummary = await prisma.order.findFirst({
     where: { id: order.id, storeId },

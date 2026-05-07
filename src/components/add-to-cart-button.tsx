@@ -6,10 +6,12 @@ import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 export function AddToCartButton({
   productId,
+  optionIds,
   disabled,
   qty = 1,
 }: {
   productId: string;
+  optionIds?: string[];
   disabled?: boolean;
   qty?: number;
 }) {
@@ -19,7 +21,7 @@ export function AddToCartButton({
 
   const click = () => {
     if (disabled) return;
-    addItem(productId, qty);
+    addItem(productId, qty, optionIds ?? []);
     setShowToast(true);
     window.setTimeout(() => setShowToast(false), 1400);
   };
