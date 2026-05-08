@@ -312,6 +312,20 @@ export function OrdersAdminClient({
                   <option value="FAILED">FAILED</option>
                 </select>
               </label>
+              <label className="text-xs">
+                מעקב / שליחה
+                <select
+                  name="fulfillmentStatus"
+                  defaultValue={detail.fulfillmentStatus}
+                  className="mt-1 block rounded border px-2 py-1 text-sm"
+                >
+                  <option value="RECEIVED">RECEIVED</option>
+                  <option value="PROCESSING">PROCESSING</option>
+                  <option value="PACKED">PACKED</option>
+                  <option value="SHIPPED">SHIPPED</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                </select>
+              </label>
               <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-xs text-white">
                 {t("update")}
               </button>

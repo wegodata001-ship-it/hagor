@@ -1,55 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
-import { setSessionCookie, signSession } from "@/lib/auth/session";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
-export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token")?.trim();
+export async function GET(req: Request) {
+  const storeId = STORE_ID;
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token")?.trim();
+  const base = getAppUrl();
+
   if (!token) {
-    return NextResponse.redirect(new URL("/login?verified=0", req.url));
+    return NextResponse.redirect(new URL("/login?verify=invalid", base));
   }
 
-  const storeId = STORE_ID;
-  const now = new Date();
-  const verification = await prisma.emailVerificationToken.findFirst({
+  const row = await prisma.emailVerificationToken.findFirst({
     where: {
       storeId,
       token,
       usedAt: null,
-      expiresAt: { gt: now },
-    },
-    include: {
-      user: {
-        select: { id: true, role: true, storeId: true },
-      },
+      expiresAt: { gt: new Date() },
     },
   });
 
-  if (!verification || !verification.user) {
-    return NextResponse.redirect(new URL("/login?verified=0", req.url));
+  if (!row) {
+    return NextResponse.redirect(new URL("/login?verify=expired", base));
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.updateMany({
-      where: { id: verification.userId, storeId },
-      data: {
-        emailVerified: true,
-        emailVerifiedAt: now,
-      },
-    });
-    await tx.emailVerificationToken.updateMany({
-      where: { storeId, userId: verification.userId, usedAt: null },
-      data: { usedAt: now },
-    });
-  });
+  await prisma.$transaction([
+    prisma.user.updateMany({
+      where: { id: row.userId, storeId },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    }),
+    prisma.emailVerificationToken.updateMany({
+      where: { id: row.id, storeId },
+      data: { usedAt: new Date() },
+    }),
+  ]);
 
-  const sessionToken = await signSession({
-    userId: verification.user.id,
-    role: verification.user.role,
-    storeId: verification.user.storeId,
-  });
-  await setSessionCookie(sessionToken);
-  return NextResponse.redirect(new URL("/account?verified=1", req.url));
+  return NextResponse.redirect(new URL("/login?verify=ok", base));
 }

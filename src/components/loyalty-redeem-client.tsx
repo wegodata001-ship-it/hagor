@@ -8,11 +8,14 @@ export function LoyaltyRedeemClient({
   requiredPoints,
   balance,
   needsTerms,
+  disabled = false,
 }: {
   rewardId: string;
   requiredPoints: number;
   balance: number;
   needsTerms: boolean;
+  /** e.g. unverified email — full club features locked */
+  disabled?: boolean;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,8 +44,8 @@ export function LoyaltyRedeemClient({
 
   return (
     <div className="shrink-0 space-y-2">
-      {needsTerms && (
-        <label className="flex max-w-xs items-start gap-2 text-xs text-zinc-600">
+      {needsTerms && !disabled && (
+        <label className="flex max-w-xs items-start gap-2 text-xs text-slate-400">
           <input
             type="checkbox"
             checked={acceptClubTerms}
@@ -51,11 +54,11 @@ export function LoyaltyRedeemClient({
           />
           <span>
             מאשר/ת את{" "}
-            <Link href="/terms" className="text-blue-600 hover:underline">
+            <Link href="/terms" className="text-blue-400 hover:underline">
               התקנון
             </Link>{" "}
             ואת{" "}
-            <Link href="/privacy" className="text-blue-600 hover:underline">
+            <Link href="/privacy" className="text-blue-400 hover:underline">
               מדיניות הפרטיות
             </Link>{" "}
             של מועדון הנאמנות.
@@ -64,16 +67,17 @@ export function LoyaltyRedeemClient({
       )}
       <button
         type="button"
-        disabled={!can || loading || !termsOk}
+        disabled={disabled || !can || loading || !termsOk}
         onClick={redeem}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-zinc-300"
+        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? "…" : "מימוש"}
+        {loading ? "…" : disabled ? "נדרש אימות אימייל" : "מימוש"}
       </button>
-      {!can && (
-        <p className="mt-1 text-xs text-zinc-500">אין מספיק נקודות</p>
+      {disabled && <p className="mt-1 text-xs text-amber-200/90">אמתו את האימייל כדי לממש פרסים.</p>}
+      {!can && !disabled && (
+        <p className="mt-1 text-xs text-slate-500">אין מספיק נקודות</p>
       )}
-      {msg && <p className="mt-1 text-xs text-zinc-700">{msg}</p>}
+      {msg && <p className="mt-1 text-xs text-slate-300">{msg}</p>}
     </div>
   );
 }

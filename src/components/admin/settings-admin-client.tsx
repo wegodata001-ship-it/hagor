@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
@@ -24,6 +25,8 @@ export function SettingsAdminClient({
     currency: string;
     rtlEnabled: boolean;
     secondaryColor: string;
+    registrationEnabled: boolean;
+    requireEmailVerificationForCheckout: boolean;
   };
   hero: {
     heroTitle_he: string | null;
@@ -49,7 +52,7 @@ export function SettingsAdminClient({
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-800">{t("general")}</h2>
         <form
-          className="mt-4 grid max-w-lg gap-3"
+          className="mt-4 grid max-w-3xl gap-3"
           onSubmit={async (e) => {
             e.preventDefault();
             const form = e.currentTarget;
@@ -69,7 +72,7 @@ export function SettingsAdminClient({
         >
           <label className="text-xs font-medium">
             {t("storeNameLabel")}
-            <input name="storeName" required defaultValue={storeName} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="storeName" required defaultValue={storeName} className="ds-input mt-1 text-sm" />
           </label>
           <input type="hidden" name="logoUrl" value={settings.logoUrl ?? ""} />
           <label className="text-xs font-medium">
@@ -89,15 +92,15 @@ export function SettingsAdminClient({
           <input type="hidden" name="secondaryColor" value={settings.secondaryColor} />
           <label className="text-xs font-medium">
             {t("whatsapp")}
-            <input name="whatsappPhone" defaultValue={settings.whatsappPhone ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="whatsappPhone" defaultValue={settings.whatsappPhone ?? ""} className="ds-input mt-1 text-sm" />
           </label>
           <label className="text-xs font-medium">
             {t("supportEmail")}
-            <input name="supportEmail" type="email" defaultValue={settings.supportEmail ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="supportEmail" type="email" defaultValue={settings.supportEmail ?? ""} className="ds-input mt-1 text-sm" />
           </label>
           <label className="text-xs font-medium">
             {t("defaultLanguage")}
-            <input name="languageDefault" defaultValue={settings.languageDefault} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="languageDefault" defaultValue={settings.languageDefault} className="ds-input mt-1 text-sm" />
           </label>
           <label className="flex gap-2 text-sm">
             <input type="checkbox" name="rtlEnabled" defaultChecked={settings.rtlEnabled} value="on" />
@@ -106,8 +109,42 @@ export function SettingsAdminClient({
           <input type="hidden" name="currency" value={settings.currency} />
           <label className="text-xs font-medium">
             {t("orderNumberPrefix")}
-            <input name="orderNumberPrefix" defaultValue={settings.orderNumberPrefix} className="mt-1 w-full rounded border px-2 py-1.5 font-mono text-sm uppercase" />
+            <input name="orderNumberPrefix" defaultValue={settings.orderNumberPrefix} className="ds-input mt-1 font-mono text-sm uppercase" />
           </label>
+
+          <div className="col-span-full border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">תקנון ומדיניות</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              עריכת תקנון, פרטיות, החזרות ומשלוחים בשלוש שפות — בדף ייעודי עם עורך עשיר.
+            </p>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <label className="flex items-center gap-2 text-sm text-slate-800">
+                <input
+                  type="checkbox"
+                  name="registrationEnabled"
+                  defaultChecked={settings.registrationEnabled}
+                  value="on"
+                />
+                הרשמת לקוחות פעילה
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-800">
+                <input
+                  type="checkbox"
+                  name="requireEmailVerificationForCheckout"
+                  defaultChecked={settings.requireEmailVerificationForCheckout}
+                  value="on"
+                />
+                אימות אימייל נדרש לפני הזמנה (לקוח מחובר)
+              </label>
+            </div>
+            <Link
+              href="/admin/settings/terms"
+              className="mt-4 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              פתיחת עורך תקנון ומדיניות
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={pending}
@@ -136,27 +173,27 @@ export function SettingsAdminClient({
         >
           <label className="text-xs font-medium">
             {t("heroTitleHe")}
-            <input name="heroTitle_he" defaultValue={hero.heroTitle_he ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="heroTitle_he" defaultValue={hero.heroTitle_he ?? ""} className="ds-input mt-1 text-sm" />
           </label>
           <label className="text-xs font-medium">
             {t("heroTitleAr")}
-            <input name="heroTitle_ar" defaultValue={hero.heroTitle_ar ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="heroTitle_ar" defaultValue={hero.heroTitle_ar ?? ""} className="ds-input mt-1 text-sm" />
           </label>
           <label className="text-xs font-medium">
             {t("heroTitleEn")}
-            <input name="heroTitle_en" defaultValue={hero.heroTitle_en ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <input name="heroTitle_en" defaultValue={hero.heroTitle_en ?? ""} className="ds-input mt-1 text-sm" />
           </label>
           <label className="md:col-span-3 text-xs font-medium">
             {t("heroSubtitleHe")}
-            <textarea name="heroSubtitle_he" rows={2} defaultValue={hero.heroSubtitle_he ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <textarea name="heroSubtitle_he" rows={2} defaultValue={hero.heroSubtitle_he ?? ""} className="ds-textarea mt-1 text-sm" />
           </label>
           <label className="md:col-span-3 text-xs font-medium">
             {t("heroSubtitleAr")}
-            <textarea name="heroSubtitle_ar" rows={2} defaultValue={hero.heroSubtitle_ar ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <textarea name="heroSubtitle_ar" rows={2} defaultValue={hero.heroSubtitle_ar ?? ""} className="ds-textarea mt-1 text-sm" />
           </label>
           <label className="md:col-span-3 text-xs font-medium">
             {t("heroSubtitleEn")}
-            <textarea name="heroSubtitle_en" rows={2} defaultValue={hero.heroSubtitle_en ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm" />
+            <textarea name="heroSubtitle_en" rows={2} defaultValue={hero.heroSubtitle_en ?? ""} className="ds-textarea mt-1 text-sm" />
           </label>
           <button type="submit" className="md:col-span-3 w-fit rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">
             {t("saveHero")}

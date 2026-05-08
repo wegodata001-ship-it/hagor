@@ -6,26 +6,26 @@ import { STORE_ID } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 const TITLES = {
-  he: "מדיניות פרטיות",
-  ar: "سياسة الخصوصية",
-  en: "Privacy policy",
+  he: "ביטולים והחזרים",
+  ar: "الإلغاء والاسترداد",
+  en: "Cancellations & refunds",
 } as const;
 
-export default async function PrivacyPage() {
+export default async function RefundsPage() {
   const storeId = STORE_ID;
   const s = await prisma.storeSettings.findUnique({
     where: { storeId },
-    select: { privacy_he: true, privacy_ar: true, privacy_en: true },
+    select: { refund_he: true, refund_ar: true, refund_en: true },
   });
 
   return (
     <LegalDocumentClient
       titles={TITLES}
-      fallback={LEGAL_FALLBACK.privacy}
+      fallback={LEGAL_FALLBACK.refund}
       htmlByLang={{
-        he: s?.privacy_he ?? null,
-        ar: s?.privacy_ar ?? null,
-        en: s?.privacy_en ?? null,
+        he: s?.refund_he ?? null,
+        ar: s?.refund_ar ?? null,
+        en: s?.refund_en ?? null,
       }}
     />
   );

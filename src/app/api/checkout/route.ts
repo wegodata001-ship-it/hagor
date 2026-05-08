@@ -102,6 +102,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Pickup is not available" }, { status: 400 });
   }
 
+  if (
+    session?.role === "CUSTOMER" &&
+    session.storeId === storeId &&
+    (storeSettings?.requireEmailVerificationForCheckout ?? true)
+  ) {
+    const u = await prisma.user.findFirst({
+      where: { id: session.userId, storeId },
+      select: { emailVerified: true },
+    });
+    if (u && !u.emailVerified) {
+      return NextResponse.json(
+        { error: "יש לאמת את כתובת האימייל לפני ביצוע הזמנה." },
+        { status: 403 },
+      );
+    }
+  }
+
   let coupon = null as Awaited<ReturnType<typeof prisma.coupon.findFirst>>;
   if (body.couponCode?.trim()) {
     coupon = await prisma.coupon.findFirst({

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 import { STORAGE_BUCKET } from "../src/lib/storage";
 import { seedStorePreset } from "../src/lib/presets";
+import { defaultLegalFlat } from "../src/lib/legal-defaults";
 
 const prisma = new PrismaClient();
 
@@ -80,6 +81,11 @@ async function main() {
       supportEmail: null,
       orderNumberPrefix: "DESIGMA",
       nextOrderNumber: 1001,
+      ...defaultLegalFlat(),
+      termsPublishedAt: new Date(),
+      privacyPublishedAt: new Date(),
+      refundPublishedAt: new Date(),
+      shippingPublishedAt: new Date(),
     },
     update: {
       logoUrl,

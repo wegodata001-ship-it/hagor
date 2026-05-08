@@ -29,6 +29,7 @@ export default function CheckoutPage() {
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifyHint, setVerifyHint] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/delivery-options")
@@ -37,15 +38,28 @@ export default function CheckoutPage() {
         setDeliveryOptions(d.options);
         if (d.options[0]) setDeliveryId(d.options[0].id);
       });
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d: { user: { name?: string; email?: string; pointsBalance?: number | null } | null }) => {
-        if (d.user) {
-          setCustomerName(d.user.name ?? "");
-          setCustomerEmail(d.user.email ?? "");
-          setPointsBalance(d.user.pointsBalance ?? null);
+    Promise.all([
+      fetch("/api/auth/me").then((r) => r.json()),
+      fetch("/api/store/public").then((r) => r.json()),
+    ]).then(
+      ([
+        me,
+        pub,
+      ]: [
+        { user: { name?: string; email?: string; pointsBalance?: number | null; emailVerified?: boolean } | null },
+        { requireEmailVerificationForCheckout?: boolean },
+      ]) => {
+        if (me.user) {
+          setCustomerName(me.user.name ?? "");
+          setCustomerEmail(me.user.email ?? "");
+          setPointsBalance(me.user.pointsBalance ?? null);
+          const needVerify = pub.requireEmailVerificationForCheckout !== false;
+          if (needVerify && me.user.emailVerified === false) {
+            setVerifyHint("יש לאמת את כתובת האימייל לפני השלמת הזמנה. בדקו את תיבת הדואר או התחברו מחדש לאחר לחיצה על קישור האימות.");
+          }
         }
-      });
+      },
+    );
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -74,7 +88,12 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "שגיאה");
+        const raw = typeof data.error === "string" ? data.error : "";
+        if (res.status === 403 && raw.includes("אימייל")) {
+          setError("נדרש אימות אימייל לפני ביצוע הזמנה. בדקו את המייל לאחר ההרשמה.");
+        } else {
+          setError(raw || "לא ניתן להשלים את הפעולה. בדקו את הפרטים ונסו שוב.");
+        }
         return;
       }
       clear();
@@ -98,39 +117,44 @@ export default function CheckoutPage() {
   return (
     <div dir={dir} className="mx-auto max-w-lg px-4 py-8">
       <h1 className="text-2xl font-black text-white">תשלום</h1>
-      <form onSubmit={submit} className="mt-6 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      {verifyHint && (
+        <div className="mt-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {verifyHint}
+        </div>
+      )}
+      <form onSubmit={submit} className="mt-6 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-xl backdrop-blur-sm">
         <div>
-          <label className="block text-sm font-medium text-zinc-200">שם מלא</label>
+          <label className="ds-label">שם מלא</label>
           <input
             required
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-input mt-1.5"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">אימייל</label>
+          <label className="ds-label">אימייל</label>
           <input
             required
             type="email"
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-input mt-1.5"
             value={customerEmail}
             onChange={(e) => setCustomerEmail(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">טלפון</label>
+          <label className="ds-label">טלפון</label>
           <input
             required
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-input mt-1.5"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">אופן משלוח</label>
+          <label className="ds-label">אופן משלוח</label>
           <select
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-select mt-1.5"
             value={deliveryId}
             onChange={(e) => setDeliveryId(e.target.value)}
           >
@@ -142,27 +166,27 @@ export default function CheckoutPage() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">כתובת (למשלוח)</label>
+          <label className="ds-label">כתובת (למשלוח)</label>
           <textarea
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-textarea mt-1.5"
             rows={2}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">הערות</label>
+          <label className="ds-label">הערות</label>
           <textarea
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-textarea mt-1.5"
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-200">קופון</label>
+          <label className="ds-label">קופון</label>
           <input
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="ds-input mt-1.5"
             value={couponCode}
             onChange={(e) => setCouponCode(e.target.value)}
             placeholder="אופציונלי"
@@ -170,14 +194,14 @@ export default function CheckoutPage() {
         </div>
         {pointsBalance !== null && pointsBalance > 0 && (
           <div>
-            <label className="block text-sm font-medium text-zinc-700">
+            <label className="ds-label">
               מימוש נקודות (יתרה: {pointsBalance})
             </label>
             <input
               type="number"
               min={0}
               max={pointsBalance}
-              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              className="ds-input mt-1.5"
               value={redeemPoints}
               onChange={(e) => setRedeemPoints(Number(e.target.value))}
             />
@@ -187,7 +211,7 @@ export default function CheckoutPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 font-medium text-white disabled:bg-zinc-700"
+          className="flex min-h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 font-medium text-white shadow-lg shadow-orange-900/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "שולח…" : "צור הזמנה והמשך לתשלום"}
         </button>

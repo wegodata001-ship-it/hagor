@@ -8,6 +8,16 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { assertAssetPath, assertBannerImagePath } from "@/lib/assets-path";
 import { logAdminAction } from "@/lib/admin-audit";
 import { err, ok, type AdminActionResult } from "@/lib/admin-action-result";
+import type { PolicyTab } from "@/lib/legal-defaults";
+import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
+import {
+  columnFor,
+  mergeDraft,
+  parsePolicyDrafts,
+  publishedAtField,
+  removeTabDrafts,
+  type PolicyLang,
+} from "@/lib/policy-storage";
 
 async function guard() {
   const session = await requireAdminSession();
@@ -22,6 +32,7 @@ export type AdminOrderDetailDTO = {
   customerPhone: string;
   status: string;
   paymentStatus: string;
+  fulfillmentStatus: string;
   subtotal: number;
   deliveryPrice: number;
   discountAmount: number;
@@ -79,6 +90,7 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     customerPhone: order.customerPhone,
     status: order.status,
     paymentStatus: order.paymentStatus,
+    fulfillmentStatus: order.fulfillmentStatus,
     subtotal: Number(order.subtotal),
     deliveryPrice: Number(order.deliveryPrice),
     discountAmount: Number(order.discountAmount),
@@ -862,6 +874,10 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
     const prefixRaw = (formData.get("orderNumberPrefix") as string)?.trim().toUpperCase();
     const orderNumberPrefix = (prefixRaw || "ORD").slice(0, 12);
 
+    const registrationEnabled = formData.get("registrationEnabled") === "on";
+    const requireEmailVerificationForCheckout =
+      formData.get("requireEmailVerificationForCheckout") === "on";
+
     const payload = {
       logoUrl: logoRaw ? assertAssetPath(logoRaw) : null,
       primaryColor: formData.get("primaryColor") as string,
@@ -873,6 +889,8 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
       whatsappPhone: (formData.get("whatsappPhone") as string) || null,
       supportEmail: (formData.get("supportEmail") as string) || null,
       orderNumberPrefix,
+      registrationEnabled,
+      requireEmailVerificationForCheckout,
     };
 
     await prisma.storeSettings.upsert({
@@ -890,6 +908,148 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
     return ok();
   } catch (e) {
     return err(e instanceof Error ? e.message : "שמירת הגדרות נכשלה");
+  }
+}
+
+function revalidateLegalStorefrontPaths() {
+  revalidatePath("/terms");
+  revalidatePath("/privacy");
+  revalidatePath("/refunds");
+  revalidatePath("/shipping");
+}
+
+export async function savePolicyDraft(
+  tab: PolicyTab,
+  lang: PolicyLang,
+  html: string,
+): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const row = await prisma.storeSettings.findUnique({ where: { storeId }, select: { policyDrafts: true } });
+    const merged = mergeDraft(row?.policyDrafts ?? null, tab, lang, html);
+    await prisma.storeSettings.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        policyDrafts: merged as Prisma.InputJsonValue,
+        nextOrderNumber: 1001,
+      },
+      update: { policyDrafts: merged as Prisma.InputJsonValue },
+    });
+    await logAdminAction({
+      userId,
+      action: "legal.draft.save",
+      entity: "StoreSettings",
+      metadata: { tab, lang },
+    });
+    revalidatePath("/admin/settings/terms");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שמירת טיוטה נכשלה");
+  }
+}
+
+export async function publishPolicyTab(tab: PolicyTab): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const row = await prisma.storeSettings.findUnique({ where: { storeId } });
+    if (!row) return err("הגדרות חנות לא נמצאו");
+
+    const drafts = parsePolicyDrafts(row.policyDrafts);
+    const tabDrafts = drafts[tab] ?? {};
+    const hasDraft = Object.keys(tabDrafts).some((k) => tabDrafts[k as PolicyLang] !== undefined);
+    if (!hasDraft) {
+      return err("אין טיוטה לפרסום. שמרו טיוטה או ערכו תוכן לפני פרסום.");
+    }
+
+    const updateData: Prisma.StoreSettingsUpdateInput = {
+      [publishedAtField(tab)]: new Date(),
+    };
+
+    for (const L of ["he", "en", "ar"] as PolicyLang[]) {
+      const html = tabDrafts[L];
+      if (html !== undefined) {
+        (updateData as Record<string, unknown>)[columnFor(tab, L)] =
+          html.trim() === "" ? null : html;
+      }
+    }
+
+    const nextDrafts = removeTabDrafts(row.policyDrafts, tab);
+    updateData.policyDrafts =
+      Object.keys(nextDrafts).length === 0
+        ? Prisma.DbNull
+        : (nextDrafts as Prisma.InputJsonValue);
+
+    await prisma.storeSettings.update({
+      where: { storeId },
+      data: updateData,
+    });
+
+    await logAdminAction({
+      userId,
+      action: "legal.publish",
+      entity: "StoreSettings",
+      metadata: { tab },
+    });
+    revalidateLegalStorefrontPaths();
+    revalidatePath("/admin/settings/terms");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "פרסום נכשל");
+  }
+}
+
+export async function restorePolicyTabDefaults(tab: PolicyTab): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const d = LEGAL_FALLBACK[tab];
+    const pubField = publishedAtField(tab);
+
+    const row = await prisma.storeSettings.findUnique({
+      where: { storeId },
+      select: { policyDrafts: true },
+    });
+    const nextDrafts = removeTabDrafts(row?.policyDrafts ?? null, tab);
+    const policyDraftsValue =
+      Object.keys(nextDrafts).length === 0
+        ? Prisma.DbNull
+        : (nextDrafts as Prisma.InputJsonValue);
+
+    const updateData: Prisma.StoreSettingsUpdateInput = {
+      [`${tab}_he`]: d.he,
+      [`${tab}_en`]: d.en,
+      [`${tab}_ar`]: d.ar,
+      [pubField]: new Date(),
+      policyDrafts: policyDraftsValue,
+    };
+
+    await prisma.storeSettings.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        nextOrderNumber: 1001,
+        [`${tab}_he`]: d.he,
+        [`${tab}_en`]: d.en,
+        [`${tab}_ar`]: d.ar,
+        [pubField]: new Date(),
+        ...(Object.keys(nextDrafts).length > 0
+          ? { policyDrafts: nextDrafts as Prisma.InputJsonValue }
+          : {}),
+      },
+      update: updateData,
+    });
+
+    await logAdminAction({
+      userId,
+      action: "legal.restore_defaults",
+      entity: "StoreSettings",
+      metadata: { tab },
+    });
+    revalidateLegalStorefrontPaths();
+    revalidatePath("/admin/settings/terms");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שחזור ברירת מחדל נכשל");
   }
 }
 
@@ -921,6 +1081,10 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
     const id = formData.get("id") as string;
     const status = formData.get("status") as string;
     const paymentStatus = formData.get("paymentStatus") as string;
+    const fulfillmentRaw = String(formData.get("fulfillmentStatus") ?? "").trim();
+    const fulfillmentOk = ["RECEIVED", "PROCESSING", "PACKED", "SHIPPED", "COMPLETED"].includes(
+      fulfillmentRaw,
+    );
     // Restore inventory when cancelling a previously active order (best-effort, backward compatible).
     const prev = await prisma.order.findFirst({
       where: { id, storeId },
@@ -961,6 +1125,7 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
         data: {
           status: nextStatus,
           paymentStatus: nextPayment,
+          ...(fulfillmentOk ? { fulfillmentStatus: fulfillmentRaw as never } : {}),
         },
       });
     });
@@ -976,7 +1141,7 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
       action: "order.status.update",
       entity: "Order",
       entityId: id,
-      metadata: { status, paymentStatus },
+      metadata: { status, paymentStatus, fulfillmentStatus: fulfillmentOk ? fulfillmentRaw : undefined },
     });
     revalidatePath("/admin/orders");
     return ok();

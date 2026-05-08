@@ -19,11 +19,18 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
   { href: "/admin/loyalty", label: "loyalty", Icon: IconStar },
   { href: "/admin/settings", label: "storeSettings", Icon: IconGear },
+  { href: "/admin/settings/terms", label: "termsPolicies", Icon: IconDocument },
   { href: "/admin/webhooks", label: "paymentWebhooks", Icon: IconWebhook },
 ];
 
 function navActive(href: string, pathname: string) {
   if (href === "/admin") return pathname === "/admin";
+  if (href === "/admin/settings") {
+    return pathname === "/admin/settings";
+  }
+  if (href === "/admin/settings/terms") {
+    return pathname.startsWith("/admin/settings/terms");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -249,6 +256,17 @@ function IconGear({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.274.152.577.225.884.225h1.89l.621-.621a1.125 1.125 0 011.587 0l1.586 1.586a1.125 1.125 0 010 1.587l-.621.621v1.89c0 .307-.073.61-.225.884-.184.332-.496.582-.87.645l-1.281.213c-.54.09-.94.56-.94 1.11v2.593c0 .55-.398 1.02-.94 1.11l-1.281.213c-.374.063-.686.313-.87.645-.152.274-.225.577-.225.884v1.89l-.621.621a1.125 1.125 0 01-1.587 0l-1.586-1.586a1.125 1.125 0 00-1.587 0l-.621.621H9.75c-.307 0-.61-.073-.884-.225a1.125 1.125 0 00-.645-.87l-.213-1.281c-.09-.54-.56-.94-1.11-.94H5.25l-.621.621a1.125 1.125 0 01-1.587 0L1.456 17.06a1.125 1.125 0 010-1.587l.621-.621V12.96c0-.307-.073-.61-.225-.884a1.125 1.125 0 00-.645-.87l-1.281-.213c-.54-.09-.94-.56-.94-1.11V7.203c0-.55.398-1.02.94-1.11l1.281-.213c.374-.063.686-.313.87-.645.152-.274.225-.577.225-.884V3.456l.621-.621a1.125 1.125 0 011.587 0l1.586 1.586a1.125 1.125 0 001.587 0l.621-.621z" />
+    </svg>
+  );
+}
+function IconDocument({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v7.5m2.25-7.5v7.5m3-18v11.25a3 3 0 003 3h6.018a3 3 0 001.984-5.313l-8.49-8.49a3 3 0 00-4.242 0L5.31 15.984A3 3 0 004.5 18v2.25"
+      />
     </svg>
   );
 }

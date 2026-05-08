@@ -12,18 +12,18 @@ export type SessionPayload = {
 
 function secretKey() {
   const s = process.env.SESSION_SECRET;
-  // TEMP diagnostics for Vercel: do not log the secret value.
-  // Helps verify whether server/edge runtime receives SESSION_SECRET.
-  console.log("SESSION_SECRET exists:", !!s, "len:", s?.length ?? 0, "NEXT_RUNTIME:", process.env.NEXT_RUNTIME);
   if (!s || s.length < 16) throw new Error("SESSION_SECRET must be set (min 16 chars)");
   return new TextEncoder().encode(s);
 }
 
-export async function signSession(payload: SessionPayload): Promise<string> {
+export async function signSession(
+  payload: SessionPayload,
+  opts?: { expiresIn?: string },
+): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(opts?.expiresIn ?? "7d")
     .sign(secretKey());
 }
 
@@ -47,14 +47,15 @@ export async function getSession(): Promise<SessionPayload | null> {
   return decodeSessionToken(raw);
 }
 
-export async function setSessionCookie(token: string) {
+export async function setSessionCookie(token: string, opts?: { maxAgeSec?: number }) {
   const jar = await cookies();
+  const maxAge = opts?.maxAgeSec ?? 60 * 60 * 24 * 7;
   jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge,
   });
 }
 

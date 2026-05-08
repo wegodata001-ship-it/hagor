@@ -35,6 +35,8 @@ export default async function AdminSettingsPage() {
         orderNumberPrefix: settings.orderNumberPrefix,
         currency: settings.currency,
         rtlEnabled: settings.rtlEnabled,
+        registrationEnabled: settings.registrationEnabled,
+        requireEmailVerificationForCheckout: settings.requireEmailVerificationForCheckout,
       }}
       hero={{
         heroTitle_he: settings.heroTitle_he,

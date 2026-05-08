@@ -6,11 +6,12 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getAppUrl } from "@/lib/app-url";
+import { clientIpFromRequest, rateLimit } from "@/lib/rate-limit";
+import { strongPasswordRegex } from "@/lib/password-strength";
 
 export const runtime = "nodejs";
 
 const phoneRegex = /^[+]?[0-9\s\-()]{7,20}$/;
-const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
 const Schema = z.object({
   name: z.string().trim().min(1, "יש להזין שם מלא"),
@@ -53,6 +54,11 @@ const Schema = z.object({
 
 export async function POST(req: Request) {
   const storeId = STORE_ID;
+  const ip = clientIpFromRequest(req);
+  if (!rateLimit(`register:${ip}`, 10, 60_000)) {
+    return NextResponse.json({ error: "יותר מדי ניסיונות הרשמה. נסו שוב בעוד דקה." }, { status: 429 });
+  }
+
   let json: unknown;
   try {
     json = await req.json();
@@ -65,6 +71,11 @@ export async function POST(req: Request) {
       { error: parsed.error.issues[0]?.message ?? "Invalid registration" },
       { status: 400 },
     );
+  }
+
+  const settings = await prisma.storeSettings.findUnique({ where: { storeId } });
+  if (settings && !settings.registrationEnabled) {
+    return NextResponse.json({ error: "ההרשמה סגורה כרגע. צרו קשר עם התמיכה." }, { status: 403 });
   }
 
   const normalizedEmail = parsed.data.email.toLowerCase();

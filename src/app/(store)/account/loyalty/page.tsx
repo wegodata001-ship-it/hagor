@@ -22,31 +22,37 @@ export default async function LoyaltyPage() {
     }),
     prisma.user.findFirst({
       where: { id: session.userId, storeId },
-      select: { acceptedTermsAt: true },
+      select: { acceptedTermsAt: true, emailVerified: true },
     }),
   ]);
 
   const locale = "he" as const;
   const needsTerms = !termsUser?.acceptedTermsAt;
+  const needsEmail = !termsUser?.emailVerified;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-zinc-900">מועדון לקוחות</h1>
-      <p className="mt-2 text-zinc-700">
+      <h1 className="text-2xl font-bold text-slate-50">מועדון לקוחות</h1>
+      <p className="mt-2 text-slate-400">
         יתרת נקודות:{" "}
-        <span className="font-semibold">{profile?.pointsBalance ?? 0}</span>
+        <span className="font-semibold text-slate-100">{profile?.pointsBalance ?? 0}</span>
       </p>
-      <h2 className="mt-8 text-lg font-semibold text-zinc-900">פרסים זמינים</h2>
+      {needsEmail && (
+        <div className="mt-4 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          לאחר אימות האימייל ייפתח מימוש מלא של פרסי המועדון.
+        </div>
+      )}
+      <h2 className="mt-8 text-lg font-semibold text-slate-100">פרסים זמינים</h2>
       <ul className="mt-4 space-y-4">
         {rewards.map((r) => (
           <li
             key={r.id}
-            className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+            className="ds-card-glass flex flex-col gap-2 border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
-              <div className="font-medium text-zinc-900">{pickLocalized(r, "title", locale)}</div>
-              <div className="text-sm text-zinc-600">{pickLocalized(r, "description", locale)}</div>
-              <div className="mt-1 text-sm text-zinc-500">
+              <div className="font-medium text-slate-100">{pickLocalized(r, "title", locale)}</div>
+              <div className="text-sm text-slate-400">{pickLocalized(r, "description", locale)}</div>
+              <div className="mt-1 text-sm text-slate-500">
                 נדרשות {r.requiredPoints} נקודות · {r.rewardType}
               </div>
             </div>
@@ -55,11 +61,12 @@ export default async function LoyaltyPage() {
               requiredPoints={r.requiredPoints}
               balance={profile?.pointsBalance ?? 0}
               needsTerms={needsTerms}
+              disabled={needsEmail}
             />
           </li>
         ))}
       </ul>
-      {rewards.length === 0 && <p className="mt-4 text-zinc-600">אין פרסים כרגע.</p>}
+      {rewards.length === 0 && <p className="mt-4 text-slate-500">אין פרסים כרגע.</p>}
     </div>
   );
 }
