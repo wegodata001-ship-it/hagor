@@ -25,6 +25,7 @@ export async function reduceInventoryAfterPayment(orderId: string): Promise<{ ok
 
         // Validate & decrement atomically. If any line fails, the transaction rolls back.
         for (const item of order.items) {
+          if (!item.productId) continue;
           const optionIds = Array.from(new Set((item.variantOptionIds ?? []).map(String))).filter(Boolean);
           if (optionIds.length > 0) {
             // Decrement managed variant options (stock != null)
@@ -89,6 +90,7 @@ export async function restoreInventoryAfterCancel(orderId: string): Promise<{ ok
       if (!order.inventoryReducedAt) return;
 
       for (const item of order.items) {
+        if (!item.productId) continue;
         const optionIds = Array.from(new Set((item.variantOptionIds ?? []).map(String))).filter(Boolean);
         if (optionIds.length > 0) {
           await tx.productVariantOption.updateMany({

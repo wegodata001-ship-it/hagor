@@ -512,8 +512,9 @@ model OrderItem {
   store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   orderId      String
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Cleared when product is bulk-deleted; line snapshot stays via productName / prices.
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   productName  String
   productImage String?
   variantOptionIds String[] @default([])

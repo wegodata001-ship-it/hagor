@@ -42,6 +42,17 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     previewLegalPage: "Preview page",
     publishing: "Publishing…",
     draftSaving: "Saving draft…",
+    bulkDeleteProductsTitle: "Delete all products",
+    bulkDeleteProductsWarning:
+      "Are you sure you want to delete ALL products for this store? Related images, variants, and upsell links are removed. Orders stay; order lines keep snapshots but lose the product link. This cannot be undone.",
+    bulkDeleteCategoriesTitle: "Delete all categories",
+    bulkDeleteCategoriesWarning:
+      "Deletes ALL categories and ALL products in this store’s catalog. Orders are not deleted. This cannot be undone.",
+    typeDeleteToConfirm: "Type DELETE to confirm",
+    bulkDeleteAllProducts: "Delete all products",
+    bulkDeleteAllCategories: "Delete all categories",
+    allProductsDeletedToast: "All products deleted successfully",
+    allCategoriesDeletedToast: "All categories and catalog products removed successfully",
 
     // Common
     add: "Add",
@@ -285,6 +296,17 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     previewLegalPage: "תצוגה מקדימה",
     publishing: "מפרסם…",
     draftSaving: "שומר טיוטה…",
+    bulkDeleteProductsTitle: "מחיקת כל המוצרים",
+    bulkDeleteProductsWarning:
+      "למחוק את כל המוצרים של החנות? יוסרו תמונות, וריאנטים וקשרים בין מוצרים. הזמנות נשמרות; בשורות הזמנה יישארו פרטים אך הקישור למוצר יימחק. לא ניתן לבטל.",
+    bulkDeleteCategoriesTitle: "מחיקת כל הקטגוריות",
+    bulkDeleteCategoriesWarning:
+      "יפוצצו כל הקטגוריות וכל המוצרים בקטלוג של החנות. הזמנות לא נמחקות. לא ניתן לבטל.",
+    typeDeleteToConfirm: "הקלידו DELETE לאישור",
+    bulkDeleteAllProducts: "מחק את כל המוצרים",
+    bulkDeleteAllCategories: "מחק את כל הקטגוריות",
+    allProductsDeletedToast: "כל המוצרים נמחקו בהצלחה",
+    allCategoriesDeletedToast: "כל הקטגוריות והמוצרים הוסרו מהקטלוג",
 
     // Common
     add: "הוספה",
@@ -524,6 +546,17 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     previewLegalPage: "معاينة الصفحة",
     publishing: "جارٍ النشر…",
     draftSaving: "جارٍ حفظ المسودة…",
+    bulkDeleteProductsTitle: "حذف كل المنتجات",
+    bulkDeleteProductsWarning:
+      "حذف جميع منتجات هذا المتجر؟ تُزال الصور والمتغيرات والربط بين المنتجات. الطلبات تبقى؛ بنود الطلب تحتفظ بالملخص وتُزال ربط المنتج. لا يمكن التراجع.",
+    bulkDeleteCategoriesTitle: "حذف كل التصنيفات",
+    bulkDeleteCategoriesWarning:
+      "يحذف كل التصنيفات وكل منتجات الكتالوج لهذا المتجر. لا تُحذف الطلبات. لا يمكن التراجع.",
+    typeDeleteToConfirm: "اكتب DELETE للتأكيد",
+    bulkDeleteAllProducts: "حذف كل المنتجات",
+    bulkDeleteAllCategories: "حذف كل التصنيفات",
+    allProductsDeletedToast: "تم حذف جميع المنتجات بنجاح",
+    allCategoriesDeletedToast: "تم حذف التصنيفات وجميع منتجات الكتالوج",
     paymentWebhooks: "سجل الدفع (Webhook)",
 
     // Common

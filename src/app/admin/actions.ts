@@ -148,6 +148,67 @@ export async function deleteProduct(formData: FormData): Promise<AdminActionResu
   }
 }
 
+const DELETE_CONFIRM_PHRASE = "DELETE";
+
+export async function deleteAllStoreProducts(
+  confirmPhrase: string,
+): Promise<AdminActionResult<{ deleted: number }>> {
+  try {
+    if (confirmPhrase.trim() !== DELETE_CONFIRM_PHRASE) {
+      return err("יש להקליד DELETE בדיוק לאישור המחיקה.");
+    }
+    const { storeId, userId } = await guard();
+    const result = await prisma.product.deleteMany({ where: { storeId } });
+    await logAdminAction({
+      userId,
+      action: "catalog.products.delete_all",
+      entity: "Product",
+      metadata: { deleted: result.count },
+    });
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/");
+    return ok({ deleted: result.count });
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "מחיקת כל המוצרים נכשלה");
+  }
+}
+
+export async function deleteAllStoreCategories(
+  confirmPhrase: string,
+): Promise<AdminActionResult<{ productsDeleted: number; categoriesDeleted: number }>> {
+  try {
+    if (confirmPhrase.trim() !== DELETE_CONFIRM_PHRASE) {
+      return err("יש להקליד DELETE בדיוק לאישור המחיקה.");
+    }
+    const { storeId, userId } = await guard();
+    const { prodRes, catRes } = await prisma.$transaction(async (tx) => {
+      const p = await tx.product.deleteMany({ where: { storeId } });
+      const c = await tx.category.deleteMany({ where: { storeId } });
+      return { prodRes: p, catRes: c };
+    });
+    await logAdminAction({
+      userId,
+      action: "catalog.categories.delete_all",
+      entity: "Category",
+      metadata: {
+        productsDeleted: prodRes.count,
+        categoriesDeleted: catRes.count,
+      },
+    });
+    revalidatePath("/admin/categories");
+    revalidatePath("/admin/products");
+    revalidatePath("/products");
+    revalidatePath("/");
+    return ok({
+      productsDeleted: prodRes.count,
+      categoriesDeleted: catRes.count,
+    });
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "מחיקת כל הקטגוריות נכשלה");
+  }
+}
+
 export async function upsertProduct(formData: FormData): Promise<
   AdminActionResult<{ productId: string }>
 > {
@@ -1100,6 +1161,7 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
           select: { productId: true, quantity: true, variantOptionIds: true },
         });
         for (const it of items) {
+          if (!it.productId) continue;
           const optionIds = Array.isArray(it.variantOptionIds) ? it.variantOptionIds : [];
           if (optionIds.length > 0) {
             // Increment only managed variant options (stock != null)
