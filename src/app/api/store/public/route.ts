@@ -10,5 +10,8 @@ export async function GET() {
   return NextResponse.json({
     registrationEnabled: s?.registrationEnabled ?? true,
     requireEmailVerificationForCheckout: s?.requireEmailVerificationForCheckout ?? true,
+    freeShippingMinAmount: s?.freeShippingMinAmount ? Number(s.freeShippingMinAmount) : 499,
+    storePhone: s?.storePhone ?? null,
+    whatsappPhone: s?.whatsappPhone ?? null,
   });
 }

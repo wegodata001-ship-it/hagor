@@ -1,31 +1,39 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth/session";
+import { getCachedSession } from "@/lib/auth/cached-session";
 import { STORE_ID } from "@/lib/store";
 import { FULFILLMENT_LABELS_HE } from "@/lib/order-tracking";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountOrdersPage() {
-  const session = await getSession();
+  const session = await getCachedSession();
   if (!session) redirect("/login");
   const storeId = STORE_ID;
 
-  const profile = await prisma.customerProfile.findFirst({
-    where: { userId: session.userId, storeId },
-  });
+  const orders = await safeQuery(
+    "account.orders_list",
+    async () => {
+      const profile = await prisma.customerProfile.findFirst({
+        where: { userId: session.userId, storeId },
+      });
 
-  const orders = profile
-    ? await prisma.order.findMany({
+      if (!profile) return [];
+
+      return prisma.order.findMany({
         where: { storeId, customerId: profile.id },
         orderBy: { createdAt: "desc" },
         take: 50,
         include: {
           items: true,
         },
-      })
-    : [];
+      });
+    },
+    [],
+    { timeoutMs: 25_000 },
+  );
 
   return (
     <div>

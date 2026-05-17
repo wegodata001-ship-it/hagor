@@ -19,6 +19,13 @@ export function SettingsAdminClient({
     primaryColor: string;
     accentColor: string;
     whatsappPhone: string | null;
+    storePhone: string | null;
+    storeAddress: string | null;
+    paymentProvider: string | null;
+    paymentPublicKey: string | null;
+    paymentSecretKey: string | null;
+    paymentWebhookSecretOverride: string | null;
+    freeShippingMinAmount: number | null;
     supportEmail: string | null;
     languageDefault: string;
     orderNumberPrefix: string;
@@ -27,6 +34,9 @@ export function SettingsAdminClient({
     secondaryColor: string;
     registrationEnabled: boolean;
     requireEmailVerificationForCheckout: boolean;
+    productGalleryPreset: string;
+    productGalleryMaxHeightPx: number | null;
+    productGalleryMaxWidthPx: number | null;
   };
   hero: {
     heroTitle_he: string | null;
@@ -91,8 +101,16 @@ export function SettingsAdminClient({
           </div>
           <input type="hidden" name="secondaryColor" value={settings.secondaryColor} />
           <label className="text-xs font-medium">
+            {t("storePhone")}
+            <input name="storePhone" defaultValue={settings.storePhone ?? ""} className="ds-input mt-1 text-sm" />
+          </label>
+          <label className="text-xs font-medium">
             {t("whatsapp")}
             <input name="whatsappPhone" defaultValue={settings.whatsappPhone ?? ""} className="ds-input mt-1 text-sm" />
+          </label>
+          <label className="md:col-span-2 text-xs font-medium">
+            {t("storeAddress")}
+            <textarea name="storeAddress" rows={2} defaultValue={settings.storeAddress ?? ""} className="ds-textarea mt-1 text-sm" />
           </label>
           <label className="text-xs font-medium">
             {t("supportEmail")}
@@ -111,6 +129,80 @@ export function SettingsAdminClient({
             {t("orderNumberPrefix")}
             <input name="orderNumberPrefix" defaultValue={settings.orderNumberPrefix} className="ds-input mt-1 font-mono text-sm uppercase" />
           </label>
+
+          <div className="col-span-full border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("productGalleryDisplayTitle")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("productGalleryDisplayHint")}</p>
+            <label className="mt-3 block text-xs font-medium">
+              {t("productGalleryPresetLabel")}
+              <select
+                name="productGalleryPreset"
+                defaultValue={settings.productGalleryPreset}
+                className="ds-input mt-1 text-sm"
+              >
+                <option value="small">{t("galleryPresetSmall")}</option>
+                <option value="medium">{t("galleryPresetMedium")}</option>
+                <option value="large">{t("galleryPresetLarge")}</option>
+                <option value="custom">{t("galleryPresetCustom")}</option>
+              </select>
+            </label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-medium">
+                {t("galleryCustomMaxHeight")}
+                <input
+                  name="productGalleryMaxHeightPx"
+                  type="number"
+                  min={100}
+                  max={2000}
+                  placeholder="520"
+                  defaultValue={settings.productGalleryMaxHeightPx ?? ""}
+                  className="ds-input mt-1 text-sm"
+                />
+              </label>
+              <label className="text-xs font-medium">
+                {t("galleryCustomMaxWidth")}
+                <input
+                  name="productGalleryMaxWidthPx"
+                  type="number"
+                  min={100}
+                  max={2000}
+                  placeholder="520"
+                  defaultValue={settings.productGalleryMaxWidthPx ?? ""}
+                  className="ds-input mt-1 text-sm"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="col-span-full border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("paymentsSection")}</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-medium">
+                {t("paymentProvider")}
+                <input name="paymentProvider" defaultValue={settings.paymentProvider ?? ""} className="ds-input mt-1 text-sm" />
+              </label>
+              <label className="text-xs font-medium">
+                {t("paymentPublicKey")}
+                <input name="paymentPublicKey" defaultValue={settings.paymentPublicKey ?? ""} className="ds-input mt-1 font-mono text-sm" />
+              </label>
+              <label className="text-xs font-medium">
+                {t("paymentSecretKey")}
+                <input name="paymentSecretKey" type="password" defaultValue={settings.paymentSecretKey ?? ""} className="ds-input mt-1 font-mono text-sm" />
+              </label>
+              <label className="text-xs font-medium">
+                {t("paymentWebhookSecret")}
+                <input name="paymentWebhookSecretOverride" type="password" defaultValue={settings.paymentWebhookSecretOverride ?? ""} className="ds-input mt-1 font-mono text-sm" />
+              </label>
+            </div>
+          </div>
+
+          <div className="col-span-full border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("shippingSection")}</h3>
+            <label className="mt-3 block text-xs font-medium">
+              {t("freeShippingMin")}
+              <input name="freeShippingMinAmount" type="number" min={0} step="1" defaultValue={settings.freeShippingMinAmount ?? ""} className="ds-input mt-1 text-sm" />
+            </label>
+          </div>
 
           <div className="col-span-full border-t border-slate-200 pt-4">
             <h3 className="text-sm font-semibold text-slate-800">תקנון ומדיניות</h3>

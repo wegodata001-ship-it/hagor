@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminI18nProvider, useAdminI18n } from "@/lib/admin-i18n";
 
@@ -14,31 +13,43 @@ export default function LoginAdminPage() {
 }
 
 function LoginAdminInner() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { lang, setLang, t } = useAdminI18n();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? t("errorGeneric"));
-      return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      let data: { ok?: boolean; role?: string; error?: string } = {};
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
+        setError(t("errorGeneric"));
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error ?? t("errorGeneric"));
+        return;
+      }
+      if (data.role !== "STORE_OWNER" && data.role !== "SUPER_ADMIN") {
+        setError(t("notStoreOwner"));
+        return;
+      }
+      // Full navigation ensures the session cookie from the login response is applied before /admin loads.
+      window.location.assign("/admin");
+    } finally {
+      setLoading(false);
     }
-    if (data.role !== "STORE_OWNER" && data.role !== "SUPER_ADMIN") {
-      setError(t("notStoreOwner"));
-      return;
-    }
-    router.push("/admin");
-    router.refresh();
   }
 
   return (
@@ -88,9 +99,10 @@ function LoginAdminInner() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            className="w-full rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-700"
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {t("login")}
+            {loading ? "…" : t("login")}
           </button>
         </form>
         <Link href="/" className="mt-6 block text-center text-sm text-blue-600 hover:underline">

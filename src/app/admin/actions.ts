@@ -426,14 +426,25 @@ export async function addProductImage(formData: FormData): Promise<AdminActionRe
     const urlRaw = formData.get("url") as string;
     const url = assertAssetPath(urlRaw);
     await prisma.product.findFirstOrThrow({ where: { id: productId, storeId } });
-    await prisma.productImage.create({
-      data: {
-        storeId,
-        productId,
-        url,
-        sortOrder: Number(formData.get("sortOrder") || 0),
-        isMain: formData.get("isMain") === "on",
-      },
+    const sortOrder = Number(formData.get("sortOrder") || 0);
+    const setMain = formData.get("isMain") === "on";
+
+    await prisma.$transaction(async (tx) => {
+      if (setMain) {
+        await tx.productImage.updateMany({
+          where: { productId, storeId },
+          data: { isMain: false },
+        });
+      }
+      await tx.productImage.create({
+        data: {
+          storeId,
+          productId,
+          url,
+          sortOrder,
+          isMain: setMain,
+        },
+      });
     });
     await logAdminAction({
       userId,
@@ -498,6 +509,86 @@ export async function setMainProductImage(formData: FormData): Promise<AdminActi
     return ok();
   } catch (e) {
     return err(e instanceof Error ? e.message : "עדכון תמונה ראשית נכשל");
+  }
+}
+
+export async function setProductImageOrder(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const productId = String(formData.get("productId") ?? "");
+    const raw = String(formData.get("orderedIds") ?? "");
+    if (!productId || !raw) return err("חסרים פרמטרים");
+
+    let orderedIds: string[];
+    try {
+      orderedIds = JSON.parse(raw) as string[];
+    } catch {
+      return err("פורמט סדר לא תקין");
+    }
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) return ok();
+
+    await prisma.product.findFirstOrThrow({ where: { id: productId, storeId } });
+
+    const existing = await prisma.productImage.findMany({
+      where: { productId, storeId },
+      select: { id: true },
+    });
+    const idSet = new Set(existing.map((e) => e.id));
+    if (orderedIds.some((id) => !idSet.has(id))) return err("רשימת תמונות לא תואמת");
+
+    await prisma.$transaction(
+      orderedIds.map((id, idx) =>
+        prisma.productImage.updateMany({
+          where: { id, productId, storeId },
+          data: { sortOrder: idx },
+        }),
+      ),
+    );
+
+    await logAdminAction({
+      userId,
+      action: "product.image.reorder_bulk",
+      entity: "Product",
+      entityId: productId,
+      metadata: { count: orderedIds.length },
+    });
+    revalidatePath("/admin/products");
+    revalidatePath(`/products/${productId}`);
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "עדכון סדר תמונות נכשל");
+  }
+}
+
+export async function replaceProductImage(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const imageId = String(formData.get("imageId") ?? "");
+    const urlRaw = String(formData.get("url") ?? "");
+    const url = assertAssetPath(urlRaw);
+    const img = await prisma.productImage.findFirst({
+      where: { id: imageId, storeId },
+      select: { productId: true },
+    });
+    if (!img) return err("תמונה לא נמצאה");
+
+    await prisma.productImage.updateMany({
+      where: { id: imageId, storeId },
+      data: { url },
+    });
+
+    await logAdminAction({
+      userId,
+      action: "product.image.replace",
+      entity: "ProductImage",
+      entityId: imageId,
+      metadata: { productId: img.productId },
+    });
+    revalidatePath("/admin/products");
+    revalidatePath(`/products/${img.productId}`);
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "החלפת תמונה נכשלה");
   }
 }
 
@@ -939,6 +1030,14 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
     const requireEmailVerificationForCheckout =
       formData.get("requireEmailVerificationForCheckout") === "on";
 
+    const presetRaw = String(formData.get("productGalleryPreset") ?? "medium").toLowerCase();
+    const productGalleryPreset =
+      presetRaw === "small" || presetRaw === "medium" || presetRaw === "large" || presetRaw === "custom"
+        ? presetRaw
+        : "medium";
+    const customH = Number(formData.get("productGalleryMaxHeightPx"));
+    const customW = Number(formData.get("productGalleryMaxWidthPx"));
+
     const payload = {
       logoUrl: logoRaw ? assertAssetPath(logoRaw) : null,
       primaryColor: formData.get("primaryColor") as string,
@@ -948,10 +1047,29 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
       languageDefault: formData.get("languageDefault") as string,
       rtlEnabled: formData.get("rtlEnabled") === "on",
       whatsappPhone: (formData.get("whatsappPhone") as string) || null,
+      storePhone: (formData.get("storePhone") as string) || null,
+      storeAddress: (formData.get("storeAddress") as string) || null,
+      paymentProvider: (formData.get("paymentProvider") as string) || null,
+      paymentPublicKey: (formData.get("paymentPublicKey") as string) || null,
+      paymentSecretKey: (formData.get("paymentSecretKey") as string) || null,
+      paymentWebhookSecretOverride: (formData.get("paymentWebhookSecretOverride") as string) || null,
+      freeShippingMinAmount: (() => {
+        const n = Number(formData.get("freeShippingMinAmount"));
+        return Number.isFinite(n) && n > 0 ? n : null;
+      })(),
       supportEmail: (formData.get("supportEmail") as string) || null,
       orderNumberPrefix,
       registrationEnabled,
       requireEmailVerificationForCheckout,
+      productGalleryPreset,
+      productGalleryMaxHeightPx:
+        productGalleryPreset === "custom" && Number.isFinite(customH) && customH > 0
+          ? Math.min(Math.round(customH), 2000)
+          : null,
+      productGalleryMaxWidthPx:
+        productGalleryPreset === "custom" && Number.isFinite(customW) && customW > 0
+          ? Math.min(Math.round(customW), 2000)
+          : null,
     };
 
     await prisma.storeSettings.upsert({
@@ -965,6 +1083,7 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
     });
     await logAdminAction({ userId, action: "store.settings.update", entity: "StoreSettings" });
     revalidatePath("/admin/settings");
+    revalidatePath("/admin/products");
     revalidatePath("/");
     return ok();
   } catch (e) {

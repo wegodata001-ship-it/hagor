@@ -8,6 +8,9 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
+/** Hard cap per file — aligns with client compression target */
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+
 const kinds = new Set(["logo", "products", "categories", "banners"]);
 const safeSegment = (v: string) =>
   v
@@ -39,6 +42,18 @@ export async function POST(req: Request) {
       { error: "Expected file and kind (logo|products|categories|banners)" },
       { status: 400 },
     );
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `File too large (max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)` },
+      { status: 413 },
+    );
+  }
+
+  const mime = (file.type || "").toLowerCase();
+  if (kind !== "logo" && !mime.startsWith("image/")) {
+    return NextResponse.json({ error: "Only image uploads allowed for this kind" }, { status: 400 });
   }
 
   const folder = ASSETS_FOLDER;

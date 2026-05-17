@@ -26,6 +26,7 @@ export function AdminDashboardClient({
     productsCount: number;
     membersCount: number;
     monthlyGrowthPct: number | null;
+    failedPaymentsCount: number;
   };
   chart: { date: string; revenue: number; orders: number }[];
   lowStock: { id: string; name_he: string; name_ar: string; name_en: string; stock: number; sku: string }[];
@@ -60,6 +61,7 @@ export function AdminDashboardClient({
           [t("products"), totals.productsCount],
           ["Membership Members", totals.membersCount],
           ["Monthly Growth", totals.monthlyGrowthPct == null ? "—" : `${totals.monthlyGrowthPct > 0 ? "+" : ""}${totals.monthlyGrowthPct}%`],
+          ["Failed payments", totals.failedPaymentsCount],
         ].map(([label, val]) => (
           <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
             <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>

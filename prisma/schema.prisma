@@ -109,6 +109,32 @@ model Store {
   adminActionLogs     AdminActionLog[]
   paymentWebhookLogs  PaymentWebhookLog[]
   emailVerificationTokens EmailVerificationToken[]
+  observabilityEvents ObservabilityEvent[]
+}
+
+/// Production telemetry (errors, slow queries, auth timings, Prisma metrics). Retention enforced in app layer.
+model ObservabilityEvent {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  traceId    String?
+  level      String
+  scope      String
+  message    String
+  queryKey   String?
+  path       String?
+  durationMs Int?
+  errorText  String? @db.Text
+  meta       Json?
+
+  @@index([storeId, createdAt(sort: Desc)])
+  @@index([storeId, level, createdAt(sort: Desc)])
+  @@index([storeId, message, createdAt(sort: Desc)])
+  @@index([storeId, path, createdAt(sort: Desc)])
+  @@index([storeId, queryKey, createdAt(sort: Desc)])
+  @@index([traceId])
 }
 
 model StoreSettings {
@@ -123,7 +149,14 @@ model StoreSettings {
   languageDefault String  @default("he")
   rtlEnabled     Boolean  @default(true)
   whatsappPhone  String?
+  storePhone        String?
+  storeAddress      String?
   supportEmail      String?
+  paymentProvider   String?
+  paymentPublicKey  String?
+  paymentSecretKey  String?
+  paymentWebhookSecretOverride String?
+  freeShippingMinAmount Decimal? @db.Decimal(12, 2)
   orderNumberPrefix String   @default("ORD")
   nextOrderNumber   Int      @default(1001)
   pickupEnabled     Boolean  @default(true)
@@ -156,6 +189,12 @@ model StoreSettings {
   heroSubtitle_he   String?
   heroSubtitle_ar   String?
   heroSubtitle_en   String?
+  /// Product detail gallery image size preset for storefront + admin preview (small | medium | large | custom).
+  productGalleryPreset       String  @default("medium")
+  /// Used when preset is custom — max height in px (optional clamp).
+  productGalleryMaxHeightPx  Int?
+  /// Used when preset is custom — max width in px (optional clamp).
+  productGalleryMaxWidthPx   Int?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -369,6 +408,7 @@ model ProductImage {
   alt       String?
   sortOrder Int      @default(0)
   isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([storeId])
   @@index([productId])

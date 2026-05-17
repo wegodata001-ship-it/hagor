@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { Prisma } from "@prisma/client";
 import type { OrderFilters, OrderRowDTO } from "@/components/admin/orders-admin-client";
 import { OrdersAdminClient } from "@/components/admin/orders-admin-client";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
@@ -70,30 +71,38 @@ export default async function AdminOrdersPage({
     }
   }
 
-  const shippingOptions = await prisma.deliveryOption.findMany({
-    where: { storeId, type: "SHIPPING" },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { name_he: true },
-  });
-  const shippingAreas = [...new Set(shippingOptions.map((o) => o.name_he).filter(Boolean))];
+  const { shippingAreas, orders } = await safeQuery(
+    "admin.orders",
+    async () => {
+      const shippingOptions = await prisma.deliveryOption.findMany({
+        where: { storeId, type: "SHIPPING" },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { name_he: true },
+      });
+      const areas = [...new Set(shippingOptions.map((o) => o.name_he).filter(Boolean))];
 
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      orderNumber: true,
-      customerName: true,
-      total: true,
-      status: true,
-      paymentStatus: true,
-      createdAt: true,
-      deliveryOptionName: true,
-      deliveryOptionType: true,
-      deliveryPrice: true,
+      const orderRows = await prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          orderNumber: true,
+          customerName: true,
+          total: true,
+          status: true,
+          paymentStatus: true,
+          createdAt: true,
+          deliveryOptionName: true,
+          deliveryOptionType: true,
+          deliveryPrice: true,
+        },
+      });
+      return { shippingAreas: areas, orders: orderRows };
     },
-  });
+    { shippingAreas: [] as string[], orders: [] },
+    { timeoutMs: 25_000 },
+  );
 
   const rows: OrderRowDTO[] = orders.map((o) => ({
     id: o.id,

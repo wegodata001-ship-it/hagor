@@ -58,7 +58,7 @@ export function QuickAddToCartButton({
         type="button"
         disabled={disabled || loading}
         onClick={() => void click()}
-        className="w-full rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+        className="w-full rounded-xl border border-hagor-gold/40 bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
       >
         {disabled ? t("outOfStock") : loading ? "טוען…" : t("addToCart")}
       </button>

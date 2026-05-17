@@ -21,6 +21,16 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const { items, setQuantity, removeItem } = useCart();
   const { t, lang, dir } = useStoreI18n();
   const [products, setProducts] = useState<Record<string, ProductRow>>({});
+  const [freeShippingMin, setFreeShippingMin] = useState(499);
+
+  useEffect(() => {
+    fetch("/api/store/public")
+      .then((r) => r.json())
+      .then((d: { freeShippingMinAmount?: number }) => {
+        if (d.freeShippingMinAmount && d.freeShippingMinAmount > 0) setFreeShippingMin(d.freeShippingMinAmount);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -79,7 +89,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{name}</p>
-                    <p className="text-sm text-orange-400">₪{p.price.toFixed(2)}</p>
+                    <p className="text-sm text-hagor-gold">₪{p.price.toFixed(2)}</p>
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
@@ -107,14 +117,28 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
           })}
         </div>
         <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4">
+          {freeShippingMin > 0 && subtotal < freeShippingMin ? (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-zinc-400">
+                <span>{t("freeShipping")}</span>
+                <span>₪{(freeShippingMin - subtotal).toFixed(0)} נותר</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-hagor-gold transition-all"
+                  style={{ width: `${Math.min(100, (subtotal / freeShippingMin) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
             <span className="text-zinc-300">{t("subtotal")}</span>
-            <strong className="text-orange-400">₪{subtotal.toFixed(2)}</strong>
+            <strong className="text-hagor-gold">₪{subtotal.toFixed(2)}</strong>
           </div>
           <Link
             href="/checkout"
             onClick={onClose}
-            className="block rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-center font-semibold text-white shadow-lg shadow-orange-700/20"
+            className="hagor-btn block w-full text-center"
           >
             {t("checkout")}
           </Link>

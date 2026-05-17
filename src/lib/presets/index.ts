@@ -1,22 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import { seedElectronicsPreset } from "./electronicsPreset";
-import { seedFashionPreset } from "./fashionPreset";
-import { seedRestaurantPreset } from "./restaurantPreset";
+import { seedTacticalPreset } from "./tacticalPreset";
 
-export type StoreBusinessType = "electronics" | "fashion" | "restaurant";
+export type StoreBusinessType = "tactical";
 
 export async function seedStorePreset(
   prisma: PrismaClient,
   storeId: string,
-  businessType: StoreBusinessType,
+  _businessType: StoreBusinessType = "tactical",
 ): Promise<void> {
-  if (businessType === "electronics") {
-    await seedElectronicsPreset(prisma, storeId);
-    return;
-  }
-  if (businessType === "fashion") {
-    await seedFashionPreset(prisma, storeId);
-    return;
-  }
-  await seedRestaurantPreset(prisma, storeId);
+  await seedTacticalPreset(prisma, storeId);
 }

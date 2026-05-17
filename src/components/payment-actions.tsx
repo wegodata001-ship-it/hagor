@@ -1,16 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export function PaymentActions({
   orderId,
   isPaid,
+  provider,
 }: {
   orderId: string;
   isPaid: boolean;
+  provider?: string;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [autoStarted, setAutoStarted] = useState(false);
+
+  async function payWithCard() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/payments/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.redirectUrl) {
+        setMsg(data.error ?? "לא ניתן להתחיל תשלום");
+        return;
+      }
+      window.location.href = data.redirectUrl as string;
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function demoPay() {
     setLoading(true);
@@ -23,30 +47,45 @@ export function PaymentActions({
       });
       const data = await res.json();
       setMsg(data.message ?? (res.ok ? "בוצע" : data.error));
-      if (res.ok) window.location.reload();
+      if (res.ok) window.location.href = `/payment/success?orderId=${encodeURIComponent(orderId)}`;
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    if (isPaid || autoStarted || provider === "demo") return;
+    setAutoStarted(true);
+    void payWithCard();
+  }, [isPaid, autoStarted, provider]);
+
   if (isPaid) {
-    return <p className="font-medium text-green-700">התשלום התקבל</p>;
+    return (
+      <div className="space-y-3">
+        <p className="font-medium text-emerald-400">התשלום התקבל בהצלחה</p>
+        <Link href={`/payment/success?orderId=${orderId}`} className="hagor-btn inline-block">
+          צפייה באישור
+        </Link>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => demoPay()}
-        className="rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white hover:bg-emerald-700 disabled:bg-zinc-400"
-      >
-        {loading ? "מעבד…" : "השלם תשלום (דמו)"}
+    <div className="space-y-3">
+      <button type="button" disabled={loading} onClick={() => void payWithCard()} className="hagor-btn w-full disabled:opacity-50">
+        {loading ? "מעביר לתשלום מאובטח…" : "תשלום בכרטיס אשראי"}
       </button>
-      <p className="mt-2 text-xs text-zinc-500">
-        דורש ALLOW_DEMO_PAYMENT=true או התחברות לקוח שביצע את ההזמנה / בעל חנות.
-      </p>
-      {msg && <p className="mt-2 text-sm text-zinc-700">{msg}</p>}
+      {provider === "demo" && (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void demoPay()}
+          className="hagor-btn-outline w-full disabled:opacity-50"
+        >
+          תשלום דמו (פיתוח)
+        </button>
+      )}
+      {msg && <p className="text-sm text-red-400">{msg}</p>}
     </div>
   );
 }

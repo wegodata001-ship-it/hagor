@@ -1,28 +1,61 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth/session";
+import { getCachedSession } from "@/lib/auth/cached-session";
 import { STORE_ID } from "@/lib/store";
 import { OrderTimeline } from "@/components/account/order-timeline";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
+type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
+
+type OrderDetailLoaded =
+  | { kind: "noprofile" }
+  | { kind: "missing" }
+  | { kind: "ok"; order: OrderWithItems };
+
 export default async function AccountOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession();
+  const session = await getCachedSession();
   if (!session) redirect("/login");
   const storeId = STORE_ID;
   const { id } = await params;
 
-  const profile = await prisma.customerProfile.findFirst({
-    where: { userId: session.userId, storeId },
-  });
-  if (!profile) redirect("/account/orders");
+  const loaded = await safeQuery<OrderDetailLoaded | null>(
+    "account.order_detail",
+    async (): Promise<OrderDetailLoaded> => {
+      const profile = await prisma.customerProfile.findFirst({
+        where: { userId: session.userId, storeId },
+      });
+      if (!profile) return { kind: "noprofile" };
 
-  const order = await prisma.order.findFirst({
-    where: { id, storeId, customerId: profile.id },
-    include: { items: true },
-  });
-  if (!order) notFound();
+      const order = await prisma.order.findFirst({
+        where: { id, storeId, customerId: profile.id },
+        include: { items: true },
+      });
+      if (!order) return { kind: "missing" };
+      return { kind: "ok", order };
+    },
+    null,
+    { timeoutMs: 25_000 },
+  );
+
+  if (loaded === null) {
+    return (
+      <div className="ds-card-glass border-amber-500/30 p-6 text-center">
+        <p className="font-medium text-slate-100">לא ניתן לטעון את ההזמנה כרגע.</p>
+        <Link href="/account/orders" className="mt-4 inline-block text-sm text-blue-400 hover:underline">
+          חזרה להזמנות
+        </Link>
+      </div>
+    );
+  }
+
+  if (loaded.kind === "noprofile") redirect("/account/orders");
+  if (loaded.kind === "missing") notFound();
+
+  const order = loaded.order;
 
   const shipped = order.fulfillmentStatus === "SHIPPED";
   const completed = order.fulfillmentStatus === "COMPLETED";

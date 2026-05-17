@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
-  <rect width="1200" height="700" fill="#0a0a0f"/>
-  <rect x="740" y="260" width="260" height="130" rx="40" fill="#18181b" stroke="#a855f7"/>
-  <circle cx="800" cy="325" r="14" fill="#22c55e"/>
-  <circle cx="935" cy="325" r="14" fill="#f97316"/>
-  <text x="180" y="260" fill="#fff" font-size="74" font-family="Arial" font-weight="700">GAMING</text>
-</svg>

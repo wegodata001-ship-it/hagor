@@ -11,15 +11,21 @@ export function StoreHeader({
   isLoggedIn,
   role,
   categories,
+  storePhone,
+  telHref,
+  whatsappHref,
 }: {
   title: string;
   isLoggedIn: boolean;
   role: UserRole | null;
   categories: Category[];
+  storePhone: string;
+  telHref: string;
+  whatsappHref: string;
 }) {
   return (
     <header>
-      <TopInfoBar isLoggedIn={isLoggedIn} />
+      <TopInfoBar isLoggedIn={isLoggedIn} storePhone={storePhone} telHref={telHref} whatsappHref={whatsappHref} />
       <MainNavbar title={title} categories={categories} isLoggedIn={isLoggedIn} role={role} />
     </header>
   );

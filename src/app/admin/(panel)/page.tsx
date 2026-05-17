@@ -1,14 +1,41 @@
+import type { OrderPaymentStatus, OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { AdminDashboardClient } from "@/components/admin/dashboard-admin-client";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
-  await requireAdminSession();
-  const storeId = getStoreId();
+const DASHBOARD_FALLBACK = {
+  totals: {
+    ordersCount: 0,
+    revenuePaid: 0,
+    customersCount: 0,
+    productsCount: 0,
+    membersCount: 0,
+    monthlyGrowthPct: null as number | null,
+    failedPaymentsCount: 0,
+  },
+  chart: [] as { date: string; revenue: number; orders: number }[],
+  lowStock: [] as { id: string; name_he: string; name_ar: string; name_en: string; stock: number; sku: string }[],
+  recent: [] as {
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    total: number;
+    status: OrderStatus;
+    paymentStatus: OrderPaymentStatus;
+    createdAt: string;
+  }[],
+  quick: {
+    addProductHref: "/admin/products?add=1",
+    addCategoryHref: "/admin/categories",
+    addBannerHref: "/admin/banners",
+  },
+};
 
+async function loadAdminDashboardData(storeId: string) {
   const now = new Date();
   const start14 = new Date(now);
   start14.setDate(start14.getDate() - 13);
@@ -29,6 +56,7 @@ export default async function AdminDashboardPage() {
     revenueThisMonth,
     revenuePrevMonth,
     lowStock,
+    failedPaymentsCount,
   ] = await Promise.all([
     prisma.order.count({ where: { storeId } }),
     prisma.order.aggregate({
@@ -81,6 +109,9 @@ export default async function AdminDashboardPage() {
       take: 8,
       select: { id: true, name_he: true, name_ar: true, name_en: true, stock: true, sku: true },
     }),
+    prisma.order.count({
+      where: { storeId, OR: [{ paymentStatus: "FAILED" }, { status: "FAILED" }] },
+    }),
   ]);
 
   const revenue = Number(revenueAgg._sum.total ?? 0);
@@ -109,39 +140,52 @@ export default async function AdminDashboardPage() {
     orders: x.orders,
   }));
 
+  return {
+    totals: {
+      ordersCount,
+      revenuePaid: revenue,
+      customersCount: customers,
+      productsCount,
+      membersCount,
+      monthlyGrowthPct: growth,
+      failedPaymentsCount,
+    },
+    chart,
+    lowStock: lowStock.map((p) => ({
+      id: p.id,
+      name_he: p.name_he,
+      name_ar: p.name_ar,
+      name_en: p.name_en,
+      stock: p.stock,
+      sku: p.sku,
+    })),
+    recent: recent.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerName: o.customerName,
+      total: Number(o.total),
+      status: o.status as OrderStatus,
+      paymentStatus: o.paymentStatus as OrderPaymentStatus,
+      createdAt: o.createdAt.toISOString(),
+    })),
+    quick: DASHBOARD_FALLBACK.quick,
+  };
+}
+
+export default async function AdminDashboardPage() {
+  await requireAdminSession();
+  const storeId = getStoreId();
+  const data = await safeQuery("admin.dashboard", () => loadAdminDashboardData(storeId), DASHBOARD_FALLBACK, {
+    timeoutMs: 25_000,
+  });
+
   return (
     <AdminDashboardClient
-      totals={{
-        ordersCount,
-        revenuePaid: revenue,
-        customersCount: customers,
-        productsCount,
-        membersCount,
-        monthlyGrowthPct: growth,
-      }}
-      chart={chart}
-      lowStock={lowStock.map((p) => ({
-        id: p.id,
-        name_he: p.name_he,
-        name_ar: p.name_ar,
-        name_en: p.name_en,
-        stock: p.stock,
-        sku: p.sku,
-      }))}
-      recent={recent.map((o) => ({
-        id: o.id,
-        orderNumber: o.orderNumber,
-        customerName: o.customerName,
-        total: Number(o.total),
-        status: o.status,
-        paymentStatus: o.paymentStatus,
-        createdAt: o.createdAt.toISOString(),
-      }))}
-      quick={{
-        addProductHref: "/admin/products?add=1",
-        addCategoryHref: "/admin/categories",
-        addBannerHref: "/admin/banners",
-      }}
+      totals={data.totals}
+      chart={data.chart}
+      lowStock={data.lowStock}
+      recent={data.recent}
+      quick={data.quick}
     />
   );
 }

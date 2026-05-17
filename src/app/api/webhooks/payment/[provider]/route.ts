@@ -3,6 +3,7 @@ import { PaymentWebhookLogStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
+import { parseProviderWebhook } from "@/lib/payments";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
 
 const BodySchema = z.object({
@@ -57,20 +58,25 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const {
-    orderId,
-    amount,
-    currency,
-    status,
-    success,
-    transactionId,
-    confirmationNumber,
-    rawPayload,
-  } = parsed.data;
+  let orderId = parsed.data.orderId;
+  let amount = parsed.data.amount;
+  let currency = parsed.data.currency;
+  let transactionId = parsed.data.transactionId;
+  let confirmationNumber = parsed.data.confirmationNumber;
+  const rawPayload = parsed.data.rawPayload ?? json;
 
-  let okFlag = success ?? false;
-  if (status === "success" || status === "paid") okFlag = true;
-  if (status === "failed" || status === "error") okFlag = false;
+  let okFlag = parsed.data.success ?? false;
+  if (parsed.data.status === "success" || parsed.data.status === "paid") okFlag = true;
+  if (parsed.data.status === "failed" || parsed.data.status === "error") okFlag = false;
+
+  const providerParsed = parseProviderWebhook(provider, json);
+  if (providerParsed) {
+    orderId = providerParsed.orderId;
+    amount = providerParsed.amount;
+    currency = providerParsed.currency;
+    okFlag = providerParsed.success;
+    transactionId = providerParsed.transactionId ?? transactionId;
+  }
 
   const log = await prisma.paymentWebhookLog.create({
     data: {

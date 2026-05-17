@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" fill="none">
+  <rect width="1920" height="1080" fill="#0B0B0B"/>
+  <rect width="1920" height="1080" fill="url(#g)" opacity="0.85"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1920" y2="1080">
+      <stop offset="0%" stop-color="#0B0B0B"/>
+      <stop offset="50%" stop-color="#1A1A1A"/>
+      <stop offset="100%" stop-color="#4B5320" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+  <text x="960" y="520" fill="#C89211" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700" letter-spacing="8">HAGOR BY WAEL</text>
+  <text x="960" y="600" fill="#a1a1aa" text-anchor="middle" font-family="Arial, sans-serif" font-size="28">TACTICAL � MILITARY � OUTDOOR</text>
+</svg>

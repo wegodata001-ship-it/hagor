@@ -32,12 +32,12 @@ export function AddToCartButton({
         type="button"
         disabled={disabled}
         onClick={click}
-        className="w-full rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+        className="w-full rounded-xl border border-hagor-gold/40 bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
       >
         {disabled ? t("outOfStock") : t("addToCart")}
       </button>
       {showToast && (
-        <div className="absolute -top-10 right-0 rounded-lg border border-orange-400/40 bg-zinc-900 px-3 py-1 text-xs text-orange-300">
+        <div className="absolute -top-10 right-0 rounded-lg border border-orange-400/40 bg-zinc-900 px-3 py-1 text-xs text-hagor-gold/80">
           {t("addedToCart")}
         </div>
       )}

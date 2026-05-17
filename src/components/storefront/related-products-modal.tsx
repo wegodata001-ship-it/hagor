@@ -72,7 +72,7 @@ export function RelatedProductsModal({
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-white">{main.title}</div>
-              {mainDisplay ? <div className="mt-0.5 text-sm text-orange-400">₪{mainDisplay.price.toFixed(2)}</div> : null}
+              {mainDisplay ? <div className="mt-0.5 text-sm text-hagor-gold">₪{mainDisplay.price.toFixed(2)}</div> : null}
             </div>
             <div className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-400 bg-blue-500 text-sm text-white" aria-hidden>
               ✓
@@ -100,7 +100,7 @@ export function RelatedProductsModal({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-white">{name}</div>
-                  <div className="mt-0.5 text-sm text-orange-400">₪{p.price.toFixed(2)}</div>
+                  <div className="mt-0.5 text-sm text-hagor-gold">₪{p.price.toFixed(2)}</div>
                 </div>
                 <div
                   className={`flex h-7 w-7 items-center justify-center rounded-full border text-sm ${
@@ -120,7 +120,7 @@ export function RelatedProductsModal({
           <button
             type="button"
             onClick={addAll}
-            className="rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5"
+            className="rounded-2xl bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5"
           >
             הוסף לסל והמשך
           </button>

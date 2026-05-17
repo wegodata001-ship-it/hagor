@@ -84,7 +84,7 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
   );
   return (
     <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8">
-      <Link href="/products" className="text-sm text-orange-400 hover:underline">
+      <Link href="/products" className="text-sm text-hagor-gold hover:underline">
         ← חזרה למוצרים
       </Link>
       <div className="mt-6 grid gap-8 rounded-3xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-5 md:grid-cols-2 md:p-8">
@@ -97,17 +97,17 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
             ]}
           />
         </div>
-        <div>
+        <div className="md:sticky md:top-24 md:self-start">
           <p className="text-sm text-zinc-400">{pickLocalized(product.category, "name", lang)}</p>
           <h1 className="mt-2 text-3xl font-black text-white">{title}</h1>
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-3xl font-semibold text-orange-400">₪{price.toFixed(2)}</span>
+            <span className="text-3xl font-semibold text-hagor-gold">₪{price.toFixed(2)}</span>
             {product.oldPrice ? (
               <span className="text-xl text-zinc-500 line-through">₪{product.oldPrice.toFixed(2)}</span>
             ) : null}
           </div>
           {product.discountPercent ? (
-            <div className="mt-3 inline-block rounded-full bg-orange-500/20 px-3 py-1 text-xs text-orange-300">
+            <div className="mt-3 inline-block rounded-full bg-hagor-gold/20 px-3 py-1 text-xs text-hagor-gold/80">
               הנחה {product.discountPercent}%
             </div>
           ) : null}
@@ -180,7 +180,7 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
                 type="button"
                 disabled={product.stock <= 0}
                 onClick={() => setCrossSellOpen(true)}
-                className="w-full rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+                className="w-full rounded-xl border border-hagor-gold/40 bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
               >
                 {product.stock <= 0 ? "אזל מהמלאי" : "הוסף לסל"}
               </button>
@@ -218,7 +218,7 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
             type="button"
             disabled={product.stock <= 0}
             onClick={() => setCrossSellOpen(true)}
-            className="w-full rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+            className="w-full rounded-xl border border-hagor-gold/40 bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
           >
             {product.stock <= 0 ? "אזל מהמלאי" : "הוסף לסל"}
           </button>

@@ -36,7 +36,7 @@ function NavItem({
       </span>
       <span>{label}</span>
       {badge && badge > 0 ? (
-        <span className="absolute right-[26%] top-1 rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white">
+        <span className="absolute right-[26%] top-1 rounded-full bg-hagor-gold px-1.5 text-[10px] font-bold text-white">
           {badge}
         </span>
       ) : null}
@@ -64,7 +64,7 @@ export function MobileBottomNav() {
           active={false}
           onClick={(e) => {
             e.preventDefault();
-            window.dispatchEvent(new Event("desigma:open-mobile-menu"));
+            window.dispatchEvent(new Event("hagor:open-mobile-menu"));
           }}
         />
       </div>

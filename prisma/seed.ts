@@ -7,11 +7,14 @@ import { defaultLegalFlat } from "../src/lib/legal-defaults";
 
 const prisma = new PrismaClient();
 
-const STORE_ID = "desigma";
-const STORE_SLUG = "desigma";
-const STORE_NAME = "DESIGMA";
+const STORE_ID = "hagor";
+const STORE_SLUG = "hagor";
+const STORE_NAME = "HAGOR BY WAEL";
 const ASSETS_FOLDER =
   process.env.NEXT_PUBLIC_ASSETS_FOLDER?.trim().replace(/^\/+|\/+$/g, "") || STORE_ID;
+
+const STORE_PHONE = process.env.NEXT_PUBLIC_STORE_PHONE?.trim() || "";
+const WHATSAPP_PHONE = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.trim() || "";
 
 function requiredEnv(name: "STORE_OWNER_EMAIL" | "STORE_OWNER_PASSWORD"): string {
   const value = process.env[name]?.trim();
@@ -71,29 +74,41 @@ async function main() {
     create: {
       storeId: STORE_ID,
       logoUrl,
-      primaryColor: "black",
-      secondaryColor: "#6b7280",
-      accentColor: "orange",
+      primaryColor: "#0B0B0B",
+      secondaryColor: "#1A1A1A",
+      accentColor: "#C89211",
       currency: "ILS",
       languageDefault: "he",
       rtlEnabled: true,
-      whatsappPhone: null,
+      whatsappPhone: WHATSAPP_PHONE || null,
+      storePhone: STORE_PHONE || null,
+      storeAddress: null,
       supportEmail: null,
-      orderNumberPrefix: "DESIGMA",
+      orderNumberPrefix: "HAGOR",
       nextOrderNumber: 1001,
+      freeShippingMinAmount: 499,
       ...defaultLegalFlat(),
       termsPublishedAt: new Date(),
       privacyPublishedAt: new Date(),
       refundPublishedAt: new Date(),
       shippingPublishedAt: new Date(),
+      heroTitle_he: "ציוד טקטי מקצועי",
+      heroTitle_ar: "معدات تكتيكية احترافية",
+      heroTitle_en: "Professional Tactical Gear",
+      heroSubtitle_he: "ביגוד, נעליים, אופטיקה והגנה — לשטח ולמשימה",
+      heroSubtitle_ar: "ملابس وأحذية وبصريات وحماية للميدان",
+      heroSubtitle_en: "Clothing, boots, optics and protection for the field",
     },
     update: {
       logoUrl,
-      primaryColor: "black",
-      accentColor: "orange",
+      primaryColor: "#0B0B0B",
+      secondaryColor: "#1A1A1A",
+      accentColor: "#C89211",
       currency: "ILS",
       languageDefault: "he",
-      orderNumberPrefix: "DESIGMA",
+      orderNumberPrefix: "HAGOR",
+      whatsappPhone: WHATSAPP_PHONE || null,
+      storePhone: STORE_PHONE || null,
     },
   });
 
@@ -153,44 +168,34 @@ async function main() {
       },
       {
         storeId: STORE_ID,
-        name_he: "משלוח צפון",
-        name_ar: "شحن شمال",
-        name_en: "Shipping North",
+        name_he: "משלוח רגיל",
+        name_ar: "شحن عادي",
+        name_en: "Standard shipping",
         type: DeliveryType.SHIPPING,
-        price: 20,
+        price: 35,
         active: true,
         sortOrder: 2,
       },
       {
         storeId: STORE_ID,
-        name_he: "משלוח דרום",
-        name_ar: "شحن جنوب",
-        name_en: "Shipping South",
+        name_he: "משלוח מהיר",
+        name_ar: "شحن سريع",
+        name_en: "Express shipping",
         type: DeliveryType.SHIPPING,
-        price: 50,
+        price: 55,
         active: true,
         sortOrder: 3,
-      },
-      {
-        storeId: STORE_ID,
-        name_he: "משלוח אזורים מיוחדים",
-        name_ar: "شحن مناطق خاصة",
-        name_en: "Shipping special areas",
-        type: DeliveryType.SHIPPING,
-        price: 80,
-        active: true,
-        sortOrder: 4,
       },
     ],
   });
 
   await prisma.coupon.upsert({
     where: {
-      storeId_code: { storeId: STORE_ID, code: "DESIGMA10" },
+      storeId_code: { storeId: STORE_ID, code: "HAGOR10" },
     },
     create: {
       storeId: STORE_ID,
-      code: "DESIGMA10",
+      code: "HAGOR10",
       type: CouponType.PERCENT,
       value: 10,
       active: true,
@@ -199,9 +204,9 @@ async function main() {
     update: { active: true, type: CouponType.PERCENT, value: 10 },
   });
 
-  await seedStorePreset(prisma, STORE_ID, "electronics");
+  await seedStorePreset(prisma, STORE_ID, "tactical");
 
-  console.log("DESIGMA seed OK - owner:", owner.email);
+  console.log("HAGOR BY WAEL seed OK - owner:", owner.email);
 }
 
 main()

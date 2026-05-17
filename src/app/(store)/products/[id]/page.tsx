@@ -1,7 +1,31 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
+import { SITE_NAME } from "@/lib/store";
+import { ProductJsonLd } from "@/components/storefront/product-json-ld";
 import { StoreProductDetailClient } from "@/components/storefront/store-product-detail-client";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const p = await prisma.product.findFirst({
+    where: { id, storeId: getStoreId(), active: true },
+    select: { name_he: true, description_he: true, images: { take: 1 } },
+  });
+  if (!p) return { title: SITE_NAME };
+  return {
+    title: `${p.name_he} | ${SITE_NAME}`,
+    description: p.description_he?.slice(0, 160) ?? p.name_he,
+    openGraph: {
+      title: p.name_he,
+      description: p.description_he ?? undefined,
+    },
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +57,23 @@ export default async function ProductPage({
   });
   if (!product) notFound();
 
+  const settings = await prisma.storeSettings.findUnique({
+    where: { storeId },
+    select: { currency: true },
+  });
+
   return (
-    <StoreProductDetailClient
+    <>
+      <ProductJsonLd
+        id={product.id}
+        name={product.name_he}
+        description={product.description_he}
+        price={Number(product.price)}
+        currency={settings?.currency ?? "ILS"}
+        image={product.images[0]?.url ?? null}
+        inStock={product.stock > 0}
+      />
+      <StoreProductDetailClient
       product={{
         id: product.id,
         name_he: product.name_he,
@@ -79,5 +118,6 @@ export default async function ProductPage({
         })),
       }}
     />
+    </>
   );
 }

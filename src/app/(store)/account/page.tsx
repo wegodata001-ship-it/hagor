@@ -1,43 +1,87 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth/session";
+import { getCachedSession } from "@/lib/auth/cached-session";
 import { STORE_ID } from "@/lib/store";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
+type UserWithProfile = Prisma.UserGetPayload<{ include: { customerProfile: true } }>;
+
+type AccountLoaded =
+  | { kind: "nouser" }
+  | {
+      kind: "ok";
+      user: UserWithProfile;
+      orders: Array<{
+        id: string;
+        orderNumber: string;
+        total: unknown;
+        createdAt: Date;
+        status: string;
+        fulfillmentStatus: string;
+      }>;
+      totalOrders: number;
+    };
+
 export default async function AccountHomePage() {
-  const session = await getSession();
+  const session = await getCachedSession();
   if (!session) redirect("/login");
   const storeId = STORE_ID;
 
-  const user = await prisma.user.findFirst({
-    where: { id: session.userId, storeId },
-    include: { customerProfile: true },
-  });
-  if (!user) redirect("/login");
+  const loaded = await safeQuery<AccountLoaded | null>(
+    "account.home",
+    async (): Promise<AccountLoaded> => {
+      const user = await prisma.user.findFirst({
+        where: { id: session.userId, storeId },
+        include: { customerProfile: true },
+      });
+      if (!user) return { kind: "nouser" };
 
+      const profile = user.customerProfile;
+      const orders = profile
+        ? await prisma.order.findMany({
+            where: { storeId, customerId: profile.id },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+              id: true,
+              orderNumber: true,
+              total: true,
+              createdAt: true,
+              status: true,
+              fulfillmentStatus: true,
+            },
+          })
+        : [];
+
+      const totalOrders = profile
+        ? await prisma.order.count({ where: { storeId, customerId: profile.id } })
+        : 0;
+
+      return { kind: "ok", user, orders, totalOrders };
+    },
+    null,
+    { timeoutMs: 20_000 },
+  );
+
+  if (loaded === null) {
+    return (
+      <div className="ds-card-glass border-amber-500/30 p-6 text-center">
+        <p className="font-medium text-slate-100">לא ניתן לטעון את החשבון כרגע.</p>
+        <p className="mt-2 text-sm text-slate-400">נסו לרענן את העמוד בעוד רגע.</p>
+      </div>
+    );
+  }
+
+  if (loaded.kind === "nouser") {
+    redirect("/login");
+  }
+
+  const { user, orders, totalOrders } = loaded;
   const profile = user.customerProfile;
-  const orders = profile
-    ? await prisma.order.findMany({
-        where: { storeId, customerId: profile.id },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          orderNumber: true,
-          total: true,
-          createdAt: true,
-          status: true,
-          fulfillmentStatus: true,
-        },
-      })
-    : [];
-
-  const totalOrders = profile
-    ? await prisma.order.count({ where: { storeId, customerId: profile.id } })
-    : 0;
-
   const lastOrder = orders[0] ?? null;
 
   const initial = (user.name?.trim().charAt(0) || user.email?.charAt(0) || "?").toUpperCase();

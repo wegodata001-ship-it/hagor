@@ -243,6 +243,7 @@ export async function POST(req: Request) {
     orderNumber,
     customerEmail: body.customerEmail,
     customerName: body.customerName,
+    customerPhone: body.customerPhone,
     total,
     currency,
   }).catch(() => {});

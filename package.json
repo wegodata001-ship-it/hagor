@@ -1,5 +1,5 @@
 {
-  "name": "basewithdate-onlineshop",
+  "name": "hagor-by-wael",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "db:seed": "tsx prisma/seed.ts",
+    "db:sync-admin-password": "tsx scripts/sync-admin-password.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

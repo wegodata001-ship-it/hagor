@@ -1,20 +1,18 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { AssetImg } from "@/components/asset-img";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
+import { ProductImagesSection } from "@/components/admin/product-images-section";
 import { useAdminI18n } from "@/lib/admin-i18n";
+import type { GalleryDisplayConfig } from "@/lib/product-gallery-display";
 import { uploadAdminAsset } from "@/lib/admin-upload-client";
 import {
   addProductImage,
   deleteAllStoreProducts,
   deleteProduct,
-  deleteProductImage,
-  reorderProductImage,
-  setMainProductImage,
   upsertProduct,
 } from "@/app/admin/actions";
 import { AdminBulkDeleteModal } from "@/components/admin/admin-bulk-delete-modal";
@@ -71,10 +69,12 @@ function SuccessBar({ message, onDismiss }: { message: string; onDismiss: () => 
 export function ProductsAdminClient({
   products,
   categories,
+  galleryDisplay,
   initialOpenAdd,
 }: {
   products: ProductRow[];
   categories: CategoryOpt[];
+  galleryDisplay: GalleryDisplayConfig;
   initialOpenAdd?: boolean;
 }) {
   const router = useRouter();
@@ -99,7 +99,7 @@ export function ProductsAdminClient({
     startTransition(() => router.refresh());
   }, [router]);
 
-  const handleUpsert = async (form: FormData, files: FileList | null, editing: ProductRow | null) => {
+  const handleUpsert = async (form: FormData, files: File[] | null, editing: ProductRow | null) => {
     const res = await upsertProduct(form);
     if (!res.ok) {
       setToast(res.error);
@@ -107,7 +107,7 @@ export function ProductsAdminClient({
     }
     const pid = res.data.productId;
 
-    if (files && files.length > 0 && pid) {
+    if (files?.length && pid) {
       const hadImages = (editing?.images.length ?? 0) > 0;
       let order = editing?.images.length ?? 0;
       for (let i = 0; i < files.length; i++) {
@@ -284,6 +284,7 @@ export function ProductsAdminClient({
         <ProductForm
           categories={categories}
           allProducts={products}
+          galleryDisplay={galleryDisplay}
           onSubmit={(fd, files) => handleUpsert(fd, files, null)}
           onCancel={() => setAddOpen(false)}
         />
@@ -299,6 +300,7 @@ export function ProductsAdminClient({
           <ProductForm
             categories={categories}
             allProducts={products}
+            galleryDisplay={galleryDisplay}
             product={editProduct}
             onSubmit={(fd, files) => handleUpsert(fd, files, editProduct)}
             onCancel={() => setEditProduct(null)}
@@ -339,6 +341,7 @@ export function ProductsAdminClient({
 function ProductForm({
   categories,
   allProducts,
+  galleryDisplay,
   product,
   onSubmit,
   onCancel,
@@ -346,8 +349,9 @@ function ProductForm({
 }: {
   categories: CategoryOpt[];
   allProducts: ProductRow[];
+  galleryDisplay: GalleryDisplayConfig;
   product?: ProductRow;
-  onSubmit: (fd: FormData, files: FileList | null) => Promise<void>;
+  onSubmit: (fd: FormData, files: File[] | null) => Promise<void>;
   onCancel: () => void;
   onRefresh?: () => void;
 }) {
@@ -395,16 +399,6 @@ function ProductForm({
   const [relatedModalOpen, setRelatedModalOpen] = useState(false);
   const [relatedQuery, setRelatedQuery] = useState("");
   const { t } = useAdminI18n();
-  const previews = useMemo(
-    () => selectedFiles.map((f) => ({ name: f.name, url: URL.createObjectURL(f) })),
-    [selectedFiles],
-  );
-
-  useEffect(() => {
-    return () => {
-      for (const p of previews) URL.revokeObjectURL(p.url);
-    };
-  }, [previews]);
 
   async function internalSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -416,7 +410,7 @@ function ProductForm({
     if (!sku && !product) {
       fd.set("sku", `SKU-${Date.now()}`);
     }
-    const files = (form.elements.namedItem("images") as HTMLInputElement)?.files;
+    const files = selectedFiles.length > 0 ? selectedFiles : null;
     fd.set("variantGroups", JSON.stringify(variantGroups));
     fd.set(
       "relatedProducts",
@@ -567,104 +561,14 @@ function ProductForm({
         <input type="checkbox" name="featured" defaultChecked={product?.featured ?? false} value="on" />
         {t("productFeatured")}
       </label>
-      <label className="text-xs font-medium text-slate-700">
-        {t("productImagesLabel")}
-        <input
-          name="images"
-          type="file"
-          accept="image/*"
-          multiple
-          className="mt-1 text-sm"
-          onChange={(e) => setSelectedFiles(Array.from(e.currentTarget.files ?? []))}
-        />
-      </label>
-      {selectedFiles.length > 0 && (
-        <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-          <div className="text-xs font-medium text-orange-800">תצוגה מקדימה לפני שמירה</div>
-          <ul className="mt-2 flex flex-wrap gap-3">
-            {previews.map((p) => (
-              <li key={p.url} className="w-20">
-                <Image
-                  src={p.url}
-                  alt={p.name}
-                  width={80}
-                  height={80}
-                  className="h-20 w-20 rounded border object-cover"
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      {product && product.images.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="text-xs font-medium text-slate-700">{t("existingImages")}</div>
-          <ul className="mt-2 flex flex-wrap gap-3">
-            {[...product.images].sort((a, b) => a.sortOrder - b.sortOrder).map((im) => (
-              <li key={im.id} className="relative w-20">
-                <AssetImg path={im.url} alt="" className="h-20 w-20 rounded border object-cover" />
-                <div className="mt-1 flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    className="text-[10px] text-slate-600"
-                    onClick={async () => {
-                      const fd = new FormData();
-                      fd.append("imageId", im.id);
-                      fd.append("direction", "up");
-                      await reorderProductImage(fd);
-                      onRefresh?.();
-                    }}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="text-[10px] text-slate-600"
-                    onClick={async () => {
-                      const fd = new FormData();
-                      fd.append("imageId", im.id);
-                      fd.append("direction", "down");
-                      await reorderProductImage(fd);
-                      onRefresh?.();
-                    }}
-                  >
-                    ↓
-                  </button>
-                  {!im.isMain && (
-                    <button
-                      type="button"
-                      className="text-[10px] text-blue-600"
-                      onClick={async () => {
-                        const fd = new FormData();
-                        fd.append("productId", product.id);
-                        fd.append("imageId", im.id);
-                        await setMainProductImage(fd);
-                        onRefresh?.();
-                      }}
-                    >
-                      {t("main")}
-                    </button>
-                  )}
-                  {im.isMain && <span className="text-[10px] text-emerald-700">{t("main")}</span>}
-                  <button
-                    type="button"
-                    className="text-[10px] text-red-600"
-                    onClick={async () => {
-                      const fd = new FormData();
-                      fd.append("imageId", im.id);
-                      await deleteProductImage(fd);
-                      onRefresh?.();
-                    }}
-                  >
-                    {t("deleteShort")}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ProductImagesSection
+        product={product ? { id: product.id, images: product.images } : null}
+        galleryDisplay={galleryDisplay}
+        selectedFiles={selectedFiles}
+        setSelectedFiles={setSelectedFiles}
+        onRefresh={onRefresh}
+      />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">

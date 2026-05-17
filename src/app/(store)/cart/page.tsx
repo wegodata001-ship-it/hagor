@@ -54,7 +54,7 @@ export default function CartPage() {
       {!loading && items.length === 0 && (
         <p className="mt-6 text-zinc-400">
           {t("emptyCart")}{" "}
-          <Link href="/products" className="text-orange-400 hover:underline">
+          <Link href="/products" className="text-hagor-gold hover:underline">
             לקטלוג
           </Link>
         </p>
@@ -111,7 +111,7 @@ export default function CartPage() {
           </span>
           <Link
             href="/checkout"
-            className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3 font-medium text-white"
+            className="rounded-xl bg-gradient-to-r from-hagor-gold to-amber-700 px-6 py-3 font-medium text-white"
           >
             {t("checkout")}
           </Link>

@@ -12,20 +12,24 @@ const getPublicEnv = (key: string, fallback: string) => {
   return trimmed.length > 0 ? trimmed : fallback;
 };
 
-export const STORE_ID = getPublicEnv("NEXT_PUBLIC_STORE_ID", "desigma");
+export const STORE_ID = getPublicEnv("NEXT_PUBLIC_STORE_ID", "hagor");
 export const STORE_SLUG = getPublicEnv("NEXT_PUBLIC_STORE_SLUG", STORE_ID);
 
 const ASSETS_FOLDER_RAW = getPublicEnv("NEXT_PUBLIC_ASSETS_FOLDER", STORE_SLUG);
 /** Normalized folder segment for Supabase paths (no leading/trailing slashes). */
 export const ASSETS_FOLDER = ASSETS_FOLDER_RAW.replace(/^\/+|\/+$/g, "");
 
-export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "DESIGMA");
+export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "HAGOR BY WAEL");
+export const STORE_PHONE = getPublicEnv("NEXT_PUBLIC_STORE_PHONE", "");
+export const WHATSAPP_PHONE = getPublicEnv("NEXT_PUBLIC_WHATSAPP_PHONE", "");
 
 export const storeIdentity = {
   storeId: STORE_ID,
   storeSlug: STORE_SLUG,
   assetsFolder: ASSETS_FOLDER,
   siteName: SITE_NAME,
+  storePhone: STORE_PHONE,
+  whatsappPhone: WHATSAPP_PHONE,
 };
 
 /** @deprecated prefer STORE_ID */

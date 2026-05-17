@@ -12,7 +12,7 @@ export function LanguageSwitcher() {
           type="button"
           onClick={() => setLang(l)}
           className={`px-2 py-1 transition ${
-            lang === l ? "bg-orange-500 text-white" : "text-zinc-300 hover:bg-zinc-800"
+            lang === l ? "bg-hagor-gold text-white" : "text-zinc-300 hover:bg-zinc-800"
           }`}
         >
           {l.toUpperCase()}

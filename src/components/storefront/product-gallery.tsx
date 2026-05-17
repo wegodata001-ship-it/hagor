@@ -71,7 +71,7 @@ export function ProductGallery({
               key={img.id}
               onClick={() => setSelected(idx)}
               className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border ${
-                idx === selected ? "border-orange-500" : "border-zinc-800"
+                idx === selected ? "border-hagor-gold" : "border-zinc-800"
               }`}
             >
               <AssetImg path={img.url} alt={title} className="h-full w-full object-cover" />

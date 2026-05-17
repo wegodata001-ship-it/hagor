@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { getSession } from "@/lib/auth/session";
+import { getCachedSession } from "@/lib/auth/cached-session";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
+  const session = await getCachedSession();
   if (!session) {
     redirect("/login");
   }
@@ -17,16 +18,22 @@ export default async function AccountLayout({ children }: { children: React.Reac
   }
 
   const storeId = STORE_ID;
-  const user = await prisma.user.findFirst({
-    where: { id: session.userId, storeId },
-    select: {
-      name: true,
-      email: true,
-      emailVerified: true,
-    },
-  });
+  const user = await safeQuery(
+    "account.layout.user",
+    () =>
+      prisma.user.findFirst({
+        where: { id: session.userId, storeId },
+        select: {
+          name: true,
+          email: true,
+          emailVerified: true,
+        },
+      }),
+    null,
+    { timeoutMs: 12_000 },
+  );
 
-  const showVerifyBanner = user && !user.emailVerified;
+  const showVerifyBanner = !!(user && !user.emailVerified);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">

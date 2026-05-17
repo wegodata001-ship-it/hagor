@@ -1,12 +1,26 @@
+import { compressImageForUpload } from "@/lib/image-compress-client";
+
 export type UploadKind = "products" | "categories" | "banners" | "logo";
 
 export async function uploadAdminAsset(
   file: File,
   kind: UploadKind,
-  options?: { entityId?: string; originalName?: string },
+  options?: { entityId?: string; originalName?: string; compress?: boolean },
 ): Promise<string> {
+  let uploadFile = file;
+  if (options?.compress !== false && kind !== "logo") {
+    try {
+      uploadFile = await compressImageForUpload(file);
+    } catch (e) {
+      if (e instanceof Error && e.message === "FILE_TOO_LARGE") {
+        throw new Error("Image exceeds maximum size — choose a smaller file.");
+      }
+      uploadFile = file;
+    }
+  }
+
   const fd = new FormData();
-  fd.append("file", file);
+  fd.append("file", uploadFile);
   fd.append("kind", kind);
   if (options?.entityId) fd.append("entityId", options.entityId);
   if (options?.originalName) fd.append("originalName", options.originalName);

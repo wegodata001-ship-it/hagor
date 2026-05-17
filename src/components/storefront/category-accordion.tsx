@@ -50,12 +50,15 @@ export function CategoryAccordion({
   onNavigate,
   hrefForId,
   className,
+  variant = "light",
 }: {
   categories: CategoryAccordionItem[];
   selectedId?: string;
   onNavigate?: () => void;
   hrefForId?: (id: string) => string;
   className?: string;
+  /** Dark zinc styling for drawer / store sidebar (default is light cards). */
+  variant?: "light" | "dark";
 }) {
   const { lang, dir } = useStoreI18n();
   const tree = useMemo(() => buildTree(categories), [categories]);
@@ -75,12 +78,18 @@ export function CategoryAccordion({
   });
 
   const rowBase =
-    "group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm transition select-none";
+    "group flex w-full items-center justify-between gap-3 rounded-xl border text-sm transition select-none motion-safe:active:scale-[0.99]";
 
   const Arrow = ({ open }: { open: boolean }) => (
     <span
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border text-zinc-400 transition ${
-        open ? "rotate-90 border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-white group-hover:border-slate-300"
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition ${
+        variant === "dark"
+          ? open
+            ? "rotate-90 border-orange-400/45 bg-hagor-gold/15 text-hagor-gold/80"
+            : "border-zinc-600 bg-zinc-950 text-zinc-400 group-hover:border-zinc-500"
+          : open
+            ? "rotate-90 border-blue-300 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-white text-zinc-400 group-hover:border-slate-300"
       }`}
       aria-hidden="true"
     >
@@ -97,11 +106,25 @@ export function CategoryAccordion({
     const label = pickLocalized(n, "name", lang);
     const indent = level * 14;
 
-    const commonRowClass = `${rowBase} ${
-      open
-        ? "border-blue-200 bg-blue-50/70 text-slate-900 shadow-sm"
-        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-    } ${active ? "ring-2 ring-blue-200" : ""}`;
+    const padLevel =
+      variant === "dark"
+        ? `min-h-[44px] px-3 ${level > 0 ? "py-3 text-[15px] leading-snug" : "py-2.5 text-sm"}`
+        : "px-3 py-2.5";
+
+    const commonRowClass =
+      `${rowBase} ${padLevel} ` +
+      (variant === "dark"
+        ? open
+          ? "border-hagor-gold/40 bg-zinc-800/75 text-white shadow-sm"
+          : "border-zinc-700/85 bg-zinc-900/55 text-zinc-100 hover:border-zinc-600 hover:bg-zinc-800/90"
+        : open
+          ? "border-blue-200 bg-blue-50/70 text-slate-900 shadow-sm"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50") +
+      (active && variant === "dark"
+        ? " !border-blue-500 !bg-blue-600 !text-white shadow-md shadow-blue-950/30 ring-0"
+        : active
+          ? " ring-2 ring-blue-200"
+          : "");
 
     return (
       <div key={n.id} style={dir === "rtl" ? { paddingRight: indent } : { paddingLeft: indent }}>
@@ -118,12 +141,18 @@ export function CategoryAccordion({
               }
               aria-expanded={open}
             >
-              <span className={`truncate ${open ? "font-semibold text-slate-900" : ""}`}>{label}</span>
+              <span
+                className={`truncate ${
+                  open ? (variant === "dark" ? "font-semibold text-white" : "font-semibold text-slate-900") : ""
+                }`}
+              >
+                {label}
+              </span>
               <Arrow open={open} />
             </button>
 
             {open ? (
-              <div className="mt-1 space-y-1">
+              <div className={variant === "dark" ? "mt-2 space-y-2" : "mt-1 space-y-1"}>
                 {n.children.map((ch) => renderNode(ch, level + 1, n.id))}
               </div>
             ) : null}
@@ -134,8 +163,12 @@ export function CategoryAccordion({
             onClick={onNavigate}
             className={commonRowClass}
           >
-            <span className={`truncate ${active ? "font-semibold text-slate-900" : ""}`}>{label}</span>
-            <span className="text-slate-300">↩</span>
+            <span
+              className={`truncate ${active ? (variant === "dark" ? "font-semibold text-white" : "font-semibold text-slate-900") : ""}`}
+            >
+              {label}
+            </span>
+            <span className={variant === "dark" ? "text-zinc-500" : "text-slate-300"}>↩</span>
           </Link>
         )}
       </div>

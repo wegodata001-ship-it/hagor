@@ -42,8 +42,8 @@ export function MobileMenu({
           >
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-400/85">
-                  DESIGMA
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-hagor-gold/85">
+                  HAGOR BY WAEL
                 </div>
                 <div className="text-lg font-bold">{t("categories")}</div>
               </div>
@@ -59,6 +59,7 @@ export function MobileMenu({
 
             <div className="mt-4">
               <CategoryAccordion
+                variant="dark"
                 categories={categories}
                 onNavigate={onClose}
                 className="space-y-2"
@@ -79,7 +80,7 @@ export function MobileMenu({
                   <Link
                     href="/register"
                     onClick={onClose}
-                    className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-orange-900/25 active:scale-[0.98]"
+                    className="rounded-xl bg-gradient-to-r from-hagor-gold to-amber-700 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-black/25 active:scale-[0.98]"
                   >
                     הרשמה
                   </Link>
@@ -97,7 +98,7 @@ export function MobileMenu({
                     <Link
                       href="/admin"
                       onClick={onClose}
-                      className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-orange-900/25 active:scale-[0.98]"
+                      className="rounded-xl bg-gradient-to-r from-hagor-gold to-amber-700 px-3 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg shadow-black/25 active:scale-[0.98]"
                     >
                       Admin
                     </Link>

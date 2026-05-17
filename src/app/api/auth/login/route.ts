@@ -3,7 +3,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
-import { signSession, setSessionCookie } from "@/lib/auth/session";
+import { applySessionCookieToResponse, signSession } from "@/lib/auth/session";
+import { isAuthDebugLogsEnabled, SESSION_COOKIE_NAME } from "@/lib/auth/cookie-constants";
 import { clientIpFromRequest, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -84,11 +85,25 @@ export async function POST(req: Request) {
       },
       { expiresIn },
     );
-    await setSessionCookie(token, { maxAgeSec });
+    const res = NextResponse.json({ ok: true, role: user.role });
+    applySessionCookieToResponse(res, token, { maxAgeSec });
+    if (isAuthDebugLogsEnabled()) {
+      const setCookie = res.headers.get("set-cookie");
+      console.log(
+        JSON.stringify({
+          scope: "auth",
+          message: "login_success_cookie_attached",
+          userId: user.id,
+          role: user.role,
+          cookieName: SESSION_COOKIE_NAME,
+          hasSetCookieHeader: !!setCookie,
+          setCookiePreview: setCookie ? setCookie.split(";").slice(0, 5).join(";") : null,
+        }),
+      );
+    }
+    return res;
   } catch (e) {
     console.error("login: session cookie error", e);
     return NextResponse.json({ error: "המערכת לא מוגדרת כראוי. צרו קשר עם התמיכה." }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, role: user.role });
 }

@@ -1,30 +1,39 @@
 import { LoyaltyRedeemClient } from "@/components/loyalty-redeem-client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth/session";
+import { getCachedSession } from "@/lib/auth/cached-session";
 import { STORE_ID } from "@/lib/store";
 import { pickLocalized } from "@/lib/localized";
 import { redirect } from "next/navigation";
+import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoyaltyPage() {
-  const session = await getSession();
+  const session = await getCachedSession();
   if (!session) redirect("/login");
   const storeId = STORE_ID;
 
-  const [profile, rewards, termsUser] = await Promise.all([
-    prisma.customerProfile.findFirst({
-      where: { userId: session.userId, storeId },
-    }),
-    prisma.loyaltyReward.findMany({
-      where: { storeId, active: true },
-      orderBy: { requiredPoints: "asc" },
-    }),
-    prisma.user.findFirst({
-      where: { id: session.userId, storeId },
-      select: { acceptedTermsAt: true, emailVerified: true },
-    }),
-  ]);
+  const { profile, rewards, termsUser } = await safeQuery(
+    "account.loyalty",
+    async () => {
+      const [profileRow, rewardRows, termsRow] = await Promise.all([
+        prisma.customerProfile.findFirst({
+          where: { userId: session.userId, storeId },
+        }),
+        prisma.loyaltyReward.findMany({
+          where: { storeId, active: true },
+          orderBy: { requiredPoints: "asc" },
+        }),
+        prisma.user.findFirst({
+          where: { id: session.userId, storeId },
+          select: { acceptedTermsAt: true, emailVerified: true },
+        }),
+      ]);
+      return { profile: profileRow, rewards: rewardRows, termsUser: termsRow };
+    },
+    { profile: null, rewards: [], termsUser: null },
+    { timeoutMs: 20_000 },
+  );
 
   const locale = "he" as const;
   const needsTerms = !termsUser?.acceptedTermsAt;
