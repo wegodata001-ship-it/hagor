@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthEnvError } from "@/lib/auth/env-check";
 import { STORE_ID } from "@/lib/store";
+import { loadAdminCatalogStats } from "@/lib/server/admin-catalog-load";
 
 export const runtime = "nodejs";
 
@@ -17,10 +18,12 @@ export async function GET() {
   };
 
   let database: "ok" | "fail" = "fail";
+  let catalog: Awaited<ReturnType<typeof loadAdminCatalogStats>> | null = null;
   if (!envError) {
     try {
       await prisma.$queryRaw`SELECT 1`;
       database = "ok";
+      catalog = await loadAdminCatalogStats(STORE_ID);
     } catch (e) {
       console.error("health: database ping failed", e);
       database = "fail";
@@ -38,6 +41,7 @@ export async function GET() {
       storeId: STORE_ID,
       nodeEnv: process.env.NODE_ENV ?? "unknown",
       checks: { ...checks, database },
+      catalog,
       hint: ok
         ? null
         : "העתיקו את כל משתני הסביבה מ-.env ל-Vercel → Settings → Environment Variables, ואז Deploy מחדש.",

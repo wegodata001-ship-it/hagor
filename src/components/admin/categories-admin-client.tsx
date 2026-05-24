@@ -12,6 +12,7 @@ import { CategoryTreeTable } from "@/components/admin/category-tree-table";
 import { hagourCategoryKeyFromId } from "@/lib/hagour-catalog";
 import { resolveCategoryBackgroundImage } from "@/lib/category-images";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
+import { AdminQueryAlert } from "@/components/admin/admin-query-alert";
 
 export type CategoryRow = {
   id: string;
@@ -28,7 +29,15 @@ export type CategoryRow = {
   optionProfile: string | null;
 };
 
-export function CategoriesAdminClient({ categories }: { categories: CategoryRow[] }) {
+export function CategoriesAdminClient({
+  categories,
+  loadError = null,
+  loadHint = null,
+}: {
+  categories: CategoryRow[];
+  loadError?: string | null;
+  loadHint?: string | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -66,6 +75,7 @@ export function CategoriesAdminClient({ categories }: { categories: CategoryRow[
 
   return (
     <div>
+      <AdminQueryAlert error={loadError} hint={loadHint} />
       {toast && (
         <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm">{toast}</div>
       )}

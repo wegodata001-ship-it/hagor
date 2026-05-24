@@ -1,13 +1,19 @@
 import { getStoreId } from "@/lib/store-config";
 import { requireAdminSession } from "@/lib/admin-auth";
-import type { ProductRow } from "@/components/admin/products-admin-client";
 import { ProductsAdminClient } from "@/components/admin/products-admin-client";
+import type { ProductRow } from "@/components/admin/products-admin-client";
 import {
   normalizeGalleryPreset,
   type GalleryDisplayConfig,
 } from "@/lib/product-gallery-display";
 import { prisma } from "@/lib/prisma";
 import { safeQuery } from "@/lib/server/safe-query";
+import {
+  formatAdminQueryError,
+  loadAdminCatalogStats,
+  loadAdminProductCategories,
+  storeIdMismatchHint,
+} from "@/lib/server/admin-catalog-load";
 
 export const dynamic = "force-dynamic";
 
@@ -81,79 +87,16 @@ const productListSelect = {
   },
 } as const;
 
-export default async function AdminProductsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ add?: string }>;
-}) {
-  await requireAdminSession();
-  const storeId = getStoreId();
-  const sp = (await searchParams) ?? {};
+async function loadProductsForAdmin(storeId: string): Promise<{ data: ProductRow[]; error: string | null }> {
+  try {
+    const products = await prisma.product.findMany({
+      where: { storeId },
+      orderBy: { updatedAt: "desc" },
+      select: productListSelect,
+    });
 
-  const cats = await safeQuery(
-    "admin.products.categories",
-    async () => {
-      const categories = await prisma.category.findMany({
-        where: { storeId },
-        orderBy: { sortOrder: "asc" },
-        select: { id: true, parentId: true, name_he: true, sortOrder: true },
-      });
-
-      const byId = new Map(categories.map((c) => [c.id, c] as const));
-      return categories
-        .slice()
-        .sort((a, b) => {
-          const aParent = a.parentId ? byId.get(a.parentId) : a;
-          const bParent = b.parentId ? byId.get(b.parentId) : b;
-          const aKey = aParent?.sortOrder ?? a.sortOrder;
-          const bKey = bParent?.sortOrder ?? b.sortOrder;
-          if (aKey !== bKey) return aKey - bKey;
-          if (!a.parentId && b.parentId) return -1;
-          if (a.parentId && !b.parentId) return 1;
-          return a.sortOrder - b.sortOrder;
-        })
-        .map((c) => {
-          if (!c.parentId) return { id: c.id, label: c.name_he };
-          const parent = byId.get(c.parentId);
-          const parentName = parent?.name_he ?? "קטגוריה";
-          return { id: c.id, label: `${parentName} > ${c.name_he}` };
-        });
-    },
-    [] as { id: string; label: string }[],
-    { timeoutMs: 12_000 },
-  );
-
-  const galleryDisplay = await safeQuery(
-    "admin.products.gallery_settings",
-    async () => {
-      const storeSettings = await prisma.storeSettings.findUnique({
-        where: { storeId },
-        select: {
-          productGalleryPreset: true,
-          productGalleryMaxHeightPx: true,
-          productGalleryMaxWidthPx: true,
-        },
-      });
-      return {
-        preset: normalizeGalleryPreset(storeSettings?.productGalleryPreset),
-        maxHeightPx: storeSettings?.productGalleryMaxHeightPx ?? null,
-        maxWidthPx: storeSettings?.productGalleryMaxWidthPx ?? null,
-      } satisfies GalleryDisplayConfig;
-    },
-    DEFAULT_GALLERY,
-    { timeoutMs: 8_000 },
-  );
-
-  const serialized = await safeQuery(
-    "admin.products.list",
-    async () => {
-      const products = await prisma.product.findMany({
-        where: { storeId },
-        orderBy: { updatedAt: "desc" },
-        select: productListSelect,
-      });
-
-      return products.map((p) => ({
+    return {
+      data: products.map((p) => ({
         id: p.id,
         sku: p.sku,
         name_he: p.name_he,
@@ -200,18 +143,67 @@ export default async function AdminProductsPage({
           image: rp.relatedProduct.images[0]?.url ?? null,
           sortOrder: rp.sortOrder,
         })),
-      })) as ProductRow[];
-    },
-    [] as ProductRow[],
-    { timeoutMs: 35_000, slowThresholdMs: 12_000 },
-  );
+      })) as ProductRow[],
+      error: null,
+    };
+  } catch (err) {
+    console.error("admin.products.list: load failed", err);
+    return { data: [], error: formatAdminQueryError("מוצרים", err) };
+  }
+}
+
+export default async function AdminProductsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ add?: string }>;
+}) {
+  await requireAdminSession();
+  const storeId = getStoreId();
+  const sp = (await searchParams) ?? {};
+
+  const [catsResult, galleryDisplay, productsResult, stats] = await Promise.all([
+    loadAdminProductCategories(storeId),
+    safeQuery(
+      "admin.products.gallery_settings",
+      async () => {
+        const storeSettings = await prisma.storeSettings.findUnique({
+          where: { storeId },
+          select: {
+            productGalleryPreset: true,
+            productGalleryMaxHeightPx: true,
+            productGalleryMaxWidthPx: true,
+          },
+        });
+        return {
+          preset: normalizeGalleryPreset(storeSettings?.productGalleryPreset),
+          maxHeightPx: storeSettings?.productGalleryMaxHeightPx ?? null,
+          maxWidthPx: storeSettings?.productGalleryMaxWidthPx ?? null,
+        } satisfies GalleryDisplayConfig;
+      },
+      DEFAULT_GALLERY,
+      { timeoutMs: 8_000 },
+    ),
+    loadProductsForAdmin(storeId),
+    loadAdminCatalogStats(storeId).catch(() => null),
+  ]);
+
+  const loadError = [catsResult.error, productsResult.error].filter(Boolean).join(" · ") || null;
+  const hint =
+    stats && productsResult.data.length === 0 && catsResult.data.length === 0
+      ? storeIdMismatchHint(stats) ??
+        (stats.totalProducts > 0
+          ? `storeId פעיל: "${storeId}" — ${stats.productsForStore} מוצרים לחנות זו, ${stats.totalProducts} בסך הכל במסד.`
+          : null)
+      : null;
 
   return (
     <ProductsAdminClient
-      products={serialized}
-      categories={cats}
+      products={productsResult.data}
+      categories={catsResult.data}
       galleryDisplay={galleryDisplay}
       initialOpenAdd={sp.add === "1"}
+      loadError={loadError}
+      loadHint={hint}
     />
   );
 }

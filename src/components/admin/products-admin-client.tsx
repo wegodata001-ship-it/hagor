@@ -16,6 +16,7 @@ import {
   upsertProduct,
 } from "@/app/admin/actions";
 import { AdminBulkDeleteModal } from "@/components/admin/admin-bulk-delete-modal";
+import { AdminQueryAlert } from "@/components/admin/admin-query-alert";
 
 type Img = { id: string; url: string; isMain: boolean; sortOrder: number };
 type VariantOption = {
@@ -71,11 +72,15 @@ export function ProductsAdminClient({
   categories,
   galleryDisplay,
   initialOpenAdd,
+  loadError = null,
+  loadHint = null,
 }: {
   products: ProductRow[];
   categories: CategoryOpt[];
   galleryDisplay: GalleryDisplayConfig;
   initialOpenAdd?: boolean;
+  loadError?: string | null;
+  loadHint?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -148,6 +153,7 @@ export function ProductsAdminClient({
 
   return (
     <div>
+      <AdminQueryAlert error={loadError} hint={loadHint} />
       {toast && (
         <SuccessBar message={toast === "error" ? "שגיאה" : toast} onDismiss={() => setToast(null)} />
       )}

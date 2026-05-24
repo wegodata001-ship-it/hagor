@@ -1,41 +1,28 @@
-import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
 import { requireAdminSession } from "@/lib/admin-auth";
-import type { CategoryRow } from "@/components/admin/categories-admin-client";
 import { CategoriesAdminClient } from "@/components/admin/categories-admin-client";
-import { safeQuery } from "@/lib/server/safe-query";
+import {
+  loadAdminCatalogStats,
+  loadAdminCategories,
+  storeIdMismatchHint,
+} from "@/lib/server/admin-catalog-load";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCategoriesPage() {
   await requireAdminSession();
   const storeId = getStoreId();
-  const serialized: CategoryRow[] = await safeQuery(
-    "admin.categories",
-    async () => {
-      const categories = await prisma.category.findMany({
-        where: { storeId },
-        orderBy: { sortOrder: "asc" },
-      });
+  const [{ data: serialized, error }, stats] = await Promise.all([
+    loadAdminCategories(storeId),
+    loadAdminCatalogStats(storeId).catch(() => null),
+  ]);
+  const hint =
+    stats && serialized.length === 0
+      ? storeIdMismatchHint(stats) ??
+        (stats.totalCategories > 0
+          ? `storeId פעיל: "${storeId}" — ${stats.categoriesForStore} קטגוריות לחנות זו, ${stats.totalCategories} בסך הכל במסד.`
+          : null)
+      : null;
 
-      return categories.map((c) => ({
-        id: c.id,
-        parentId: c.parentId,
-        name_he: c.name_he,
-        name_ar: c.name_ar,
-        name_en: c.name_en,
-        description_he: c.description_he,
-        description_ar: c.description_ar,
-        description_en: c.description_en,
-        imageUrl: c.imageUrl,
-        active: c.active,
-        sortOrder: c.sortOrder,
-        optionProfile: c.optionProfile,
-      }));
-    },
-    [],
-    { timeoutMs: 25_000 },
-  );
-
-  return <CategoriesAdminClient categories={serialized} />;
+  return <CategoriesAdminClient categories={serialized} loadError={error} loadHint={hint} />;
 }
