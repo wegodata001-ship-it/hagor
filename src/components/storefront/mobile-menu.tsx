@@ -4,7 +4,9 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import type { UserRole } from "@prisma/client";
-import { CategoryAccordion } from "@/components/storefront/category-accordion";
+import { pickLocalized } from "@/lib/localized";
+import { BRAND_DISPLAY } from "@/lib/hero";
+import { HagourNavIcon } from "@/components/storefront/hagour-icon";
 
 type Category = { id: string; parentId: string | null; name_he: string; name_ar: string; name_en: string };
 
@@ -21,7 +23,18 @@ export function MobileMenu({
   isLoggedIn: boolean;
   role: UserRole | null;
 }) {
-  const { t } = useStoreI18n();
+  const { t, lang } = useStoreI18n();
+
+  const links = [
+    { href: "/", label: t("navHome") },
+    ...categories.map((c) => ({
+      href: `/products?cat=${encodeURIComponent(c.id)}`,
+      label: pickLocalized(c, "name", lang),
+    })),
+    { href: "/#about", label: t("navAbout") },
+    { href: "/#contact", label: t("heroContact") },
+  ];
+
   return (
     <AnimatePresence>
       {open ? (
@@ -42,10 +55,8 @@ export function MobileMenu({
           >
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-hagor-gold/85">
-                  HAGOR BY WAEL
-                </div>
-                <div className="text-lg font-bold">{t("categories")}</div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-hagor-gold/85">{BRAND_DISPLAY}</p>
+                <p className="text-lg font-bold">{t("categories")}</p>
               </div>
               <button
                 type="button"
@@ -53,19 +64,22 @@ export function MobileMenu({
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/40 text-zinc-100 active:scale-[0.98]"
                 aria-label="close"
               >
-                ✕
+                <HagourNavIcon name="close" />
               </button>
             </div>
 
-            <div className="mt-4">
-              <CategoryAccordion
-                variant="dark"
-                categories={categories}
-                onNavigate={onClose}
-                className="space-y-2"
-                hrefForId={(id) => `/products?cat=${encodeURIComponent(id)}`}
-              />
-            </div>
+            <nav className="mt-4 space-y-1">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={onClose}
+                  className="block rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-3 text-sm font-medium text-zinc-100 hover:border-hagor-gold/40 hover:text-hagor-gold"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               {!isLoggedIn ? (

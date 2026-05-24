@@ -204,7 +204,7 @@ async function main() {
     update: { active: true, type: CouponType.PERCENT, value: 10 },
   });
 
-  await seedStorePreset(prisma, STORE_ID, "tactical");
+  await seedStorePreset(prisma, STORE_ID, "hagour");
 
   console.log("HAGOR BY WAEL seed OK - owner:", owner.email);
 }

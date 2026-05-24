@@ -8,6 +8,7 @@ import { StoreHeader } from "@/components/storefront/store-header";
 import { safeQuery } from "@/lib/server/safe-query";
 import { logServerComponentError } from "@/lib/runtime-log/server";
 import { getRequestPath } from "@/lib/server/request-path";
+import { filterHagourCategories, hagourCategoryIds } from "@/lib/hagour-catalog";
 
 export async function SiteHeader() {
   const title = getSiteName();
@@ -30,7 +31,7 @@ export async function SiteHeader() {
       "site_header.categories",
       () =>
         prisma.category.findMany({
-          where: { storeId, active: true },
+          where: { storeId, active: true, id: { in: hagourCategoryIds(storeId) } },
           orderBy: { sortOrder: "asc" },
           select: { id: true, parentId: true, name_he: true, name_ar: true, name_en: true },
         }),
@@ -60,7 +61,7 @@ export async function SiteHeader() {
   return (
     <StoreHeader
       title={title}
-      categories={categories}
+      categories={filterHagourCategories(categories)}
       isLoggedIn={isLoggedIn}
       role={role}
       storePhone={contact.storePhone}

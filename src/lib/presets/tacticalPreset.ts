@@ -176,7 +176,7 @@ export async function seedTacticalPreset(prisma: PrismaClient, storeId: string):
       subtitle_he: "ציוד טקטי מקצועי לשטח, אימון ומשימה",
       subtitle_ar: "معدات تكتيكية احترافية للميدان والتدريب",
       subtitle_en: "Professional tactical gear for field and mission",
-      imageUrl: "/hero.png",
+      imageUrl: "/hagorpgoto.png",
     },
     {
       id: `${storeId}-banner-protection`,

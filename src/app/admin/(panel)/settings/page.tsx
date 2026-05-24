@@ -47,6 +47,7 @@ export default async function AdminSettingsPage() {
           heroSubtitle_he: true,
           heroSubtitle_ar: true,
           heroSubtitle_en: true,
+          heroImageUrl: true,
         },
       });
       if (!settings) {
@@ -81,6 +82,7 @@ export default async function AdminSettingsPage() {
             heroSubtitle_he: true,
             heroSubtitle_ar: true,
             heroSubtitle_en: true,
+            heroImageUrl: true,
           },
         });
       }
@@ -136,6 +138,7 @@ export default async function AdminSettingsPage() {
         heroSubtitle_he: settings.heroSubtitle_he,
         heroSubtitle_ar: settings.heroSubtitle_ar,
         heroSubtitle_en: settings.heroSubtitle_en,
+        heroImageUrl: settings.heroImageUrl,
       }}
     />
   );

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-label="Weapon holsters">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141614"/>
+      <stop offset="50%" stop-color="#242a18"/>
+      <stop offset="100%" stop-color="#0b0b0b"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c89211"/>
+      <stop offset="100%" stop-color="#6b4a0a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="420" fill="url(#bg)"/>
+  <path d="M520 70 H560 V350 H500 L470 310 V110 Z" fill="url(#gold)" opacity="0.88"/>
+  <rect x="250" y="155" width="220" height="38" rx="6" fill="url(#gold)" opacity="0.75"/>
+  <rect x="250" y="200" width="180" height="28" rx="5" fill="#2a2a2a" opacity="0.8"/>
+  <circle cx="290" cy="174" r="14" fill="#1a1a1a" stroke="#c89211" stroke-width="3"/>
+</svg>

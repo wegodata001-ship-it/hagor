@@ -1,14 +1,16 @@
 import { compressImageForUpload } from "@/lib/image-compress-client";
+import type { StoreAssetFolder } from "@/lib/store-assets";
 
-export type UploadKind = "products" | "categories" | "banners" | "logo";
+export type UploadKind = StoreAssetFolder;
 
-export async function uploadAdminAsset(
+/** Upload a file to Supabase Storage under `store-assets/{ASSETS_FOLDER}/{folder}/`. */
+export async function uploadStoreAsset(
   file: File,
-  kind: UploadKind,
+  folder: StoreAssetFolder,
   options?: { entityId?: string; originalName?: string; compress?: boolean },
 ): Promise<string> {
   let uploadFile = file;
-  if (options?.compress !== false && kind !== "logo") {
+  if (options?.compress !== false && folder !== "logo") {
     try {
       uploadFile = await compressImageForUpload(file);
     } catch (e) {
@@ -21,7 +23,7 @@ export async function uploadAdminAsset(
 
   const fd = new FormData();
   fd.append("file", uploadFile);
-  fd.append("kind", kind);
+  fd.append("kind", folder);
   if (options?.entityId) fd.append("entityId", options.entityId);
   if (options?.originalName) fd.append("originalName", options.originalName);
 
@@ -37,3 +39,6 @@ export async function uploadAdminAsset(
   if (!parsed.path) throw new Error("Upload failed: missing path");
   return parsed.path;
 }
+
+/** @deprecated use uploadStoreAsset */
+export const uploadAdminAsset = uploadStoreAsset;

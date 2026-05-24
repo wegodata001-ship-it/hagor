@@ -1,37 +1,47 @@
 import Image from "next/image";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
+import {
+  getPlaceholderMeta,
+  isBlockedDemoAsset,
+  type TacticalPlaceholderKind,
+} from "@/lib/tactical-placeholders";
+import { HagourPlaceholderIcon } from "@/components/storefront/hagour-icon";
 
 export function AssetImg({
   path,
   alt,
   className,
+  placeholderKind = "default",
 }: {
   path: string | null | undefined;
   alt: string;
   className?: string;
+  placeholderKind?: TacticalPlaceholderKind;
 }) {
-  if (!path) {
+  const meta = getPlaceholderMeta(placeholderKind);
+  const hasImage = !!path && !isBlockedDemoAsset(path);
+
+  if (!hasImage) {
     return (
       <div
-        className={`flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-900 to-zinc-800 text-zinc-300 ${className ?? ""}`}
+        className={`relative flex h-full w-full flex-col items-center justify-center gap-3 overflow-hidden border border-zinc-800/80 ${className ?? ""}`}
+        style={{
+          background: `linear-gradient(145deg, ${meta.from} 0%, ${meta.via} 45%, ${meta.to} 100%)`,
+        }}
       >
-        <span className="rounded border border-zinc-500 px-2 py-1 text-xs text-zinc-400">IMG</span>
-        <span className="text-center text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-          Image Coming Soon
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(200,146,17,0.12),transparent_55%)]" />
+        <span className="relative hagour-icon-bg" aria-hidden>
+          <HagourPlaceholderIcon kind={placeholderKind} />
         </span>
+        <span className="relative text-[11px] font-semibold uppercase tracking-[0.2em] text-hagor-gold/90">{meta.labelHe}</span>
       </div>
     );
   }
-  const src = resolvePublicAssetSrc(path);
+
+  const src = resolvePublicAssetSrc(path!);
   return (
-    <span className={`relative block h-full w-full ${className ?? ""}`}>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-        className={className ?? "h-full w-full object-cover"}
-      />
+    <span className={`relative block h-full w-full overflow-hidden ${className ?? ""}`}>
+      <Image src={src} alt={alt} fill sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw" className="object-cover" />
     </span>
   );
 }

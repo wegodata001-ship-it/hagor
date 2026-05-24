@@ -51,6 +51,7 @@ export type AdminOrderDetailDTO = {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    selectedOptions: unknown;
   }[];
   payments: {
     id: string;
@@ -109,6 +110,7 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
       totalPrice: Number(i.totalPrice),
+      selectedOptions: i.selectedOptions,
     })),
     payments: order.payments.map((p) => ({
       id: p.id,
@@ -674,6 +676,10 @@ export async function upsertCategory(formData: FormData): Promise<AdminActionRes
       parentId,
       active: formData.get("active") === "on",
       sortOrder: Number(formData.get("sortOrder") || 0),
+      optionProfile: (() => {
+        const v = String(formData.get("optionProfile") ?? "").trim();
+        return v === "BELT" || v === "HOLSTER" ? v : null;
+      })(),
       imageUrl: (() => {
         const v = formData.get("imageUrl") as string;
         if (!v?.trim()) return null;
@@ -681,7 +687,9 @@ export async function upsertCategory(formData: FormData): Promise<AdminActionRes
       })(),
     };
     if (id) {
-      await prisma.category.updateMany({ where: { id, storeId }, data: common });
+      const existing = await prisma.category.findFirst({ where: { id, storeId }, select: { id: true } });
+      if (!existing) return err("קטגוריה לא נמצאה");
+      await prisma.category.update({ where: { id }, data: common });
       await logAdminAction({ userId, action: "category.update", entity: "Category", entityId: id });
     } else {
       const c = await prisma.category.create({ data: { ...common, storeId } });
@@ -1331,7 +1339,7 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
   }
 }
 
-/** Homepage hero lines (optional); store name uses saveStoreSettings `storeName`. */
+/** Homepage hero lines + image (optional). */
 export async function saveHomeHero(formData: FormData): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
@@ -1339,25 +1347,23 @@ export async function saveHomeHero(formData: FormData): Promise<AdminActionResul
       const s = String(v ?? "").trim();
       return s === "" ? null : s;
     };
+    const clearHeroImage = formData.get("clearHeroImage") === "on";
+    const heroImageUrlRaw = emptyToNull(formData.get("heroImageUrl"));
+
+    const heroData = {
+      heroTitle_he: emptyToNull(formData.get("heroTitle_he")),
+      heroTitle_ar: emptyToNull(formData.get("heroTitle_ar")),
+      heroTitle_en: emptyToNull(formData.get("heroTitle_en")),
+      heroSubtitle_he: emptyToNull(formData.get("heroSubtitle_he")),
+      heroSubtitle_ar: emptyToNull(formData.get("heroSubtitle_ar")),
+      heroSubtitle_en: emptyToNull(formData.get("heroSubtitle_en")),
+      heroImageUrl: clearHeroImage ? null : heroImageUrlRaw,
+    };
+
     await prisma.storeSettings.upsert({
       where: { storeId },
-      create: {
-        storeId,
-        heroTitle_he: emptyToNull(formData.get("heroTitle_he")),
-        heroTitle_ar: emptyToNull(formData.get("heroTitle_ar")),
-        heroTitle_en: emptyToNull(formData.get("heroTitle_en")),
-        heroSubtitle_he: emptyToNull(formData.get("heroSubtitle_he")),
-        heroSubtitle_ar: emptyToNull(formData.get("heroSubtitle_ar")),
-        heroSubtitle_en: emptyToNull(formData.get("heroSubtitle_en")),
-      },
-      update: {
-        heroTitle_he: emptyToNull(formData.get("heroTitle_he")),
-        heroTitle_ar: emptyToNull(formData.get("heroTitle_ar")),
-        heroTitle_en: emptyToNull(formData.get("heroTitle_en")),
-        heroSubtitle_he: emptyToNull(formData.get("heroSubtitle_he")),
-        heroSubtitle_ar: emptyToNull(formData.get("heroSubtitle_ar")),
-        heroSubtitle_en: emptyToNull(formData.get("heroSubtitle_en")),
-      },
+      create: { storeId, ...heroData },
+      update: heroData,
     });
     await logAdminAction({ userId, action: "store.hero.update", entity: "StoreSettings" });
     revalidatePath("/admin/settings");

@@ -1,21 +1,22 @@
 "use client";
 
 import { useStoreI18n } from "@/components/storefront/store-i18n";
+import { HagourTrustIcon, TRUST_ICON_ITEMS } from "@/components/storefront/hagour-icon";
 
 export function BenefitsRow() {
   const { t } = useStoreI18n();
-  const items = [
-    { icon: "🚚", text: t("benefit1") },
-    { icon: "🛡️", text: t("benefit2") },
-    { icon: "🔒", text: t("benefit3") },
-    { icon: "🎧", text: t("benefit4") },
-  ];
+
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {items.map((b) => (
-        <div key={b.text} className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3 shadow-lg shadow-black/30">
-          <p className="text-xl text-hagor-gold">{b.icon}</p>
-          <p className="mt-2 text-sm font-medium text-zinc-200">{b.text}</p>
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      {TRUST_ICON_ITEMS.map((item) => (
+        <div
+          key={item.labelKey}
+          className="flex items-start gap-3 rounded-xl border border-zinc-800/80 bg-[#111111]/90 px-3 py-3.5 transition hover:border-hagor-gold/25"
+        >
+          <span className="hagour-icon-bg shrink-0" aria-hidden>
+            <HagourTrustIcon name={item.name} />
+          </span>
+          <p className="text-xs font-medium leading-snug text-zinc-200 sm:text-sm">{t(item.labelKey)}</p>
         </div>
       ))}
     </section>

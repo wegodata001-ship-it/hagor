@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useCart } from "@/components/cart-context";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { RelatedProductsModal } from "@/components/storefront/related-products-modal";
@@ -18,15 +19,32 @@ type RelatedProduct = {
 export function QuickAddToCartButton({
   product,
   disabled,
+  compact,
+  requiresOptions,
 }: {
   product: { id: string; title: string; price: number; image: string | null; stock: number };
   disabled?: boolean;
+  compact?: boolean;
+  requiresOptions?: boolean;
 }) {
   const { addItem } = useCart();
   const { t } = useStoreI18n();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [related, setRelated] = useState<RelatedProduct[]>([]);
+
+  if (requiresOptions) {
+    return (
+      <Link
+        href={`/products/${product.id}`}
+        className={`block w-full rounded-lg border border-hagor-gold/30 bg-zinc-900 text-center font-semibold text-hagor-gold transition hover:border-hagor-gold/60 ${
+          compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"
+        }`}
+      >
+        {t("chooseOptions")}
+      </Link>
+    );
+  }
 
   const click = async () => {
     if (disabled || loading) return;
@@ -58,7 +76,9 @@ export function QuickAddToCartButton({
         type="button"
         disabled={disabled || loading}
         onClick={() => void click()}
-        className="w-full rounded-xl border border-hagor-gold/40 bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:shadow-orange-700/40 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400"
+        className={`w-full rounded-lg border border-hagor-gold/30 bg-[linear-gradient(135deg,#C89211,#D97706)] font-semibold text-black shadow-md shadow-black/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-400 disabled:shadow-none ${
+          compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"
+        }`}
       >
         {disabled ? t("outOfStock") : loading ? "טוען…" : t("addToCart")}
       </button>
@@ -75,4 +95,3 @@ export function QuickAddToCartButton({
     </>
   );
 }
-

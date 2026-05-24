@@ -2,61 +2,71 @@ import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
 import { StoreHomeClient } from "@/components/storefront/store-home-client";
 import { safeQuery } from "@/lib/server/safe-query";
+import { categoryKeyFromId } from "@/lib/tactical-placeholders";
+import { resolveCategoryOptionProfile } from "@/lib/hagour-product-options";
+import { filterHagourCategories, hagourCategoryIds, isHagourCategoryId } from "@/lib/hagour-catalog";
 
 export const dynamic = "force-dynamic";
 
 async function loadHomeData(storeId: string) {
-  const [banners, categories, products] = await Promise.all([
+  const allowedCategoryIds = hagourCategoryIds(storeId);
+
+  const [banners, categories, products, settings] = await Promise.all([
     prisma.banner.findMany({
-      where: { storeId, active: true },
-      orderBy: [{ isHero: "desc" }, { sortOrder: "asc" }],
+      where: { storeId, active: true, isHero: true },
+      orderBy: [{ sortOrder: "asc" }],
+      take: 1,
     }),
     prisma.category.findMany({
-      where: { storeId, active: true },
+      where: { storeId, active: true, id: { in: allowedCategoryIds } },
       orderBy: { sortOrder: "asc" },
       select: { id: true, parentId: true, name_he: true, name_ar: true, name_en: true, imageUrl: true },
     }),
     prisma.product.findMany({
-      where: { storeId, active: true },
-      take: 60,
+      where: {
+        storeId,
+        active: true,
+        categoryId: { in: allowedCategoryIds },
+      },
+      take: 24,
       include: {
-        category: { select: { id: true, parentId: true, name_en: true } },
+        category: { select: { id: true } },
         images: { orderBy: { sortOrder: "asc" }, take: 1 },
       },
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     }),
+    prisma.storeSettings.findUnique({
+      where: { storeId },
+      select: {
+        heroImageUrl: true,
+        heroSubtitle_he: true,
+        heroSubtitle_ar: true,
+        heroSubtitle_en: true,
+      },
+    }),
   ]);
-  return { banners, categories, products };
+
+  return {
+    banners,
+    categories: filterHagourCategories(categories),
+    products: products.filter((p) => isHagourCategoryId(p.categoryId)),
+    settings,
+  };
 }
 
 type HomeLoaded = Awaited<ReturnType<typeof loadHomeData>>;
 
 export default async function HomePage() {
   const storeId = getStoreId();
-  const { banners, categories, products } = await safeQuery(
+  const { banners, categories, products, settings } = await safeQuery(
     "store.home",
     () => loadHomeData(storeId),
-    { banners: [], categories: [], products: [] } as HomeLoaded,
+    { banners: [], categories: [], products: [], settings: null } as HomeLoaded,
     { timeoutMs: 25_000 },
   );
 
-  const heroBanner = banners.find((b) => b.isHero) ?? null;
-  const promoBanners = banners.filter((b) => !b.isHero);
-  const featured = products.filter((p) => p.featured).slice(0, 12);
-  const bestSellers = [...products].sort((a, b) => b.stock - a.stock).slice(0, 10);
-  const newArrivals = [...products].sort((a, b) => +b.createdAt - +a.createdAt).slice(0, 8);
-
-  const sectionIds = (rootName: string) => {
-    const root = categories.find((c) => !c.parentId && c.name_en.toLowerCase() === rootName.toLowerCase());
-    if (!root) return new Set<string>();
-    const childIds = categories.filter((c) => c.parentId === root.id).map((c) => c.id);
-    return new Set([root.id, ...childIds]);
-  };
-
-  const tacticalClothing = products.filter((p) => sectionIds("Tactical Clothing").has(p.categoryId)).slice(0, 8);
-  const tacticalBoots = products.filter((p) => sectionIds("Tactical Boots").has(p.categoryId)).slice(0, 8);
-  const protectionGear = products.filter((p) => sectionIds("Protection Gear").has(p.categoryId)).slice(0, 8);
-  const optics = products.filter((p) => sectionIds("Optics").has(p.categoryId)).slice(0, 8);
+  const featured = products.filter((p) => p.featured).slice(0, 8);
+  const displayFeatured = featured.length > 0 ? featured : products.slice(0, 8);
 
   const toCard = (p: (typeof products)[number]) => ({
     id: p.id,
@@ -71,20 +81,25 @@ export default async function HomePage() {
     discountPercent: p.discountPercent ?? null,
     stock: p.stock,
     image: p.images[0]?.url ?? null,
+    categoryKey: categoryKeyFromId(p.categoryId),
+    requiresOptions: !!resolveCategoryOptionProfile(undefined, p.categoryId),
   });
 
   return (
     <StoreHomeClient
-      banners={heroBanner ? [heroBanner] : []}
-      promoBanners={promoBanners}
+      heroImageUrl={settings?.heroImageUrl ?? null}
+      heroCopy={
+        settings
+          ? {
+              heroSubtitle_he: settings.heroSubtitle_he,
+              heroSubtitle_ar: settings.heroSubtitle_ar,
+              heroSubtitle_en: settings.heroSubtitle_en,
+            }
+          : null
+      }
+      banners={banners}
       categories={categories}
-      featured={featured.map(toCard)}
-      bestSellers={bestSellers.map(toCard)}
-      tacticalClothing={tacticalClothing.map(toCard)}
-      tacticalBoots={tacticalBoots.map(toCard)}
-      protectionGear={protectionGear.map(toCard)}
-      optics={optics.map(toCard)}
-      newArrivals={newArrivals.map(toCard)}
+      featured={displayFeatured.map(toCard)}
     />
   );
 }

@@ -5,6 +5,7 @@ import { AssetImg } from "@/components/asset-img";
 import { QuickAddToCartButton } from "@/components/storefront/quick-add-to-cart-button";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { pickLocalized } from "@/lib/localized";
+import type { TacticalPlaceholderKind } from "@/lib/tactical-placeholders";
 
 export type StoreProductCardData = {
   id: string;
@@ -19,55 +20,74 @@ export type StoreProductCardData = {
   discountPercent: number | null;
   stock: number;
   image: string | null;
+  categoryKey?: TacticalPlaceholderKind;
+  requiresOptions?: boolean;
 };
 
 export function ProductCard({ product }: { product: StoreProductCardData }) {
   const { lang, t } = useStoreI18n();
   const title = pickLocalized(product, "name", lang);
+  const kind = product.categoryKey ?? "default";
+
   return (
-    <article className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-[#111827] p-2.5 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.7)] transition hover:border-hagor-gold/40 active:scale-[0.99] md:p-3">
+    <article className="group flex h-full min-h-[380px] flex-col overflow-hidden rounded-[18px] border border-zinc-800/90 bg-[#111111] transition duration-300 hover:border-hagor-gold/35 hover:shadow-[0_0_32px_-8px_rgba(200,146,17,0.35)]">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-black/40">
-          <div className="aspect-square">
-            <AssetImg
-              path={product.image}
-              alt={title}
-              className="h-full w-full object-contain p-3 transition duration-300 group-hover:scale-[1.03]"
-            />
-          </div>
+        <div className="relative h-[240px] overflow-hidden bg-[#151515]">
+          <AssetImg
+            path={product.image}
+            alt={title}
+            placeholderKind={kind}
+            className="h-full w-full transition duration-500 group-hover:scale-[1.04]"
+          />
           {product.discountPercent ? (
-            <span className="absolute right-2 top-2 rounded-full bg-hagor-gold px-2 py-1 text-xs font-bold text-white">
+            <span className="absolute start-2 top-2 rounded-md bg-gradient-to-r from-hagor-gold to-amber-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
               -{product.discountPercent}%
             </span>
           ) : null}
         </div>
       </Link>
-      <div className="mt-2.5 flex flex-1 flex-col gap-2">
-        <Link href={`/products/${product.id}`} className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-snug text-zinc-100 hover:text-hagor-gold/80 md:text-sm">
-          {title}
-        </Link>
-        <div className="flex items-center gap-2">
-          <span className="text-base font-bold text-hagor-gold md:text-lg">₪{product.price.toFixed(2)}</span>
-          {product.oldPrice ? (
-            <span className="text-sm text-zinc-500 line-through">₪{product.oldPrice.toFixed(2)}</span>
-          ) : null}
-        </div>
-        <p className={`text-[11px] ${product.stock > 0 ? "text-emerald-400/90" : "text-red-400/90"}`}>
-          {product.stock > 0 ? t("inStock") : t("outOfStock")}
-        </p>
-        <div className="mt-auto">
-          <QuickAddToCartButton
-            disabled={product.stock <= 0}
-            product={{
-              id: product.id,
-              title,
-              price: product.price,
-              image: product.image,
-              stock: product.stock,
-            }}
-          />
-        </div>
-      </div>
+      <ProductCardBody product={product} title={title} t={t} />
     </article>
+  );
+}
+
+function ProductCardBody({
+  product,
+  title,
+  t,
+}: {
+  product: StoreProductCardData;
+  title: string;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-2.5 p-3.5 md:p-4">
+      <Link href={`/products/${product.id}`} className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-zinc-100 transition hover:text-hagor-gold">
+        {title}
+      </Link>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="text-lg font-bold text-hagor-gold">₪{product.price.toFixed(0)}</span>
+        {product.oldPrice ? (
+          <span className="text-xs text-zinc-500 line-through">₪{product.oldPrice.toFixed(0)}</span>
+        ) : null}
+      </div>
+      <p className={`text-[11px] font-medium ${product.stock > 0 ? "text-emerald-400/90" : "text-red-400/90"}`}>
+        {product.stock > 0 ? t("inStock") : t("outOfStock")}
+      </p>
+      <div className="mt-auto pt-1">
+        <QuickAddToCartButton
+          disabled={product.stock <= 0}
+          requiresOptions={product.requiresOptions}
+          product={{
+            id: product.id,
+            title,
+            price: product.price,
+            image: product.image,
+            stock: product.stock,
+          }}
+          compact
+        />
+      </div>
+    </div>
   );
 }

@@ -7,6 +7,8 @@ import { AdminSpinner } from "@/components/admin/admin-spinner";
 import { saveHomeHero, saveStoreSettings } from "@/app/admin/actions";
 import { useAdminI18n } from "@/lib/admin-i18n";
 import { uploadAdminAsset } from "@/lib/admin-upload-client";
+import { resolvePublicAssetSrc } from "@/lib/assets-path";
+import { DEFAULT_HERO_IMAGE } from "@/lib/hero";
 
 export function SettingsAdminClient({
   storeName,
@@ -45,6 +47,7 @@ export function SettingsAdminClient({
     heroSubtitle_he: string | null;
     heroSubtitle_ar: string | null;
     heroSubtitle_en: string | null;
+    heroImageUrl: string | null;
   };
 }) {
   const router = useRouter();
@@ -250,11 +253,18 @@ export function SettingsAdminClient({
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-800">{t("homepageHeroOptional")}</h2>
+        <p className="mt-1 text-xs text-slate-500">{t("heroImageHint")}</p>
         <form
           className="mt-4 grid gap-3 md:grid-cols-3"
           onSubmit={async (e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
+            const form = e.currentTarget;
+            const fd = new FormData(form);
+            const fi = form.elements.namedItem("heroImageFile") as HTMLInputElement;
+            if (fi?.files?.[0]) {
+              const path = await uploadAdminAsset(fi.files[0], "hero", { originalName: "hero" });
+              fd.set("heroImageUrl", path);
+            }
             const res = await saveHomeHero(fd);
             if (!res.ok) setToast(res.error);
             else {
@@ -263,6 +273,23 @@ export function SettingsAdminClient({
             }
           }}
         >
+          <input type="hidden" name="heroImageUrl" value={hero.heroImageUrl ?? ""} />
+          <div className="md:col-span-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
+            <div
+              className="h-40 bg-cover bg-center bg-no-repeat md:h-52"
+              style={{
+                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.75), rgba(0,0,0,0.2)), url("${resolvePublicAssetSrc(hero.heroImageUrl ?? DEFAULT_HERO_IMAGE)}")`,
+              }}
+            />
+          </div>
+          <label className="md:col-span-3 text-xs font-medium">
+            {t("heroImageLabel")}
+            <input name="heroImageFile" type="file" accept="image/*" className="mt-1 text-sm" />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-3">
+            <input type="checkbox" name="clearHeroImage" value="on" />
+            {t("heroImageReset")}
+          </label>
           <label className="text-xs font-medium">
             {t("heroTitleHe")}
             <input name="heroTitle_he" defaultValue={hero.heroTitle_he ?? ""} className="ds-input mt-1 text-sm" />

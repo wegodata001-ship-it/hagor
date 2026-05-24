@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useCart } from "@/components/cart-context";
 import { AssetImg } from "@/components/asset-img";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
+import { formatSelectedOptionsLines } from "@/lib/hagour-product-options";
 import { pickLocalized } from "@/lib/localized";
 
 type ProductRow = {
@@ -74,6 +75,13 @@ export default function CartPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-zinc-100">{pickLocalized(p, "name", lang)}</div>
+                {line.selectedOptions
+                  ? formatSelectedOptionsLines(line.selectedOptions, lang).map((row) => (
+                      <p key={row} className="text-xs text-zinc-400">
+                        {row}
+                      </p>
+                    ))
+                  : null}
                 <div className="mt-1 text-sm text-zinc-400">
                   ₪{p.price.toFixed(2)} × {line.quantity} = ₪{lineTotal.toFixed(2)}
                 </div>

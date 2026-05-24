@@ -7,7 +7,7 @@ import { MainNavbar } from "@/components/storefront/main-navbar";
 type Category = { id: string; parentId: string | null; name_he: string; name_ar: string; name_en: string };
 
 export function StoreHeader({
-  title,
+  title: _title,
   isLoggedIn,
   role,
   categories,
@@ -26,7 +26,7 @@ export function StoreHeader({
   return (
     <header>
       <TopInfoBar isLoggedIn={isLoggedIn} storePhone={storePhone} telHref={telHref} whatsappHref={whatsappHref} />
-      <MainNavbar title={title} categories={categories} isLoggedIn={isLoggedIn} role={role} />
+      <MainNavbar categories={categories} isLoggedIn={isLoggedIn} role={role} />
     </header>
   );
 }

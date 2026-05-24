@@ -1,13 +1,12 @@
 import { ASSETS_FOLDER } from "./store";
+import { assertStoreAssetPath } from "./store-assets";
 import { STORAGE_BUCKET } from "./storage";
 
 export function assertAssetPath(pathOrUrl: string): string {
-  const folder = ASSETS_FOLDER;
   const normalized = pathOrUrl.trim().replace(/^\/+/, "");
-  if (!normalized.startsWith(`${folder}/`) && normalized !== folder) {
-    throw new Error(`Asset path must start with ${folder}/`);
-  }
-  return normalized;
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) return normalized;
+  if (normalized.startsWith("/")) return normalized;
+  return assertStoreAssetPath(normalized);
 }
 
 /** Banner images may be storage paths, absolute site paths (/… in public/), or full URLs. */

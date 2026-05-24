@@ -12,8 +12,26 @@ import {
   computeTotal,
   snapshotDeliveryName,
 } from "@/lib/checkout/compute-order";
+import {
+  parseSelectedOptions,
+  resolveCategoryOptionProfile,
+  validateSelectedOptionsForProfile,
+} from "@/lib/hagour-product-options";
 
 export const runtime = "nodejs";
+
+const selectedOptionsSchema = z
+  .object({
+    type: z.enum(["BELT", "HOLSTER"]),
+    beltSize: z.string().optional(),
+    policePantsSize: z.number().optional(),
+    beltLengthCm: z.number().optional(),
+    beltLengthInch: z.number().optional(),
+    buckleType: z.enum(["REGULAR", "TACTICAL", "QUICK_RELEASE"]).optional(),
+    handSide: z.enum(["RIGHT", "LEFT"]).optional(),
+  })
+  .optional()
+  .nullable();
 
 const Schema = z.object({
   customerName: z.string().min(1),
@@ -30,6 +48,7 @@ const Schema = z.object({
         productId: z.string(),
         quantity: z.number().int().positive(),
         optionIds: z.array(z.string()).optional(),
+        selectedOptions: selectedOptionsSchema,
       }),
     )
     .min(1),
@@ -59,6 +78,9 @@ export async function POST(req: Request) {
       id: { in: body.items.map((i) => i.productId) },
       active: true,
     },
+    include: {
+      category: { select: { id: true } },
+    },
   });
 
   if (products.length !== body.items.length) {
@@ -66,12 +88,30 @@ export async function POST(req: Request) {
   }
 
   const byId = new Map(products.map((p) => [p.id, p]));
-  type Line = { product: (typeof products)[number]; quantity: number; optionIds: string[] };
+  type Line = {
+    product: (typeof products)[number];
+    quantity: number;
+    optionIds: string[];
+    selectedOptions: ReturnType<typeof parseSelectedOptions>;
+  };
   const lines: Line[] = body.items.map((i) => {
     const product = byId.get(i.productId);
     if (!product) throw new Error("missing product");
-    return { product, quantity: i.quantity, optionIds: i.optionIds ?? [] };
+    return {
+      product,
+      quantity: i.quantity,
+      optionIds: i.optionIds ?? [],
+      selectedOptions: parseSelectedOptions(i.selectedOptions),
+    };
   });
+
+  for (const line of lines) {
+    const profile = resolveCategoryOptionProfile(undefined, line.product.category.id);
+    const err = validateSelectedOptionsForProfile(profile, line.selectedOptions);
+    if (err) {
+      return NextResponse.json({ error: err }, { status: 400 });
+    }
+  }
 
   // Stock validation is enforced again inside the DB transaction (race-safe).
   for (const { product, quantity } of lines) {
@@ -223,6 +263,7 @@ export async function POST(req: Request) {
           productName: line.product.name_he,
           productImage: anyImg?.url ?? null,
           variantOptionIds: Array.from(new Set((line.optionIds ?? []).map(String))).filter(Boolean),
+          selectedOptions: line.selectedOptions ?? undefined,
           quantity: line.quantity,
           unitPrice: new Prisma.Decimal(unit),
           totalPrice: new Prisma.Decimal(lineTotal),

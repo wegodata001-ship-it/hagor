@@ -2,6 +2,9 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
 import { StoreProductsClient } from "@/components/storefront/store-products-client";
+import { resolveCategoryOptionProfile } from "@/lib/hagour-product-options";
+import { filterHagourCategories, hagourCategoryIds } from "@/lib/hagour-catalog";
+import { categoryKeyFromId } from "@/lib/tactical-placeholders";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +14,7 @@ export default async function ProductsPage({
   searchParams?: Promise<{ cat?: string; q?: string; min?: string; max?: string; sort?: string }>;
 }) {
   const storeId = getStoreId();
+  const allowedCategoryIds = hagourCategoryIds(storeId);
   const sp = (await searchParams) ?? {};
   const cat = sp.cat?.trim() || "";
   const q = sp.q?.trim() || "";
@@ -19,7 +23,7 @@ export default async function ProductsPage({
   const sort = sp.sort?.trim() || "new";
 
   const categories = await prisma.category.findMany({
-    where: { storeId, active: true },
+    where: { storeId, active: true, id: { in: allowedCategoryIds } },
     orderBy: { sortOrder: "asc" },
     select: { id: true, parentId: true, name_he: true, name_ar: true, name_en: true, imageUrl: true },
   });
@@ -29,7 +33,7 @@ export default async function ProductsPage({
 
   const categoryIds =
     selected == null
-      ? null
+      ? allowedCategoryIds
       : selected.parentId == null
         ? [selected.id, ...children.map((c) => c.id)]
         : [selected.id];
@@ -54,7 +58,7 @@ export default async function ProductsPage({
     where: {
       storeId,
       active: true,
-      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
+      categoryId: { in: categoryIds.filter((id) => allowedCategoryIds.includes(id)) },
       ...(q
         ? {
             OR: [
@@ -69,6 +73,7 @@ export default async function ProductsPage({
     orderBy,
     include: {
       images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      category: { select: { id: true } },
     },
   });
 
@@ -79,7 +84,7 @@ export default async function ProductsPage({
   return (
     <Suspense fallback={<div className="min-h-[40vh] animate-pulse bg-zinc-900/20" />}>
       <StoreProductsClient
-        categories={categories}
+        categories={filterHagourCategories(categories)}
         selectedCategoryId={selected?.id ?? ""}
         priceMin={Math.floor(priceMin)}
         priceMax={Math.ceil(priceMax)}
@@ -96,6 +101,8 @@ export default async function ProductsPage({
           discountPercent: p.discountPercent ?? null,
           stock: p.stock,
           image: p.images[0]?.url ?? null,
+          categoryKey: categoryKeyFromId(p.categoryId),
+          requiresOptions: !!resolveCategoryOptionProfile(undefined, p.categoryId),
         }))}
       />
     </Suspense>

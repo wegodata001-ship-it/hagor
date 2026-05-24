@@ -1,23 +1,13 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { assertAdmin } from "@/lib/auth/scope";
 import { getSession } from "@/lib/auth/session";
-import { ASSETS_FOLDER } from "@/lib/store";
+import { kindToAssetFolder, uploadStoreAsset } from "@/lib/store-assets";
 import { STORAGE_BUCKET } from "@/lib/storage";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
 /** Hard cap per file — aligns with client compression target */
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
-
-const kinds = new Set(["logo", "products", "categories", "banners"]);
-const safeSegment = (v: string) =>
-  v
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
 
 export async function POST(req: Request) {
   try {
@@ -37,9 +27,14 @@ export async function POST(req: Request) {
   const kind = formData.get("kind");
   const entityIdRaw = formData.get("entityId");
   const originalNameRaw = formData.get("originalName");
-  if (!(file instanceof File) || typeof kind !== "string" || !kinds.has(kind)) {
+
+  const folder = typeof kind === "string" ? kindToAssetFolder(kind) : null;
+  if (!(file instanceof File) || !folder) {
     return NextResponse.json(
-      { error: "Expected file and kind (logo|products|categories|banners)" },
+      {
+        error:
+          "Expected file and kind (logo|hero|banners|products|categories|reviews|general)",
+      },
       { status: 400 },
     );
   }
@@ -52,40 +47,31 @@ export async function POST(req: Request) {
   }
 
   const mime = (file.type || "").toLowerCase();
-  if (kind !== "logo" && !mime.startsWith("image/")) {
+  if (folder !== "logo" && !mime.startsWith("image/")) {
     return NextResponse.json({ error: "Only image uploads allowed for this kind" }, { status: 400 });
   }
 
-  const folder = ASSETS_FOLDER;
-  const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-  const safeExt = safeSegment(String(ext || "bin")) || "bin";
-  const safeEntity =
-    typeof entityIdRaw === "string" && entityIdRaw.trim().length > 0
-      ? safeSegment(entityIdRaw)
-      : "";
-  const safeNameBase =
-    typeof originalNameRaw === "string" && originalNameRaw.trim().length > 0
-      ? safeSegment(originalNameRaw.replace(/\.[^.]+$/, ""))
-      : "";
-  const filename = `${safeNameBase || randomUUID()}-${randomUUID().slice(0, 8)}.${safeExt}`;
-  const path =
-    kind === "products" && safeEntity
-      ? `${folder}/${kind}/${safeEntity}/${filename}`
-      : `${folder}/${kind}/${filename}`;
+  const entityId = typeof entityIdRaw === "string" ? entityIdRaw.trim() : "";
+  const originalName =
+    typeof originalNameRaw === "string" && originalNameRaw.trim()
+      ? originalNameRaw.trim()
+      : file.name;
 
   try {
-    const supabase = getSupabaseAdmin();
     const buf = Buffer.from(await file.arrayBuffer());
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, buf, {
+    const path = await uploadStoreAsset({
+      folder,
+      buffer: buf,
       contentType: file.type || undefined,
+      originalName,
+      entityId: entityId || undefined,
     });
-    if (error) throw error;
     return NextResponse.json({ path });
-  } catch {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Upload failed";
     return NextResponse.json(
       {
-        error:
-          `Upload failed. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, bucket ${STORAGE_BUCKET}.`,
+        error: `Upload failed. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, bucket ${STORAGE_BUCKET}. (${message})`,
       },
       { status: 503 },
     );

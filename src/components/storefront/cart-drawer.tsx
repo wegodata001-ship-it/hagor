@@ -5,7 +5,9 @@ import Link from "next/link";
 import { AssetImg } from "@/components/asset-img";
 import { useCart } from "@/components/cart-context";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
+import { formatSelectedOptionsLines } from "@/lib/hagour-product-options";
 import { pickLocalized } from "@/lib/localized";
+import { HagourNavIcon } from "@/components/storefront/hagour-icon";
 
 type ProductRow = {
   id: string;
@@ -71,8 +73,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t("cart")}</h3>
-          <button type="button" onClick={onClose} className="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300">
-            ✕
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-300" aria-label="close">
+            <HagourNavIcon name="close" />
           </button>
         </div>
         <div className="h-[calc(100vh-180px)] space-y-3 overflow-y-auto pr-1">
@@ -89,6 +91,13 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{name}</p>
+                    {line.selectedOptions
+                      ? formatSelectedOptionsLines(line.selectedOptions, lang).map((row) => (
+                          <p key={row} className="text-xs text-zinc-400">
+                            {row}
+                          </p>
+                        ))
+                      : null}
                     <p className="text-sm text-hagor-gold">₪{p.price.toFixed(2)}</p>
                     <div className="mt-2 flex items-center gap-2">
                       <button

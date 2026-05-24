@@ -1,13 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" fill="none">
-  <rect width="1920" height="1080" fill="#0B0B0B"/>
-  <rect width="1920" height="1080" fill="url(#g)" opacity="0.85"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 720" fill="none">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1920" y2="1080">
+    <linearGradient id="bg" x1="0" y1="0" x2="1920" y2="720">
       <stop offset="0%" stop-color="#0B0B0B"/>
-      <stop offset="50%" stop-color="#1A1A1A"/>
-      <stop offset="100%" stop-color="#4B5320" stop-opacity="0.35"/>
+      <stop offset="45%" stop-color="#141810"/>
+      <stop offset="100%" stop-color="#1A1A1A"/>
     </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C89211" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#4B5320" stop-opacity="0.25"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#C89211" stroke-opacity="0.06" fill="none"/>
+    </pattern>
   </defs>
-  <text x="960" y="520" fill="#C89211" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700" letter-spacing="8">HAGOR BY WAEL</text>
-  <text x="960" y="600" fill="#a1a1aa" text-anchor="middle" font-family="Arial, sans-serif" font-size="28">TACTICAL � MILITARY � OUTDOOR</text>
+  <rect width="1920" height="720" fill="url(#bg)"/>
+  <rect width="1920" height="720" fill="url(#grid)"/>
+  <rect width="1920" height="720" fill="url(#gold)"/>
+  <path d="M0 520 Q480 380 960 460 T1920 400 V720 H0 Z" fill="#0B0B0B" fill-opacity="0.55"/>
+  <text x="140" y="280" fill="#C89211" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="6">TACTICAL · FIELD · PRO</text>
+  <text x="140" y="360" fill="#F5F5F4" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="800" letter-spacing="2">HAGOR</text>
+  <text x="140" y="430" fill="#C89211" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="600" letter-spacing="4">BY WAEL</text>
+  <text x="140" y="500" fill="#A1A1AA" font-family="Arial, Helvetica, sans-serif" font-size="22">Professional tactical equipment</text>
 </svg>

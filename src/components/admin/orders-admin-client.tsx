@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
 import { useAdminI18n } from "@/lib/admin-i18n";
+import { formatSelectedOptionsLines, parseSelectedOptions } from "@/lib/hagour-product-options";
 import {
   getAdminOrderDetail,
   updateOrderStatus,
@@ -355,8 +356,18 @@ export function OrdersAdminClient({
               <table className="mt-2 w-full text-xs">
                 <tbody>
                   {detail.items.map((i) => (
-                    <tr key={i.id} className="border-b border-slate-100">
-                      <td className="py-1">{i.productName}</td>
+                    <tr key={i.id} className="border-b border-slate-100 align-top">
+                      <td className="py-1">
+                        <div>{i.productName}</div>
+                        {parseSelectedOptions(i.selectedOptions)?.type ? (
+                          <div className="mt-1 text-[11px] text-slate-500">
+                            <div className="font-medium">אפשרויות שנבחרו:</div>
+                            {formatSelectedOptionsLines(parseSelectedOptions(i.selectedOptions), "he").map((line) => (
+                              <div key={line}>{line}</div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </td>
                       <td className="py-1 text-center">×{i.quantity}</td>
                       <td className="py-1 text-end tabular-nums">₪{i.totalPrice.toFixed(2)}</td>
                     </tr>

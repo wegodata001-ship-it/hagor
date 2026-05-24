@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/components/cart-context";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
+import { HagourNavIcon, type NavIconName } from "@/components/storefront/hagour-icon";
 
 function NavItem({
   href,
@@ -15,7 +16,7 @@ function NavItem({
 }: {
   href: string;
   label: string;
-  icon: string;
+  icon: NavIconName;
   active: boolean;
   badge?: number;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
@@ -29,14 +30,14 @@ function NavItem({
       }`}
     >
       <span
-        className={`text-lg leading-none ${active ? "drop-shadow-[0_0_14px_rgba(249,115,22,0.25)]" : ""}`}
+        className={`flex h-6 items-center justify-center ${active ? "drop-shadow-[0_0_14px_rgba(200,146,17,0.35)]" : ""}`}
         aria-hidden
       >
-        {icon}
+        <HagourNavIcon name={icon} active={active} />
       </span>
       <span>{label}</span>
       {badge && badge > 0 ? (
-        <span className="absolute right-[26%] top-1 rounded-full bg-hagor-gold px-1.5 text-[10px] font-bold text-white">
+        <span className="absolute right-[26%] top-1 rounded-full bg-hagor-gold px-1.5 text-[10px] font-bold text-black">
           {badge}
         </span>
       ) : null}
@@ -53,14 +54,14 @@ export function MobileBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800 bg-zinc-950/90 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-7xl">
-        <NavItem href="/" label="Home" icon="⌂" active={pathname === "/"} />
-        <NavItem href="/products" label="Search" icon="⌕" active={pathname === "/products"} />
-        <NavItem href="/cart" label={t("cart")} icon="🛒" active={pathname === "/cart"} badge={count} />
-        <NavItem href="/account" label={t("myAccount")} icon="👤" active={pathname.startsWith("/account")} />
+        <NavItem href="/" label="Home" icon="home" active={pathname === "/"} />
+        <NavItem href="/products" label="Search" icon="search" active={pathname === "/products"} />
+        <NavItem href="/cart" label={t("cart")} icon="cart" active={pathname === "/cart"} badge={count} />
+        <NavItem href="/account" label={t("myAccount")} icon="user" active={pathname.startsWith("/account")} />
         <NavItem
           href="#"
           label="Menu"
-          icon="☰"
+          icon="menu"
           active={false}
           onClick={(e) => {
             e.preventDefault();
@@ -72,4 +73,3 @@ export function MobileBottomNav() {
     </nav>
   );
 }
-

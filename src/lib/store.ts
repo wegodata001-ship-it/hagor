@@ -19,7 +19,7 @@ const ASSETS_FOLDER_RAW = getPublicEnv("NEXT_PUBLIC_ASSETS_FOLDER", STORE_SLUG);
 /** Normalized folder segment for Supabase paths (no leading/trailing slashes). */
 export const ASSETS_FOLDER = ASSETS_FOLDER_RAW.replace(/^\/+|\/+$/g, "");
 
-export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "HAGOR BY WAEL");
+export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "HAGOUR");
 export const STORE_PHONE = getPublicEnv("NEXT_PUBLIC_STORE_PHONE", "");
 export const WHATSAPP_PHONE = getPublicEnv("NEXT_PUBLIC_WHATSAPP_PHONE", "");
 

@@ -5,6 +5,7 @@ import { getStoreId } from "@/lib/store-config";
 import { SITE_NAME } from "@/lib/store";
 import { ProductJsonLd } from "@/components/storefront/product-json-ld";
 import { StoreProductDetailClient } from "@/components/storefront/store-product-detail-client";
+import { resolveCategoryOptionProfile } from "@/lib/hagour-product-options";
 
 export async function generateMetadata({
   params,
@@ -91,6 +92,7 @@ export default async function ProductPage({
           name_ar: product.category.name_ar,
           name_en: product.category.name_en,
         },
+        optionProfile: resolveCategoryOptionProfile(undefined, product.category.id),
         images: product.images.map((i) => ({ id: i.id, url: i.url })),
         variantGroups: product.variantGroups.map((g) => ({
           id: g.id,

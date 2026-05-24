@@ -1,12 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import { seedTacticalPreset } from "./tacticalPreset";
+import { seedHagourPreset } from "./hagourPreset";
 
-export type StoreBusinessType = "tactical";
+export type StoreBusinessType = "hagour";
 
 export async function seedStorePreset(
   prisma: PrismaClient,
   storeId: string,
-  _businessType: StoreBusinessType = "tactical",
+  _businessType: StoreBusinessType = "hagour",
 ): Promise<void> {
-  await seedTacticalPreset(prisma, storeId);
+  await seedHagourPreset(prisma, storeId);
 }

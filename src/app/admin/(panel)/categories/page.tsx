@@ -30,6 +30,7 @@ export default async function AdminCategoriesPage() {
         imageUrl: c.imageUrl,
         active: c.active,
         sortOrder: c.sortOrder,
+        optionProfile: c.optionProfile,
       }));
     },
     [],

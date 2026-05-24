@@ -4,9 +4,17 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductGallery } from "@/components/storefront/product-gallery";
+import { BeltProductOptions, HolsterProductOptions } from "@/components/storefront/product-option-pickers";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { pickLocalized } from "@/lib/localized";
 import { RelatedProductsModal } from "@/components/storefront/related-products-modal";
+import { HagourDirectionArrow, HagourTrustRow } from "@/components/storefront/hagour-icon";
+import {
+  type BuckleType,
+  type CategoryOptionProfile,
+  type ProductSelectedOptions,
+  validateSelectedOptionsForProfile,
+} from "@/lib/hagour-product-options";
 
 type VariantOption = {
   id: string;
@@ -43,15 +51,21 @@ type ProductDetails = {
   discountPercent: number | null;
   stock: number;
   category: { name_he: string; name_ar: string; name_en: string };
+  optionProfile: CategoryOptionProfile | null;
   images: { id: string; url: string }[];
   variantGroups: VariantGroup[];
   relatedProducts: RelatedProduct[];
 };
 
 export function StoreProductDetailClient({ product }: { product: ProductDetails }) {
-  const { lang, dir } = useStoreI18n();
+  const { lang, dir, t } = useStoreI18n();
   const [qty, setQty] = useState(1);
   const [crossSellOpen, setCrossSellOpen] = useState(false);
+  const [hagourOptions, setHagourOptions] = useState<ProductSelectedOptions | null>(null);
+  const [buckleType, setBuckleType] = useState<BuckleType | null>(null);
+  const [selectedSizeKey, setSelectedSizeKey] = useState<string | null>(null);
+  const optionProfile = product.optionProfile;
+  const validationError = validateSelectedOptionsForProfile(optionProfile, hagourOptions);
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const g of product.variantGroups ?? []) {
@@ -84,8 +98,9 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
   );
   return (
     <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8">
-      <Link href="/products" className="text-sm text-hagor-gold hover:underline">
-        ← חזרה למוצרים
+      <Link href="/products" className="inline-flex items-center gap-1.5 text-sm text-hagor-gold hover:underline">
+        <HagourDirectionArrow dir={dir === "rtl" ? "ltr" : "rtl"} />
+        חזרה למוצרים
       </Link>
       <div className="mt-6 grid gap-8 rounded-3xl border border-zinc-800 bg-gradient-to-b from-zinc-900 to-zinc-950 p-5 md:grid-cols-2 md:p-8">
         <div>
@@ -147,6 +162,26 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
             </div>
           )}
 
+          {optionProfile === "BELT" ? (
+            <BeltProductOptions
+              selectedSizeKey={selectedSizeKey}
+              buckleType={buckleType}
+              onSizeChange={(opts) => {
+                setHagourOptions(opts);
+                if (opts) setSelectedSizeKey(`${opts.beltSize}-${opts.policePantsSize}`);
+                else setSelectedSizeKey(null);
+              }}
+              onBuckleChange={setBuckleType}
+            />
+          ) : null}
+
+          {optionProfile === "HOLSTER" ? (
+            <HolsterProductOptions
+              handSide={hagourOptions?.type === "HOLSTER" ? hagourOptions.handSide : null}
+              onChange={setHagourOptions}
+            />
+          ) : null}
+
           <p className={`mt-4 text-sm ${product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>
             {product.stock > 0 ? `במלאי (${product.stock})` : "אזל מהמלאי"}
           </p>
@@ -168,11 +203,8 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
               +
             </button>
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-2 text-xs text-zinc-300 md:grid-cols-4">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2 text-center">🚚 משלוח מהיר</div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2 text-center">🛡️ אחריות יבואן</div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2 text-center">🔒 תשלום מאובטח</div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2 text-center">🎧 שירות לקוחות</div>
+          <div className="mt-5">
+            <HagourTrustRow labels={[t("benefit1"), t("benefit2"), t("benefit3"), t("benefit4")]} />
           </div>
           <div className="mt-8">
             {product.relatedProducts.length > 0 ? (
@@ -185,7 +217,14 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
                 {product.stock <= 0 ? "אזל מהמלאי" : "הוסף לסל"}
               </button>
             ) : (
-              <AddToCartButton productId={product.id} qty={qty} disabled={product.stock <= 0} optionIds={selectedOptionIds} />
+              <AddToCartButton
+                productId={product.id}
+                qty={qty}
+                disabled={product.stock <= 0}
+                optionIds={selectedOptionIds}
+                selectedOptions={hagourOptions}
+                validationError={validationError}
+              />
             )}
           </div>
         </div>
@@ -223,7 +262,14 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
             {product.stock <= 0 ? "אזל מהמלאי" : "הוסף לסל"}
           </button>
         ) : (
-          <AddToCartButton productId={product.id} qty={qty} disabled={product.stock <= 0} optionIds={selectedOptionIds} />
+          <AddToCartButton
+            productId={product.id}
+            qty={qty}
+            disabled={product.stock <= 0}
+            optionIds={selectedOptionIds}
+            selectedOptions={hagourOptions}
+            validationError={validationError}
+          />
         )}
       </div>
 

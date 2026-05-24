@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { HagourNavIcon } from "@/components/storefront/hagour-icon";
 
 export function MobileFilterDrawer({
   open,
@@ -33,8 +34,8 @@ export function MobileFilterDrawer({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-white">{title}</h3>
-          <button type="button" onClick={onClose} className="rounded-lg border border-zinc-700 px-3 py-1 text-zinc-300">
-            ✕
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300" aria-label="close">
+            <HagourNavIcon name="close" />
           </button>
         </div>
         {children}

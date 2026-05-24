@@ -9,6 +9,9 @@ import { AdminBulkDeleteModal } from "@/components/admin/admin-bulk-delete-modal
 import { useAdminI18n } from "@/lib/admin-i18n";
 import { uploadAdminAsset } from "@/lib/admin-upload-client";
 import { CategoryTreeTable } from "@/components/admin/category-tree-table";
+import { hagourCategoryKeyFromId } from "@/lib/hagour-catalog";
+import { resolveCategoryBackgroundImage } from "@/lib/category-images";
+import { resolvePublicAssetSrc } from "@/lib/assets-path";
 
 export type CategoryRow = {
   id: string;
@@ -22,6 +25,7 @@ export type CategoryRow = {
   imageUrl: string | null;
   active: boolean;
   sortOrder: number;
+  optionProfile: string | null;
 };
 
 export function CategoriesAdminClient({ categories }: { categories: CategoryRow[] }) {
@@ -41,7 +45,9 @@ export function CategoriesAdminClient({ categories }: { categories: CategoryRow[
   async function submit(form: HTMLFormElement, file?: File | null) {
     const fd = new FormData(form);
     if (file) {
-      const path = await uploadAdminAsset(file, "categories");
+      const categoryId = (form.elements.namedItem("id") as HTMLInputElement)?.value ?? "";
+      const entityId = hagourCategoryKeyFromId(categoryId) ?? categoryId.split("-cat-").pop() ?? "category";
+      const path = await uploadAdminAsset(file, "categories", { entityId, originalName: `${entityId}.jpg` });
       fd.set("imageUrl", path);
     }
     const res = await upsertCategory(fd);
@@ -209,7 +215,18 @@ function CategoryForm({
   onCancel: () => void;
 }) {
   const [pending, setPending] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
   const { t } = useAdminI18n();
+
+  const categoryKey = hagourCategoryKeyFromId(category?.id);
+  const displayPreview =
+    previewUrl ??
+    (categoryKey
+      ? resolveCategoryBackgroundImage(categoryKey, imageUrl || null)
+      : imageUrl
+        ? resolvePublicAssetSrc(imageUrl)
+        : null);
 
   return (
     <form
@@ -268,9 +285,51 @@ function CategoryForm({
       </label>
       <label className="text-xs font-medium">
         {t("categoryImage")}
-        <input name="imageFile" type="file" accept="image/*" className="mt-1 text-sm" />
+        <input
+          name="imageFile"
+          type="file"
+          accept="image/*"
+          className="mt-1 text-sm"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setPreviewUrl(URL.createObjectURL(file));
+            } else {
+              setPreviewUrl(null);
+            }
+          }}
+        />
       </label>
-      <input type="hidden" name="imageUrl" value={category?.imageUrl ?? ""} />
+      {displayPreview ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div
+            className="relative min-h-[140px] bg-cover bg-center"
+            style={{ backgroundImage: `url("${displayPreview}")` }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
+            <p className="relative z-10 p-3 text-xs font-medium text-white">תצוגה מקדימה</p>
+          </div>
+          <button
+            type="button"
+            className="w-full border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+            onClick={() => {
+              setImageUrl("");
+              setPreviewUrl(null);
+            }}
+          >
+            הסר תמונה
+          </button>
+        </div>
+      ) : null}
+      <input type="hidden" name="imageUrl" value={imageUrl} />
+      <label className="text-xs font-medium">
+        סוג מוצר / אפשרויות
+        <select name="optionProfile" defaultValue={category?.optionProfile ?? ""} className="mt-1 w-full rounded border px-2 py-1.5 text-sm">
+          <option value="">מוצר רגיל</option>
+          <option value="BELT">חגורה (מידה + סגירה)</option>
+          <option value="HOLSTER">נרתיק (בחירת צד)</option>
+        </select>
+      </label>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs font-medium">
           {t("displayOrder")}

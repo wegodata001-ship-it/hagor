@@ -189,6 +189,8 @@ model StoreSettings {
   heroSubtitle_he   String?
   heroSubtitle_ar   String?
   heroSubtitle_en   String?
+  /// Homepage hero background (storage path, /public path, or URL). Falls back to /hagorpgoto.png.
+  heroImageUrl      String?
   /// Product detail gallery image size preset for storefront + admin preview (small | medium | large | custom).
   productGalleryPreset       String  @default("medium")
   /// Used when preset is custom — max height in px (optional clamp).
@@ -274,6 +276,8 @@ model Category {
   imageUrl       String?
   active         Boolean  @default(true)
   sortOrder      Int      @default(0)
+  /// BELT = size + buckle; HOLSTER = hand side
+  optionProfile  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -558,6 +562,7 @@ model OrderItem {
   productName  String
   productImage String?
   variantOptionIds String[] @default([])
+  selectedOptions  Json?
   quantity     Int
   unitPrice    Decimal  @db.Decimal(12, 2)
   totalPrice   Decimal  @db.Decimal(12, 2)

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AssetImg } from "@/components/asset-img";
 import { useCart } from "@/components/cart-context";
 import { pickLocalized } from "@/lib/localized";
+import { HagourCheckIcon, HagourNavIcon } from "@/components/storefront/hagour-icon";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 type RelatedProduct = {
@@ -59,8 +60,8 @@ export function RelatedProductsModal({
             <div className="text-lg font-black text-white">השלם את הקנייה שלך</div>
             <div className="mt-1 text-sm text-zinc-400">לקוחות קונים גם את המוצרים האלו</div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-zinc-200">
-            ✕
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200" aria-label="close">
+            <HagourNavIcon name="close" />
           </button>
         </div>
 
@@ -74,8 +75,8 @@ export function RelatedProductsModal({
               <div className="truncate text-sm font-semibold text-white">{main.title}</div>
               {mainDisplay ? <div className="mt-0.5 text-sm text-hagor-gold">₪{mainDisplay.price.toFixed(2)}</div> : null}
             </div>
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-400 bg-blue-500 text-sm text-white" aria-hidden>
-              ✓
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-hagor-gold/40 bg-hagor-gold/15 text-hagor-gold" aria-hidden>
+              <HagourCheckIcon />
             </div>
           </div>
         </div>
@@ -103,12 +104,12 @@ export function RelatedProductsModal({
                   <div className="mt-0.5 text-sm text-hagor-gold">₪{p.price.toFixed(2)}</div>
                 </div>
                 <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border text-sm ${
-                    checked ? "border-blue-400 bg-blue-500 text-white" : "border-zinc-700 text-zinc-400"
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                    checked ? "border-hagor-gold/40 bg-hagor-gold/15 text-hagor-gold" : "border-zinc-700 text-zinc-500"
                   }`}
                   aria-hidden
                 >
-                  ✓
+                  {checked ? <HagourCheckIcon /> : null}
                 </div>
               </button>
             );

@@ -15,6 +15,7 @@ export type AdminCategoryTreeRow = {
   imageUrl: string | null;
   active: boolean;
   sortOrder: number;
+  optionProfile: string | null;
 };
 
 export function CategoryTreeTable({

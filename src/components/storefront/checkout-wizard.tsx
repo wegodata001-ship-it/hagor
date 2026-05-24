@@ -85,6 +85,7 @@ export function CheckoutWizard() {
             productId: i.productId,
             quantity: i.quantity,
             optionIds: i.optionIds,
+            selectedOptions: i.selectedOptions ?? null,
           })),
         }),
       });

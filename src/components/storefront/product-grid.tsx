@@ -1,23 +1,41 @@
 "use client";
 
+import Link from "next/link";
 import { ProductCard, type StoreProductCardData } from "@/components/storefront/product-card";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 
-export function ProductGrid({ title, products }: { title?: string; products: StoreProductCardData[] }) {
+export function ProductGrid({
+  title,
+  products,
+  viewAllHref,
+}: {
+  title?: string;
+  products: StoreProductCardData[];
+  viewAllHref?: string;
+}) {
   const { t } = useStoreI18n();
+
   return (
-    <section className="space-y-4">
-      {title && <h2 className="text-2xl font-black text-white">{title}</h2>}
+    <section className="w-full">
+      {title ? (
+        <div className="mb-5 flex items-end justify-between gap-3">
+          <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">{title}</h2>
+          {viewAllHref ? (
+            <Link href={viewAllHref} className="shrink-0 text-sm font-medium text-hagor-gold hover:underline">
+              {t("viewAll")}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
       {products.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-400">אין מוצרים להצגה</div>
+        <div className="rounded-[18px] border border-zinc-800 bg-[#111] p-8 text-center text-sm text-zinc-400">{t("noProducts")}</div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="product-grid">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
       )}
-      <p className="text-xs text-zinc-500">{t("hotDeals")}</p>
     </section>
   );
 }
