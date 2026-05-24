@@ -33,6 +33,22 @@ const categories = [
     name_en: "Weapon Holsters",
     sortOrder: 30,
   },
+  {
+    key: "bags" as const,
+    optionProfile: null,
+    name_he: "תיקים",
+    name_ar: "حقائب",
+    name_en: "Bags",
+    sortOrder: 40,
+  },
+  {
+    key: "accessories" as const,
+    optionProfile: null,
+    name_he: "תוספות",
+    name_ar: "إكسسوارات",
+    name_en: "Accessories",
+    sortOrder: 50,
+  },
 ];
 
 const products = [
@@ -85,7 +101,7 @@ export async function seedHagourPreset(prisma: PrismaClient, storeId: string): P
         imageUrl: null,
         active: true,
         sortOrder: category.sortOrder,
-        optionProfile: category.optionProfile,
+        optionProfile: category.optionProfile ?? null,
       },
     });
     categoryIdByKey.set(category.key, id);

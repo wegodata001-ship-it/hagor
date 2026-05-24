@@ -1,4 +1,4 @@
-export type TacticalPlaceholderKind = "belts" | "pistol-holsters" | "weapon-holsters" | "default";
+export type TacticalPlaceholderKind = "belts" | "pistol-holsters" | "weapon-holsters" | "bags" | "accessories" | "default";
 
 const KIND_META: Record<
   TacticalPlaceholderKind,
@@ -20,6 +20,18 @@ const KIND_META: Record<
     labelHe: "נרתיקים לנשק",
     from: "#141614",
     via: "#242a18",
+    to: "#0b0b0b",
+  },
+  bags: {
+    labelHe: "תיקים",
+    from: "#161618",
+    via: "#282018",
+    to: "#0b0b0b",
+  },
+  accessories: {
+    labelHe: "תוספות",
+    from: "#181614",
+    via: "#2a2218",
     to: "#0b0b0b",
   },
   default: {

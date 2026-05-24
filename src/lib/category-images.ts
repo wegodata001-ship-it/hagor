@@ -7,6 +7,8 @@ export const FALLBACK_CATEGORY_IMAGES: Record<HagourCategoryKey, string> = {
   belts: "/categories/belts.svg",
   "pistol-holsters": "/categories/pistol-holsters.svg",
   "weapon-holsters": "/categories/weapon-holsters.svg",
+  bags: "/categories/bags.svg",
+  accessories: "/categories/accessories.svg",
 };
 
 export function resolveCategoryBackgroundImage(

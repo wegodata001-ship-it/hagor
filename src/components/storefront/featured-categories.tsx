@@ -23,7 +23,7 @@ export function FeaturedCategories({ categories }: { categories: CategoryItem[] 
 
   return (
     <section id="featured-categories" className="scroll-mt-28">
-      <div className="mx-auto mb-8 max-w-[1280px] px-4 text-center sm:text-start">
+      <div className="mx-auto mb-8 max-w-[1700px] px-6 text-center sm:text-start">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-hagor-gold/85">
           {t("featuredCategoriesKicker")}
         </p>

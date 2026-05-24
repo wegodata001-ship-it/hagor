@@ -1,6 +1,12 @@
-/** HAGOUR niche catalog — only belts and holsters. */
+/** HAGOUR niche catalog — belts, holsters, bags and accessories. */
 
-export const HAGOUR_CATEGORY_KEYS = ["belts", "pistol-holsters", "weapon-holsters"] as const;
+export const HAGOUR_CATEGORY_KEYS = [
+  "belts",
+  "pistol-holsters",
+  "weapon-holsters",
+  "bags",
+  "accessories",
+] as const;
 
 export type HagourCategoryKey = (typeof HAGOUR_CATEGORY_KEYS)[number];
 

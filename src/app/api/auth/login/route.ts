@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { applySessionCookieToResponse, signSession } from "@/lib/auth/session";
+import { getAuthEnvError, prismaErrorMessage } from "@/lib/auth/env-check";
 import { isAuthDebugLogsEnabled, SESSION_COOKIE_NAME } from "@/lib/auth/cookie-constants";
 import { clientIpFromRequest, rateLimit } from "@/lib/rate-limit";
 
@@ -16,6 +17,12 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const envError = getAuthEnvError();
+  if (envError) {
+    console.error("login: missing env", envError);
+    return NextResponse.json({ error: envError }, { status: 500 });
+  }
+
   const storeId = STORE_ID;
   const ip = clientIpFromRequest(req);
   if (!rateLimit(`login:${ip}`, 25, 60_000)) {
@@ -54,9 +61,8 @@ export async function POST(req: Request) {
       },
     });
   } catch (e) {
-    // This shows up in Vercel runtime logs and helps diagnose DATABASE_URL / Prisma issues.
     console.error("login: prisma error", e);
-    return NextResponse.json({ error: "שגיאת שרת. נסו שוב מאוחר יותר." }, { status: 500 });
+    return NextResponse.json({ error: prismaErrorMessage(e) }, { status: 500 });
   }
   if (!user) {
     return NextResponse.json({ error: "אימייל או סיסמה שגויים." }, { status: 401 });

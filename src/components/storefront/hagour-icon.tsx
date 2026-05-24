@@ -1,4 +1,6 @@
 import {
+  Backpack,
+  Layers,
   Check,
   ArrowLeft,
   ArrowRight,
@@ -43,6 +45,8 @@ const CATEGORY_ICONS: Record<HagourCategoryKey, LucideIcon> = {
   belts: Shield,
   "pistol-holsters": Target,
   "weapon-holsters": ShieldHalf,
+  bags: Backpack,
+  accessories: Layers,
 };
 
 const NAV_ICONS = {
@@ -86,7 +90,13 @@ export function HagourCategoryIcon({
 
 export function HagourPlaceholderIcon({ kind }: { kind: TacticalPlaceholderKind }) {
   const key: HagourCategoryKey =
-    kind === "belts" || kind === "pistol-holsters" || kind === "weapon-holsters" ? kind : "belts";
+    kind === "belts" ||
+    kind === "pistol-holsters" ||
+    kind === "weapon-holsters" ||
+    kind === "bags" ||
+    kind === "accessories"
+      ? kind
+      : "belts";
   return <HagourCategoryIcon categoryKey={key} className="hagour-icon--lg" />;
 }
 

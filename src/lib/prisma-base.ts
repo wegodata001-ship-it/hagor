@@ -12,4 +12,4 @@ export const prismaBase =
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prismaBase = prismaBase;
+globalForPrisma.prismaBase = prismaBase;
