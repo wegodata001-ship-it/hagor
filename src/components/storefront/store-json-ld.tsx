@@ -1,15 +1,16 @@
 import { getStoreContact } from "@/lib/contact";
-import { SITE_NAME } from "@/lib/store";
+import { getSiteUrl, SITE_SEO_TITLE } from "@/lib/site-url";
 
 export function StoreJsonLd() {
   const contact = getStoreContact();
+  const siteUrl = getSiteUrl();
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Store",
-    name: SITE_NAME,
+    name: SITE_SEO_TITLE,
     telephone: contact.storePhone || undefined,
-    url: process.env.NEXT_PUBLIC_SITE_URL || undefined,
+    url: siteUrl,
   };
 
   return (

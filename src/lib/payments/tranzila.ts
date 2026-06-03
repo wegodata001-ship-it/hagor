@@ -1,3 +1,4 @@
+import { getSiteUrl } from "@/lib/site-url";
 import type { PaymentProviderConfig, PaymentSessionRequest, PaymentSessionResult } from "./types";
 
 /**
@@ -24,7 +25,7 @@ export async function createTranzilaSession(
     orderId: req.orderId,
     success_url_address: req.successUrl,
     fail_url_address: req.cancelUrl,
-    notify_url_address: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/webhooks/payment/tranzila`,
+    notify_url_address: `${getSiteUrl()}/api/webhooks/payment/tranzila`,
   });
 
   return {

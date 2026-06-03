@@ -365,7 +365,7 @@ export function CheckoutWizard() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="054-000-0000"
+                placeholder="054-779-358"
                 className="ds-input mt-1.5"
                 value={customerPhone}
                 onChange={(e) => {

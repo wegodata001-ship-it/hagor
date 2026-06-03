@@ -1,13 +1,12 @@
 import "server-only";
 
-import { getAppUrl } from "@/lib/app-url";
-import { SITE_NAME } from "@/lib/store";
+import { getSiteUrl, PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const ACCENT = "#c89211";
 const BG = "#0b0b0b";
 const CARD = "#111111";
 const MUTED = "#94a3b8";
-const FOOTER_LINE = "HAGOUR Tactical Equipment";
+const BRAND_FOOTER = "HAGOUR BY WAEL";
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -21,7 +20,7 @@ export function infoRow(label: string, value: string): string {
 }
 
 export function wrapEmailHtml(title: string, bodyHtml: string, preheader?: string): string {
-  const storeName = SITE_NAME || "HAGOUR";
+  const siteUrl = getSiteUrl();
   const pre = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>`
     : "";
@@ -40,10 +39,12 @@ ${pre}
 <div style="margin-top:8px;font-size:22px;font-weight:800;color:#fff;">${escapeHtml(title)}</div>
 </td></tr>
 <tr><td style="padding:28px;font-size:15px;line-height:1.65;color:#d4d4d8;">${bodyHtml}</td></tr>
-<tr><td style="padding:20px 28px;border-top:1px solid #27272a;font-size:12px;color:${MUTED};text-align:center;">
-© ${new Date().getFullYear()} ${escapeHtml(storeName)}<br/>
-<span style="margin-top:6px;display:inline-block;">${FOOTER_LINE}</span><br/>
-<a href="${escapeHtml(getAppUrl())}" style="color:${ACCENT};text-decoration:none;">${escapeHtml(getAppUrl())}</a>
+<tr><td style="padding:20px 28px 12px;border-top:1px solid #27272a;font-size:12px;color:${MUTED};text-align:center;">
+<strong style="color:#e2e8f0;font-size:13px;">${BRAND_FOOTER}</strong><br/>
+<a href="${escapeHtml(siteUrl)}" style="color:${ACCENT};text-decoration:none;margin-top:8px;display:inline-block;">${escapeHtml(PRODUCTION_SITE_URL)}</a>
+</td></tr>
+<tr><td style="padding:0 28px 24px;text-align:center;">
+${emailButton(siteUrl, "חזרה לאתר")}
 </td></tr>
 </table>
 </td></tr>
@@ -52,5 +53,5 @@ ${pre}
 }
 
 export function emailButton(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;margin:12px 0;padding:12px 22px;background:${ACCENT};color:#0b0b0b;text-decoration:none;border-radius:999px;font-weight:700;font-size:14px;">${escapeHtml(label)}</a>`;
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;margin:12px 0;padding:12px 22px;background:${ACCENT};color:#0b0b0b;text-decoration:none;border-radius:999px;font-weight:700;font-size:14px;">${escapeHtml(label)}</a>`;
 }

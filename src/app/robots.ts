@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { getSiteBaseUrl } from "@/lib/payments/config";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = getSiteBaseUrl();
+  const base = getSiteUrl();
   return {
     rules: {
       userAgent: "*",

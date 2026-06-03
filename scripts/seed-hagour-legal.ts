@@ -3,7 +3,7 @@
  * Usage: npx tsx scripts/seed-hagour-legal.ts
  */
 import { PrismaClient } from "@prisma/client";
-import { HAGOUR_DEFAULT_PHONE } from "../src/lib/hagour-legal-contact";
+import { HAGOUR_DEFAULT_PHONE, HAGOUR_DEFAULT_WHATSAPP } from "../src/lib/hagour-contact";
 import { defaultHagourPrivacyContent, HAGOUR_PRIVACY_SLUG } from "../src/lib/hagour-privacy-default";
 import { defaultHagourRefundsContent, HAGOUR_REFUNDS_SLUG } from "../src/lib/hagour-refunds-default";
 import { defaultHagourTermsContent, HAGOUR_TERMS_SLUG } from "../src/lib/hagour-terms-default";
@@ -45,6 +45,7 @@ async function main() {
     where: { storeId: STORE_ID },
     data: {
       storePhone: HAGOUR_DEFAULT_PHONE,
+      whatsappPhone: HAGOUR_DEFAULT_WHATSAPP,
       terms_he: terms.contentHe,
       terms_en: terms.contentEn,
       terms_ar: terms.contentAr,

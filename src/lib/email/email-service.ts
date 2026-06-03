@@ -94,7 +94,7 @@ export async function sendOrderCreatedEmail(orderId: string): Promise<void> {
 export async function sendOrderConfirmationEmail(orderId: string): Promise<void> {
   const payload = await loadOrderEmailPayload(orderId);
   if (!payload?.order.customerEmail.trim()) return;
-  const track = `${getAppUrl()}/account/orders`;
+  const track = `${getAppUrl()}/orders`;
   const body = `${orderBodyBlock(payload, `שלום ${escapeHtml(payload.order.customerName)},<br/>תודה! התשלום אושר ואנחנו מכינים את ההזמנה.`)}<p style="text-align:center;">${emailButton(track, "מעקב הזמנה")}</p>`;
   await sendMail({
     to: payload.order.customerEmail,
@@ -114,7 +114,8 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
     <p style="margin:0 0 16px;">הזמנתך התקבלה בהצלחה.</p>
     <p style="margin:0 0 8px;"><strong>מספר הזמנה:</strong><br/>#${escapeHtml(o.orderNumber)}</p>
     <p style="margin:0 0 16px;"><strong>סכום:</strong><br/>${formatMoney(o.total, payload.currency)}</p>
-    <p style="margin:0;">תודה שבחרת HAGOUR.</p>
+    <p style="margin:0 0 16px;">תודה שבחרת HAGOUR.</p>
+    <p style="text-align:center;">${emailButton(`${getAppUrl()}/order/${orderId}`, "מעקב הזמנה")}</p>
   `;
   await sendMail({
     to: o.customerEmail,
@@ -149,7 +150,7 @@ export async function sendOrderStatusEmail(orderId: string, fulfillmentStatus: s
   if (!label) return;
   const payload = await loadOrderEmailPayload(orderId);
   if (!payload?.order.customerEmail.trim()) return;
-  const track = `${getAppUrl()}/account/orders/${orderId}`;
+  const track = `${getAppUrl()}/order/${orderId}`;
   const trackingBlock =
     payload.order.trackingNumber?.trim()
       ? `${infoRow("מספר מעקב", escapeHtml(payload.order.trackingNumber))}${

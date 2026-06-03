@@ -1,8 +1,7 @@
 import type { Locale } from "@/lib/localized";
-import { STORE_PHONE } from "@/lib/store";
+import { HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-contact";
 
-/** Official HAGOUR phone (also set via Settings / NEXT_PUBLIC_STORE_PHONE). */
-export const HAGOUR_DEFAULT_PHONE = "054-229-8822";
+export { HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-contact";
 
 export const SUPPORT_EMAIL_TOKEN = "{{SUPPORT_EMAIL}}";
 export const STORE_PHONE_TOKEN = "{{STORE_PHONE}}";
@@ -23,7 +22,7 @@ export function resolveHagourLegalContact(settings?: {
   supportEmail?: string | null;
 }): HagourLegalContact {
   return {
-    storePhone: settings?.storePhone?.trim() || STORE_PHONE.trim() || HAGOUR_DEFAULT_PHONE,
+    storePhone: settings?.storePhone?.trim() || HAGOUR_DEFAULT_PHONE,
     supportEmail: settings?.supportEmail?.trim() || null,
   };
 }

@@ -1,3 +1,4 @@
+import { getSiteUrl } from "@/lib/site-url";
 import type { PaymentProviderConfig, PaymentSessionRequest, PaymentSessionResult } from "./types";
 
 type CardcomCreateResponse = {
@@ -35,7 +36,7 @@ export async function createCardcomSession(
       ProductName: `HAGOR ${req.orderNumber}`,
       SuccessRedirectUrl: req.successUrl,
       FailedRedirectUrl: req.cancelUrl,
-      IndicatorUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/webhooks/payment/cardcom`,
+      IndicatorUrl: `${getSiteUrl()}/api/webhooks/payment/cardcom`,
       Language: "he",
       CoinId: req.currency === "ILS" ? 1 : 2,
       Email: req.customerEmail,

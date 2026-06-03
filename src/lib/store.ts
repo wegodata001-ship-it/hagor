@@ -1,3 +1,5 @@
+import { HAGOUR_DEFAULT_PHONE, HAGOUR_DEFAULT_WHATSAPP } from "@/lib/hagour-contact";
+
 /**
  * Public (NEXT_PUBLIC_*) store identity for both server + client bundles.
  *
@@ -19,9 +21,9 @@ const ASSETS_FOLDER_RAW = getPublicEnv("NEXT_PUBLIC_ASSETS_FOLDER", STORE_SLUG);
 /** Normalized folder segment for Supabase paths (no leading/trailing slashes). */
 export const ASSETS_FOLDER = ASSETS_FOLDER_RAW.replace(/^\/+|\/+$/g, "");
 
-export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "HAGOUR");
-export const STORE_PHONE = getPublicEnv("NEXT_PUBLIC_STORE_PHONE", "");
-export const WHATSAPP_PHONE = getPublicEnv("NEXT_PUBLIC_WHATSAPP_PHONE", "");
+export const SITE_NAME = getPublicEnv("NEXT_PUBLIC_SITE_NAME", "HAGOUR BY WAEL");
+export const STORE_PHONE = getPublicEnv("NEXT_PUBLIC_STORE_PHONE", HAGOUR_DEFAULT_PHONE);
+export const WHATSAPP_PHONE = getPublicEnv("NEXT_PUBLIC_WHATSAPP_PHONE", HAGOUR_DEFAULT_WHATSAPP);
 
 export const storeIdentity = {
   storeId: STORE_ID,
