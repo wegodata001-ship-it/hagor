@@ -1,12 +1,13 @@
 import "server-only";
 
+import { BRAND_LEGAL_NAME } from "@/lib/brand";
 import { getSiteUrl, PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const ACCENT = "#c89211";
 const BG = "#0b0b0b";
 const CARD = "#111111";
 const MUTED = "#94a3b8";
-const BRAND_FOOTER = "HAGOUR BY WAEL";
+const BRAND_FOOTER = BRAND_LEGAL_NAME;
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -35,7 +36,7 @@ ${pre}
 <tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:${CARD};border-radius:16px;border:1px solid #27272a;overflow:hidden;">
 <tr><td style="padding:24px 28px;background:linear-gradient(135deg,#1a1a1a 0%,#0b0b0b 100%);border-bottom:2px solid ${ACCENT};">
-<div style="font-size:11px;letter-spacing:0.2em;color:${ACCENT};font-weight:800;">HAGOUR</div>
+<div style="font-size:11px;letter-spacing:0.2em;color:${ACCENT};font-weight:800;">${escapeHtml(BRAND_LEGAL_NAME)}</div>
 <div style="margin-top:8px;font-size:22px;font-weight:800;color:#fff;">${escapeHtml(title)}</div>
 </td></tr>
 <tr><td style="padding:28px;font-size:15px;line-height:1.65;color:#d4d4d8;">${bodyHtml}</td></tr>

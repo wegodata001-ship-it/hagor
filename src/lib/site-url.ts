@@ -1,9 +1,11 @@
 import "server-only";
 
+import { BRAND_LEGAL_NAME } from "@/lib/brand";
+
 /** Official production origin — never localhost / vercel in prod emails or SEO. */
 export const PRODUCTION_SITE_URL = "https://hagourbywael.com";
 
-export const SITE_SEO_TITLE = "HAGOUR BY WAEL";
+export const SITE_SEO_TITLE = BRAND_LEGAL_NAME;
 export const SITE_SEO_DESCRIPTION =
   "ציוד טקטי מקצועי, חגורות מבצעיות, נרתיקים ותיקים לאנשי ביטחון, מאבטחים ואנשי שטח.";
 

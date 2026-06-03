@@ -1,8 +1,9 @@
+import { BRAND_LEGAL_NAME } from "@/lib/brand";
 import { isBlockedDemoAsset } from "@/lib/tactical-placeholders";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
 
 /** Premium display name on storefront hero + navbar. */
-export const BRAND_DISPLAY = "HAGOUR";
+export const BRAND_DISPLAY = BRAND_LEGAL_NAME;
 
 export const DEFAULT_HERO_IMAGE = "/hagorpgoto.png";
 

@@ -20,7 +20,7 @@ function sectionTitles(locale: Locale) {
   const t = {
     he: {
       updated: "עודכן לאחרונה",
-      h1: "תקנון אתר HAGOUR",
+      h1: "תקנון אתר HAGOUR BY WAEL",
       s1: "1. כללי",
       s2: "2. פרטי העסק",
       s3: "3. מחירים",
@@ -41,7 +41,7 @@ function sectionTitles(locale: Locale) {
     },
     ar: {
       updated: "آخر تحديث",
-      h1: "شروط موقع HAGOUR",
+      h1: "شروط موقع HAGOUR BY WAEL",
       s1: "1. عام",
       s2: "2. بيانات العمل",
       s3: "3. الأسعار",
@@ -62,7 +62,7 @@ function sectionTitles(locale: Locale) {
     },
     en: {
       updated: "Last updated",
-      h1: "HAGOUR Website Terms",
+      h1: "HAGOUR BY WAEL Website Terms",
       s1: "1. General",
       s2: "2. Business details",
       s3: "3. Prices",
@@ -85,7 +85,7 @@ function sectionTitles(locale: Locale) {
   return t[locale];
 }
 
-/** Default HAGOUR terms HTML per language — seed, admin restore, fallback. */
+/** Default HAGOUR BY WAEL terms HTML per language — seed, admin restore, fallback. */
 export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): string {
   const s = sectionTitles(locale);
   const updated = formatUpdatedDate(locale, updatedAt);
@@ -94,14 +94,14 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
     return `<p><strong>${s.updated}:</strong> ${updated}</p>
 <h2>${s.h1}</h2>
 <h3>${s.s1}</h3>
-<p>مرحباً بكم في موقع HAGOUR. يخضع استخدام الموقع والشراء لشروط هذا التنظيم. بإتمام الشراء تؤكد قراءتك والموافقة.</p>
+<p>مرحباً بكم في موقع HAGOUR BY WAEL. يخضع استخدام الموقع والشراء لشروط هذا التنظيم. بإتمام الشراء تؤكد قراءتك والموافقة.</p>
 <h3>${s.s2}</h3>
-<p><strong>اسم العمل:</strong> HAGOUR</p>
+<p><strong>اسم العمل:</strong> HAGOUR BY WAEL</p>
 <p><strong>هاتف:</strong> ${STORE_PHONE_TOKEN}</p>
 <p><strong>بريد:</strong> ${SUPPORT_EMAIL_TOKEN}</p>
 <p>الموقع مخصص لبيع: أحزمة، جرابات مسدس، جرابات سلاح، حقائب وإكسسوارات.</p>
 <h3>${s.s3}</h3>
-<p>جميع الأسعار بالشيكل وتشمل ضريبة القيمة المضافة حيث ينطبق القانون. يحق لـ HAGOUR تحديث الأسعار.</p>
+<p>جميع الأسعار بالشيكل وتشمل ضريبة القيمة المضافة حيث ينطبق القانون. يحق لـ HAGOUR BY WAEL تحديث الأسعار.</p>
 <h3>${s.s4}</h3>
 <p>يُعتبر الطلب مؤكداً <strong>بعد استلام موافقة شركة التسوية</strong>. يعمل الموقع بتسوية إلكترونية آمنة. يحق للمتجر إلغاء الطلب عند خطأ في السعر أو المخزون أو الاشتباه باستخدام غير مشروع.</p>
 <h3>${s.s5}</h3>
@@ -127,7 +127,7 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
 <h3>${s.s15}</h3>
 <p>يستخدم الموقع إجراءات أمنية معتادة ونظام تسوية آمن لحماية بيانات العملاء.</p>
 <h3>${s.s16}</h3>
-<p>جميع حقوق الموقع لـ HAGOUR. يُحظر النسخ دون إذن.</p>
+<p>جميع حقوق الموقع لـ HAGOUR BY WAEL. يُحظر النسخ دون إذن.</p>
 <h3>${s.s17}</h3>
 <p>تخضع الشروط لقوانين دولة إسرائيل. للإلغاء والاسترداد: <a href="/refunds">سياسة الإرجاع</a>.</p>`;
   }
@@ -136,14 +136,14 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
     return `<p><strong>${s.updated}:</strong> ${updated}</p>
 <h2>${s.h1}</h2>
 <h3>${s.s1}</h3>
-<p>Welcome to the HAGOUR website. Use of the site and purchases are subject to these terms. By completing a purchase you confirm that you have read and agreed to them.</p>
+<p>Welcome to the HAGOUR BY WAEL website. Use of the site and purchases are subject to these terms. By completing a purchase you confirm that you have read and agreed to them.</p>
 <h3>${s.s2}</h3>
-<p><strong>Business name:</strong> HAGOUR</p>
+<p><strong>Business name:</strong> HAGOUR BY WAEL</p>
 <p><strong>Phone:</strong> ${STORE_PHONE_TOKEN}</p>
 <p><strong>Email:</strong> ${SUPPORT_EMAIL_TOKEN}</p>
 <p>The site sells: belts, pistol holsters, weapon holsters, bags and accessories.</p>
 <h3>${s.s3}</h3>
-<p>All prices are in Israeli Shekels (ILS) and include VAT where required by law. HAGOUR may update prices at any time.</p>
+<p>All prices are in Israeli Shekels (ILS) and include VAT where required by law. HAGOUR BY WAEL may update prices at any time.</p>
 <h3>${s.s4}</h3>
 <p>An order is considered confirmed <strong>after approval from the payment provider</strong>. The site uses secure online payment. The store may cancel orders due to pricing or stock errors or suspected misuse.</p>
 <h3>${s.s5}</h3>
@@ -169,7 +169,7 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
 <h3>${s.s15}</h3>
 <p>The site uses standard security measures and a secure payment gateway to protect customer information.</p>
 <h3>${s.s16}</h3>
-<p>All site rights belong to HAGOUR. Content may not be copied without prior permission.</p>
+<p>All site rights belong to HAGOUR BY WAEL. Content may not be copied without prior permission.</p>
 <h3>${s.s17}</h3>
 <p>These terms are governed by the laws of the State of Israel. See <a href="/refunds">Cancellations &amp; refunds</a>.</p>`;
   }
@@ -177,14 +177,14 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
   return `<p><strong>${s.updated}:</strong> ${updated}</p>
 <h2>${s.h1}</h2>
 <h3>${s.s1}</h3>
-<p>ברוכים הבאים לאתר HAGOUR. השימוש באתר, רכישת מוצרים וביצוע הזמנות כפופים לתנאי תקנון זה. כל משתמש המבצע רכישה מצהיר כי קרא את התקנון והסכים לתנאיו.</p>
+<p>ברוכים הבאים לאתר HAGOUR BY WAEL. השימוש באתר, רכישת מוצרים וביצוע הזמנות כפופים לתנאי תקנון זה. כל משתמש המבצע רכישה מצהיר כי קרא את התקנון והסכים לתנאיו.</p>
 <h3>${s.s2}</h3>
-<p><strong>שם העסק:</strong> HAGOUR</p>
+<p><strong>שם העסק:</strong> HAGOUR BY WAEL</p>
 <p><strong>טלפון:</strong> ${STORE_PHONE_TOKEN}</p>
 <p><strong>דוא&quot;ל:</strong> ${SUPPORT_EMAIL_TOKEN}</p>
 <p>האתר משמש למכירת: חגורות, נרתיקים לאקדח, נרתיקים לנשק, תיקים, אביזרים ותוספות.</p>
 <h3>${s.s3}</h3>
-<p>כל המחירים באתר מוצגים בשקלים חדשים וכוללים מע&quot;מ ככל שנדרש על פי חוק. HAGOUR רשאית לעדכן מחירים בכל עת.</p>
+<p>כל המחירים באתר מוצגים בשקלים חדשים וכוללים מע&quot;מ ככל שנדרש על פי חוק. HAGOUR BY WAEL רשאית לעדכן מחירים בכל עת.</p>
 <h3>${s.s4}</h3>
 <p><strong>הזמנה תיחשב כמאושרת לאחר קבלת אישור מחברת הסליקה.</strong> הרכישה באתר מתבצעת באמצעות סליקה מקוונת מאובטחת. העסק רשאי לבטל הזמנה במקרה של טעות במחיר, טעות במלאי או חשד לשימוש לא תקין.</p>
 <h3>${s.s5}</h3>
@@ -213,7 +213,7 @@ export function buildHagourTermsHtml(locale: Locale, updatedAt = new Date()): st
 <h3>${s.s15}</h3>
 <p>האתר משתמש באמצעי אבטחה מקובלים ובמערכת סליקה מאובטחת לצורך הגנה על פרטי הלקוחות.</p>
 <h3>${s.s16}</h3>
-<p>כל הזכויות באתר שמורות ל־HAGOUR. אין להעתיק תמונות, טקסטים, עיצובים או לוגו ללא אישור מראש.</p>
+<p>כל הזכויות באתר שמורות ל־HAGOUR BY WAEL. אין להעתיק תמונות, טקסטים, עיצובים או לוגו ללא אישור מראש.</p>
 <h3>${s.s17}</h3>
 <p>על תקנון זה יחולו דיני מדינת ישראל בלבד. לביטולים והחזרים ראו <a href="/refunds">מדיניות ביטולים והחזרים</a>.</p>`;
 }

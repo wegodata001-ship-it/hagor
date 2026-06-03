@@ -33,7 +33,7 @@ const SECTION_ICONS: Record<TermsSectionIcon, LucideIcon> = {
 const COPY = {
   he: {
     heroTitle: "תקנון האתר",
-    heroSubtitle: "תנאי שימוש, מדיניות משלוחים, החזרות ורכישה באתר HAGOUR",
+    heroSubtitle: "תנאי שימוש, מדיניות משלוחים, החזרות ורכישה באתר HAGOUR BY WAEL",
     navTitle: "ניווט מהיר",
     supportTitle: "שירות לקוחות",
     supportCta: "צור קשר",
@@ -41,7 +41,7 @@ const COPY = {
   },
   ar: {
     heroTitle: "شروط الموقع",
-    heroSubtitle: "شروط الاستخدام والشحن والإرجاع والشراء في موقع HAGOUR",
+    heroSubtitle: "شروط الاستخدام والشحن والإرجاع والشراء في موقع HAGOUR BY WAEL",
     navTitle: "تنقل سريع",
     supportTitle: "خدمة العملاء",
     supportCta: "تواصل معنا",
@@ -49,7 +49,7 @@ const COPY = {
   },
   en: {
     heroTitle: "Site Terms",
-    heroSubtitle: "Terms of use, shipping, returns and purchases on the HAGOUR website",
+    heroSubtitle: "Terms of use, shipping, returns and purchases on the HAGOUR BY WAEL website",
     navTitle: "Quick navigation",
     supportTitle: "Customer service",
     supportCta: "Contact us",

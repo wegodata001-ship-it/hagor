@@ -59,7 +59,7 @@ export function AboutSection({ imageUrl }: { imageUrl?: string | null }) {
         <div className="hagour-about__grid">
           <div className={`hagour-about__media ${imageOrder}`}>
             <div className="hagour-about__image-wrap">
-              <AssetImg path={src} alt="HAGOUR Tactical Equipment" className="h-full w-full object-cover" />
+              <AssetImg path={src} alt="HAGOUR BY WAEL — Tactical Equipment" className="h-full w-full object-cover" />
               <div className="hagour-about__image-overlay" aria-hidden />
             </div>
           </div>

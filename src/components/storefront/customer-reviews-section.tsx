@@ -140,7 +140,7 @@ export function CustomerReviewsSection({ reviews }: { reviews: CustomerReviewIte
   return (
     <section id="customer-reviews" className="scroll-mt-28" aria-labelledby="customer-reviews-title">
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-hagor-gold/90">HAGOUR</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-hagor-gold/90">HAGOUR BY WAEL</p>
         <h2 id="customer-reviews-title" className="mt-1 text-xl font-black text-white sm:text-2xl">
           {t("customerReviewsTitle")}
         </h2>

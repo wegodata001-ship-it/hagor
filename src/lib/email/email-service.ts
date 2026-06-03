@@ -53,7 +53,7 @@ export async function sendContactLeadEmail(data: {
   `;
   await sendMail({
     to,
-    subject: `HAGOUR — פנייה חדשה מ${data.name}`,
+    subject: `${SITE_NAME} — פנייה חדשה מ${data.name}`,
     html: wrapEmailHtml("פנייה חדשה", body, `פנייה מ${data.name}`),
     type: "contact_lead",
   });
@@ -64,11 +64,11 @@ export async function sendContactAutoReplyEmail(data: { name: string; email: str
   const body = `
     <p>שלום ${escapeHtml(data.name)},</p>
     <p>קיבלנו את פנייתך. נחזור אליך בהקדם האפשרי.</p>
-    <p style="color:#94a3b8;font-size:13px;">HAGOUR Tactical Equipment</p>
+    <p style="color:#94a3b8;font-size:13px;">${escapeHtml(SITE_NAME)} — ציוד טקטי</p>
   `;
   await sendMail({
     to: data.email.trim(),
-    subject: `HAGOUR — קיבלנו את פנייתך`,
+    subject: `${SITE_NAME} — קיבלנו את פנייתך`,
     html: wrapEmailHtml("תודה על הפנייה", body),
     type: "contact_auto_reply",
   });
@@ -85,7 +85,7 @@ export async function sendOrderCreatedEmail(orderId: string): Promise<void> {
   );
   await sendMail({
     to,
-    subject: `HAGOUR — הזמנה חדשה ${payload.order.orderNumber}`,
+    subject: `${SITE_NAME} — הזמנה חדשה ${payload.order.orderNumber}`,
     html: wrapEmailHtml("הזמנה חדשה", body),
     type: "order_created",
   });
@@ -98,7 +98,7 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
   const body = `${orderBodyBlock(payload, `שלום ${escapeHtml(payload.order.customerName)},<br/>תודה! התשלום אושר ואנחנו מכינים את ההזמנה.`)}<p style="text-align:center;">${emailButton(track, "מעקב הזמנה")}</p>`;
   await sendMail({
     to: payload.order.customerEmail,
-    subject: `HAGOUR — אישור הזמנה ${payload.order.orderNumber}`,
+    subject: `${SITE_NAME} — אישור הזמנה ${payload.order.orderNumber}`,
     html: wrapEmailHtml("אישור הזמנה", body),
     type: "order_confirmation",
   });
@@ -114,12 +114,12 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
     <p style="margin:0 0 16px;">הזמנתך התקבלה בהצלחה.</p>
     <p style="margin:0 0 8px;"><strong>מספר הזמנה:</strong><br/>#${escapeHtml(o.orderNumber)}</p>
     <p style="margin:0 0 16px;"><strong>סכום:</strong><br/>${formatMoney(o.total, payload.currency)}</p>
-    <p style="margin:0 0 16px;">תודה שבחרת HAGOUR.</p>
+    <p style="margin:0 0 16px;">תודה שבחרת ${escapeHtml(SITE_NAME)}.</p>
     <p style="text-align:center;">${emailButton(`${getAppUrl()}/order/${orderId}`, "מעקב הזמנה")}</p>
   `;
   await sendMail({
     to: o.customerEmail,
-    subject: "HAGOUR - אישור הזמנה",
+    subject: `${SITE_NAME} — אישור הזמנה`,
     html: wrapEmailHtml("אישור הזמנה", body),
     type: "order_confirmation",
   });
@@ -133,7 +133,7 @@ export async function sendOrderPaidAdminEmail(orderId: string): Promise<void> {
   const body = orderBodyBlock(payload, `התשלום התקבל בהצלחה.`);
   await sendMail({
     to,
-    subject: `HAGOUR — תשלום התקבל ${payload.order.orderNumber}`,
+    subject: `${SITE_NAME} — תשלום התקבל ${payload.order.orderNumber}`,
     html: wrapEmailHtml("תשלום התקבל", body),
     type: "order_paid",
   });
@@ -168,7 +168,7 @@ export async function sendOrderStatusEmail(orderId: string, fulfillmentStatus: s
   `;
   await sendMail({
     to: payload.order.customerEmail,
-    subject: `HAGOUR — ${label} (${payload.order.orderNumber})`,
+    subject: `${SITE_NAME} — ${label} (${payload.order.orderNumber})`,
     html: wrapEmailHtml(label, body),
     type: "order_status",
   });
@@ -183,7 +183,7 @@ export async function sendWelcomeEmail(data: { name: string; email: string }): P
   `;
   await sendMail({
     to: data.email,
-    subject: `HAGOUR — ברוכים הבאים`,
+    subject: `${SITE_NAME} — ברוכים הבאים`,
     html: wrapEmailHtml("ברוכים הבאים", body),
     type: "welcome",
   });
@@ -198,7 +198,7 @@ export async function sendVerifyEmail(data: { name: string; email: string; verif
   `;
   await sendMail({
     to: data.email,
-    subject: `HAGOUR — אימות אימייל`,
+    subject: `${SITE_NAME} — אימות אימייל`,
     html: wrapEmailHtml("אימות אימייל", body),
     type: "verify_email",
   });
@@ -216,7 +216,7 @@ export async function sendPasswordResetEmail(data: {
   `;
   await sendMail({
     to: data.email,
-    subject: `HAGOUR — איפוס סיסמה`,
+    subject: `${SITE_NAME} — איפוס סיסמה`,
     html: wrapEmailHtml("איפוס סיסמה", body),
     type: "password_reset",
   });
@@ -224,12 +224,12 @@ export async function sendPasswordResetEmail(data: {
 
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: string }> {
   const body = `
-    <p>זהו מייל בדיקה ממערכת <strong>HAGOUR</strong>.</p>
+    <p>זהו מייל בדיקה ממערכת <strong>${escapeHtml(SITE_NAME)}</strong>.</p>
     <p>אם קיבלת הודעה זו — חיבור Brevo SMTP פעיל.</p>
   `;
   const ok = await sendMail({
     to,
-    subject: "HAGOUR — מייל בדיקה",
+    subject: `${SITE_NAME} — מייל בדיקה`,
     html: wrapEmailHtml("מייל בדיקה", body),
     type: "test",
   });

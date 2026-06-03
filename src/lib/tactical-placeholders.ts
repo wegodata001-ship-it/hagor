@@ -35,7 +35,7 @@ const KIND_META: Record<
     to: "#0b0b0b",
   },
   default: {
-    labelHe: "HAGOUR",
+    labelHe: "HAGOUR BY WAEL",
     from: "#141414",
     via: "#252018",
     to: "#0b0b0b",

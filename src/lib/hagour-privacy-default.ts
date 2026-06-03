@@ -21,8 +21,8 @@ export function buildHagourPrivacyHtml(locale: Locale, updatedAt = new Date()): 
 
   if (locale === "ar") {
     return `<p><strong>آخر تحديث:</strong> ${updated}</p>
-<h2>سياسة الخصوصية — HAGOUR</h2>
-<p>تحترم HAGOUR خصوصية زوار الموقع والعملاء. توضح هذه السياسة كيفية جمع المعلومات واستخدامها وحمايتها.</p>
+<h2>سياسة الخصوصية — HAGOUR BY WAEL</h2>
+<p>تحترم HAGOUR BY WAEL خصوصية زوار الموقع والعملاء. توضح هذه السياسة كيفية جمع المعلومات واستخدامها وحمايتها.</p>
 <h3>1. البيانات التي نجمعها</h3>
 <p>عند الطلب أو التسجيل: الاسم، الهاتف، البريد الإلكتروني، عنوان التسليم، تفاصيل الطلب والدفع (عبر شركة التسوية — لا نخزن بيانات بطاقة كاملة على خوادمنا).</p>
 <h3>2. أغراض الاستخدام</h3>
@@ -34,13 +34,13 @@ export function buildHagourPrivacyHtml(locale: Locale, updatedAt = new Date()): 
 <h3>5. حقوقك</h3>
 <p>يمكنك طلب الوصول أو التصحيح أو الحذف وفق القانون المعمول به.</p>
 <h3>6. اتصل بنا</h3>
-<p><strong>HAGOUR</strong><br/>هاتف: ${STORE_PHONE_TOKEN}<br/>بريد: ${SUPPORT_EMAIL_TOKEN}</p>`;
+<p><strong>HAGOUR BY WAEL</strong><br/>هاتف: ${STORE_PHONE_TOKEN}<br/>بريد: ${SUPPORT_EMAIL_TOKEN}</p>`;
   }
 
   if (locale === "en") {
     return `<p><strong>Last updated:</strong> ${updated}</p>
-<h2>Privacy Policy — HAGOUR</h2>
-<p>HAGOUR respects the privacy of website visitors and customers. This policy explains how we collect, use and protect information.</p>
+<h2>Privacy Policy — HAGOUR BY WAEL</h2>
+<p>HAGOUR BY WAEL respects the privacy of website visitors and customers. This policy explains how we collect, use and protect information.</p>
 <h3>1. Data we collect</h3>
 <p>When you order or register: name, phone, email, delivery address, order details. Card data is processed by the payment provider — we do not store full card numbers on our servers.</p>
 <h3>2. How we use data</h3>
@@ -52,12 +52,12 @@ export function buildHagourPrivacyHtml(locale: Locale, updatedAt = new Date()): 
 <h3>5. Your rights</h3>
 <p>You may request access, correction or deletion as required by applicable law.</p>
 <h3>6. Contact</h3>
-<p><strong>HAGOUR</strong><br/>Phone: ${STORE_PHONE_TOKEN}<br/>Email: ${SUPPORT_EMAIL_TOKEN}</p>`;
+<p><strong>HAGOUR BY WAEL</strong><br/>Phone: ${STORE_PHONE_TOKEN}<br/>Email: ${SUPPORT_EMAIL_TOKEN}</p>`;
   }
 
   return `<p><strong>עודכן לאחרונה:</strong> ${updated}</p>
-<h2>מדיניות פרטיות — HAGOUR</h2>
-<p>HAGOUR מכבדת את פרטיות הגולשים והלקוחות. מסמך זה מסביר כיצד נאספים, נעשים שימוש ומוגנים המידע האישי.</p>
+<h2>מדיניות פרטיות — HAGOUR BY WAEL</h2>
+<p>HAGOUR BY WAEL מכבדת את פרטיות הגולשים והלקוחות. מסמך זה מסביר כיצד נאספים, נעשים שימוש ומוגנים המידע האישי.</p>
 <h3>1. מידע שנאסף</h3>
 <p>בעת הזמנה או הרשמה: שם, טלפון, דוא&quot;ל, כתובת למשלוח, פרטי הזמנה. פרטי אשראי מעובדים דרך חברת הסליקה — איננו שומרים מספר כרטיס מלא בשרתים שלנו.</p>
 <h3>2. שימוש במידע</h3>
@@ -69,7 +69,7 @@ export function buildHagourPrivacyHtml(locale: Locale, updatedAt = new Date()): 
 <h3>5. זכויותיך</h3>
 <p>ניתן לפנות בבקשה לעיון, תיקון או מחיקת מידע בהתאם לחוק החל.</p>
 <h3>6. יצירת קשר</h3>
-<p><strong>HAGOUR</strong><br/>טלפון: ${STORE_PHONE_TOKEN}<br/>דוא&quot;ל: ${SUPPORT_EMAIL_TOKEN}</p>`;
+<p><strong>HAGOUR BY WAEL</strong><br/>טלפון: ${STORE_PHONE_TOKEN}<br/>דוא&quot;ל: ${SUPPORT_EMAIL_TOKEN}</p>`;
 }
 
 export function defaultHagourPrivacyContent(updatedAt = new Date()) {
