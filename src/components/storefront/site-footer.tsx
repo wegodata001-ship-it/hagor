@@ -1,4 +1,5 @@
 import { getStoreContact } from "@/lib/contact";
+import { getHagourSupportEmail } from "@/lib/hagour-contact";
 import { getStoreId } from "@/lib/store-config";
 import { STORE_PHONE, WHATSAPP_PHONE } from "@/lib/store";
 import { StoreFooter } from "@/components/storefront/store-footer";
@@ -33,7 +34,7 @@ export async function SiteFooter() {
       storePhone={contact.storePhone}
       telHref={contact.telHref}
       whatsappHref={contact.whatsappHref}
-      supportEmail={settings?.supportEmail ?? null}
+      supportEmail={settings?.supportEmail?.trim() || getHagourSupportEmail()}
       categories={categories}
     />
   );

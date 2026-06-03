@@ -13,6 +13,7 @@
     "db:safe-sync": "tsx scripts/apply-safe-db-sync.ts",
     "db:seed-legal": "tsx scripts/seed-hagour-legal.ts",
     "db:sync-phone": "tsx scripts/sync-store-phone.ts",
+    "db:sync-email": "tsx scripts/sync-store-email.ts",
     "db:seed-reviews": "tsx scripts/seed-hagour-reviews.ts",
     "db:sync-admin-password": "tsx scripts/sync-admin-password.ts",
     "postinstall": "prisma generate"

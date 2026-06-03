@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/localized";
-import { HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-contact";
+import { getHagourSupportEmail, HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-contact";
 
 export { HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-contact";
 
@@ -23,7 +23,7 @@ export function resolveHagourLegalContact(settings?: {
 }): HagourLegalContact {
   return {
     storePhone: settings?.storePhone?.trim() || HAGOUR_DEFAULT_PHONE,
-    supportEmail: settings?.supportEmail?.trim() || null,
+    supportEmail: settings?.supportEmail?.trim() || getHagourSupportEmail(),
   };
 }
 
