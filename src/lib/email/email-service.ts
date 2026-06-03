@@ -121,7 +121,7 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
     to: o.customerEmail,
     subject: "HAGOUR - אישור הזמנה",
     html: wrapEmailHtml("אישור הזמנה", body),
-    type: "order_confirmation_demo",
+    type: "order_confirmation",
   });
 }
 
