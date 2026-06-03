@@ -3,12 +3,14 @@ import { getStoreContact } from "@/lib/contact";
 import { getSiteName, getStoreId } from "@/lib/store-config";
 import { STORE_PHONE, WHATSAPP_PHONE } from "@/lib/store";
 import { getCachedSession } from "@/lib/auth/cached-session";
-import { prisma } from "@/lib/prisma";
 import { StoreHeader } from "@/components/storefront/store-header";
 import { safeQuery } from "@/lib/server/safe-query";
 import { logServerComponentError } from "@/lib/runtime-log/server";
 import { getRequestPath } from "@/lib/server/request-path";
-import { filterHagourCategories, hagourCategoryIds } from "@/lib/hagour-catalog";
+import {
+  getCachedNavCategories,
+  getCachedStoreContactSettings,
+} from "@/lib/server/storefront-layout-data";
 
 export async function SiteHeader() {
   const title = getSiteName();
@@ -26,29 +28,18 @@ export async function SiteHeader() {
   }
 
   const storeId = getStoreId();
-  const [categories, settings] = await Promise.all([
-    safeQuery(
-      "site_header.categories",
-      () =>
-        prisma.category.findMany({
-          where: { storeId, active: true, id: { in: hagourCategoryIds(storeId) } },
-          orderBy: { sortOrder: "asc" },
-          select: { id: true, parentId: true, name_he: true, name_ar: true, name_en: true },
-        }),
-      [],
-      { timeoutMs: 12_000 },
-    ),
-    safeQuery(
-      "site_header.settings",
-      () =>
-        prisma.storeSettings.findUnique({
-          where: { storeId },
-          select: { storePhone: true, whatsappPhone: true },
-        }),
-      null,
-      { timeoutMs: 8000 },
-    ),
-  ]);
+  const settings = await safeQuery(
+    "site_header.settings",
+    () => getCachedStoreContactSettings(storeId),
+    null,
+    { timeoutMs: 12_000 },
+  );
+  const categories = await safeQuery(
+    "site_header.categories",
+    () => getCachedNavCategories(storeId),
+    [],
+    { timeoutMs: 12_000 },
+  );
 
   const contact = getStoreContact({
     storePhone: settings?.storePhone?.trim() || STORE_PHONE,
@@ -61,7 +52,7 @@ export async function SiteHeader() {
   return (
     <StoreHeader
       title={title}
-      categories={filterHagourCategories(categories)}
+      categories={categories}
       isLoggedIn={isLoggedIn}
       role={role}
       storePhone={contact.storePhone}

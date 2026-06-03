@@ -2,12 +2,18 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
-import { getPaymentProviderConfig, getSiteBaseUrl } from "./config";
+import {
+  getPaymentProviderConfig,
+  getSiteBaseUrl,
+  isPaymentConfigured,
+  paymentNotConfiguredMessage,
+} from "./config";
 import { createCardcomSession } from "./cardcom";
 import { createMeshulamSession } from "./meshulam";
 import { createStripeCheckoutSession } from "./stripe";
 import { createTranzilaSession } from "./tranzila";
 import type { PaymentSessionRequest, PaymentSessionResult } from "./types";
+import { isDemoPaymentAllowed } from "./demo-guard";
 import { parseCardcomWebhook } from "./cardcom";
 import { parseTranzilaWebhook } from "./tranzila";
 import { parseStripeWebhookEvent } from "./stripe";
@@ -34,7 +40,13 @@ export async function loadOrderForPayment(orderId: string) {
 export async function createPaymentSession(orderId: string): Promise<PaymentSessionResult> {
   const order = await loadOrderForPayment(orderId);
   if (!order) throw new Error("Order not found");
-  if (order.paymentStatus === "PAID") throw new Error("Order already paid");
+  if (
+    order.paymentStatus === "PAID" ||
+    order.paymentStatus === "TEST_PAID" ||
+    order.paymentStatus === "DEMO_PAID"
+  ) {
+    throw new Error("Order already paid");
+  }
 
   const settings = await prisma.storeSettings.findUnique({
     where: { storeId: STORE_ID },
@@ -57,6 +69,18 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
 
   const config = await getPaymentProviderConfig();
 
+  if (!isPaymentConfigured(config)) {
+    throw new Error(paymentNotConfiguredMessage());
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[payment] create session", {
+      orderId: order.id,
+      provider: config.provider,
+      amount: req.amount,
+    });
+  }
+
   switch (config.provider) {
     case "stripe":
       return createStripeCheckoutSession(config, req);
@@ -67,11 +91,15 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
     case "meshulam":
       return createMeshulamSession(config, req);
     case "demo":
-    default:
+      if (!isDemoPaymentAllowed()) {
+        throw new Error(paymentNotConfiguredMessage());
+      }
       return {
         provider: "demo",
         redirectUrl: `${base}/checkout/payment/${order.id}`,
       };
+    default:
+      throw new Error(paymentNotConfiguredMessage());
   }
 }
 

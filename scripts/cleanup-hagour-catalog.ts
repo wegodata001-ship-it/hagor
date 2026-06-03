@@ -13,7 +13,7 @@ async function main() {
   console.log("Purged:", purged);
 
   await seedHagourPreset(prisma, STORE_ID);
-  console.log("Seeded 3 categories + 6 products");
+  console.log("Seeded 5 categories + 9 products");
 
   const storage = await deleteBlockedStorageRoots();
   console.log("Storage cleanup:", storage);

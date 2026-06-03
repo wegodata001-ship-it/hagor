@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCachedSession } from "@/lib/auth/cached-session";
+import { listCustomerOrders } from "@/lib/account/customer-orders";
 import { STORE_ID } from "@/lib/store";
 import { safeQuery } from "@/lib/server/safe-query";
 
@@ -40,26 +41,16 @@ export default async function AccountHomePage() {
       });
       if (!user) return { kind: "nouser" };
 
-      const profile = user.customerProfile;
-      const orders = profile
-        ? await prisma.order.findMany({
-            where: { storeId, customerId: profile.id },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-            select: {
-              id: true,
-              orderNumber: true,
-              total: true,
-              createdAt: true,
-              status: true,
-              fulfillmentStatus: true,
-            },
-          })
-        : [];
-
-      const totalOrders = profile
-        ? await prisma.order.count({ where: { storeId, customerId: profile.id } })
-        : 0;
+      const allOrders = await listCustomerOrders(session.userId, storeId);
+      const orders = allOrders.slice(0, 5).map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        total: o.total,
+        createdAt: o.createdAt,
+        status: o.status,
+        fulfillmentStatus: o.fulfillmentStatus,
+      }));
+      const totalOrders = allOrders.length;
 
       return { kind: "ok", user, orders, totalOrders };
     },

@@ -1,126 +1,175 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { getCachedSession } from "@/lib/auth/cached-session";
-import { STORE_ID } from "@/lib/store";
 import { OrderTimeline } from "@/components/account/order-timeline";
+import { getCachedSession } from "@/lib/auth/cached-session";
+import { getCustomerOrderById } from "@/lib/account/customer-orders";
+import {
+  formatOrderDate,
+  getCustomerOrderStatusLabel,
+  isOrderPaymentSettled,
+} from "@/lib/order-tracking";
 import { safeQuery } from "@/lib/server/safe-query";
 
 export const dynamic = "force-dynamic";
 
-type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
-
-type OrderDetailLoaded =
-  | { kind: "noprofile" }
-  | { kind: "missing" }
-  | { kind: "ok"; order: OrderWithItems };
-
 export default async function AccountOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getCachedSession();
   if (!session) redirect("/login");
-  const storeId = STORE_ID;
   const { id } = await params;
 
-  const loaded = await safeQuery<OrderDetailLoaded | null>(
+  const order = await safeQuery(
     "account.order_detail",
-    async (): Promise<OrderDetailLoaded> => {
-      const profile = await prisma.customerProfile.findFirst({
-        where: { userId: session.userId, storeId },
-      });
-      if (!profile) return { kind: "noprofile" };
-
-      const order = await prisma.order.findFirst({
-        where: { id, storeId, customerId: profile.id },
-        include: { items: true },
-      });
-      if (!order) return { kind: "missing" };
-      return { kind: "ok", order };
-    },
+    () => getCustomerOrderById(session.userId, id),
     null,
     { timeoutMs: 25_000 },
   );
 
-  if (loaded === null) {
+  if (order === null) {
     return (
-      <div className="ds-card-glass border-amber-500/30 p-6 text-center">
-        <p className="font-medium text-slate-100">לא ניתן לטעון את ההזמנה כרגע.</p>
-        <Link href="/account/orders" className="mt-4 inline-block text-sm text-blue-400 hover:underline">
+      <div className="rounded-2xl border border-amber-500/30 bg-zinc-900/80 p-6 text-center">
+        <p className="font-medium text-zinc-100">לא ניתן לטעון את ההזמנה כרגע.</p>
+        <Link href="/account/orders" className="mt-4 inline-block text-sm text-hagor-gold hover:underline">
           חזרה להזמנות
         </Link>
       </div>
     );
   }
 
-  if (loaded.kind === "noprofile") redirect("/account/orders");
-  if (loaded.kind === "missing") notFound();
+  if (!order) notFound();
 
-  const order = loaded.order;
-
-  const shipped = order.fulfillmentStatus === "SHIPPED";
-  const completed = order.fulfillmentStatus === "COMPLETED";
+  const statusLabel = getCustomerOrderStatusLabel(order);
+  const paid = isOrderPaymentSettled(order.paymentStatus, order.status);
   const cancelled = order.status === "CANCELLED";
-
-  let accent = "border-white/10";
-  if (cancelled) accent = "border-red-500/30";
-  else if (completed) accent = "border-emerald-500/35";
-  else if (shipped) accent = "border-blue-500/35";
 
   return (
     <div>
-      <Link href="/account/orders" className="text-sm text-blue-400 hover:underline">
+      <Link href="/account/orders" className="text-sm text-hagor-gold hover:underline">
         ← חזרה להזמנות
       </Link>
-      <div className={`ds-card-glass mt-4 border ${accent} p-5 md:p-8`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+
+      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800 pb-6">
           <div>
-            <h1 className="text-xl font-bold text-slate-50 md:text-2xl">הזמנה {order.orderNumber}</h1>
-            <p className="mt-1 text-sm text-slate-400">{new Date(order.createdAt).toLocaleString("he-IL")}</p>
+            <p className="text-xs text-zinc-500">מספר הזמנה</p>
+            <h1 className="font-mono text-2xl font-black text-white">{order.orderNumber}</h1>
+            <p className="mt-2 text-sm text-zinc-400">תאריך: {formatOrderDate(order.createdAt)}</p>
           </div>
           <div className="text-start md:text-end">
-            <p className="text-2xl font-bold text-slate-50">₪{Number(order.total).toFixed(2)}</p>
-            <p className="mt-1 text-xs text-slate-500">סטטוס תשלום: {order.paymentStatus}</p>
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                cancelled
+                  ? "bg-red-500/15 text-red-300"
+                  : !paid
+                    ? "bg-amber-500/15 text-amber-200"
+                    : "bg-hagor-gold/15 text-hagor-gold"
+              }`}
+            >
+              {statusLabel}
+            </span>
+            <p className="mt-3 text-2xl font-bold text-white">₪{Number(order.total).toFixed(2)}</p>
           </div>
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-2">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300">מסלול משלוח</h2>
-            <p className="mt-2 text-sm text-slate-400">{order.deliveryOptionName}</p>
-            {order.address && (
-              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-500">{order.address}</p>
-            )}
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300">מצב הזמנה</h2>
-            <div className="mt-3">
-              <OrderTimeline status={order.status} fulfillmentStatus={order.fulfillmentStatus} />
+          <section>
+            <h2 className="text-sm font-semibold text-zinc-300">פרטי לקוח ומשלוח</h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="text-zinc-500">שם:</dt>
+                <dd className="text-zinc-200">{order.customerName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-zinc-500">טלפון:</dt>
+                <dd className="text-zinc-200" dir="ltr">
+                  {order.customerPhone}
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-zinc-500">משלוח:</dt>
+                <dd className="text-zinc-200">{order.deliveryOptionName}</dd>
+              </div>
+              {order.address ? (
+                <div>
+                  <dt className="text-zinc-500">כתובת:</dt>
+                  <dd className="mt-1 whitespace-pre-wrap text-zinc-300">{order.address}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {order.trackingNumber ? (
+              <div className="mt-6 rounded-xl border border-hagor-gold/30 bg-hagor-gold/5 p-4">
+                <p className="text-xs text-zinc-500">מספר מעקב</p>
+                <p className="mt-1 font-mono text-base font-semibold text-hagor-gold" dir="ltr">
+                  {order.trackingNumber}
+                </p>
+                {order.courierName ? (
+                  <>
+                    <p className="mt-3 text-xs text-zinc-500">חברת משלוחים</p>
+                    <p className="mt-1 text-sm text-zinc-200">{order.courierName}</p>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-zinc-300">מעקב התקדמות</h2>
+            <div className="mt-4">
+              <OrderTimeline
+                status={order.status}
+                paymentStatus={order.paymentStatus}
+                fulfillmentStatus={order.fulfillmentStatus}
+              />
             </div>
+          </section>
+        </div>
+
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-zinc-300">מוצרים</h2>
+          <div className="mt-3 overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-950/50 text-xs text-zinc-500">
+                  <th className="px-4 py-2 text-start font-medium">מוצר</th>
+                  <th className="px-4 py-2 text-center font-medium">כמות</th>
+                  <th className="px-4 py-2 text-end font-medium">מחיר</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((item) => (
+                  <tr key={item.id} className="border-b border-zinc-800/80 last:border-0">
+                    <td className="px-4 py-3 text-zinc-200">{item.productName}</td>
+                    <td className="px-4 py-3 text-center text-zinc-400">{item.quantity}</td>
+                    <td className="px-4 py-3 text-end tabular-nums text-zinc-300">
+                      ₪{Number(item.totalPrice).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2} className="px-4 py-3 text-end text-zinc-500">
+                    סה״כ
+                  </td>
+                  <td className="px-4 py-3 text-end text-lg font-bold text-hagor-gold">
+                    ₪{Number(order.total).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        </div>
+        </section>
 
-        <div className="mt-8">
-          <h2 className="text-sm font-semibold text-slate-300">מוצרים</h2>
-          <ul className="mt-3 divide-y divide-white/10">
-            {order.items.map((item) => (
-              <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
-                <span className="text-slate-200">{item.productName}</span>
-                <span className="text-slate-500">
-                  {item.quantity} × ₪{Number(item.unitPrice).toFixed(2)} = ₪{Number(item.totalPrice).toFixed(2)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href={`/checkout/payment/${order.id}`}
-            className="inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            עמוד תשלום
-          </Link>
-        </div>
+        {!paid && !cancelled ? (
+          <div className="mt-8">
+            <Link
+              href={`/checkout/payment/${order.id}`}
+              className="hagor-btn inline-flex min-h-11 items-center px-6"
+            >
+              השלמת תשלום
+            </Link>
+          </div>
+        ) : null}
       </div>
     </div>
   );

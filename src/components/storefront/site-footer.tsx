@@ -1,36 +1,27 @@
-import { prisma } from "@/lib/prisma";
 import { getStoreContact } from "@/lib/contact";
 import { getStoreId } from "@/lib/store-config";
 import { STORE_PHONE, WHATSAPP_PHONE } from "@/lib/store";
 import { StoreFooter } from "@/components/storefront/store-footer";
 import { safeQuery } from "@/lib/server/safe-query";
-import { filterHagourCategories, hagourCategoryIds } from "@/lib/hagour-catalog";
+import {
+  getCachedNavCategories,
+  getCachedStoreContactSettings,
+} from "@/lib/server/storefront-layout-data";
 
 export async function SiteFooter() {
   const storeId = getStoreId();
-  const [settings, categories] = await Promise.all([
-    safeQuery(
-      "site_footer.settings",
-      () =>
-        prisma.storeSettings.findUnique({
-          where: { storeId },
-          select: { storePhone: true, whatsappPhone: true, supportEmail: true },
-        }),
-      null,
-      { timeoutMs: 8000 },
-    ),
-    safeQuery(
-      "site_footer.categories",
-      () =>
-        prisma.category.findMany({
-          where: { storeId, active: true, parentId: null, id: { in: hagourCategoryIds(storeId) } },
-          orderBy: { sortOrder: "asc" },
-          select: { id: true, name_he: true, name_ar: true, name_en: true },
-        }),
-      [],
-      { timeoutMs: 8000 },
-    ),
-  ]);
+  const settings = await safeQuery(
+    "site_footer.settings",
+    () => getCachedStoreContactSettings(storeId),
+    null,
+    { timeoutMs: 12_000 },
+  );
+  const categories = await safeQuery(
+    "site_footer.categories",
+    () => getCachedNavCategories(storeId),
+    [],
+    { timeoutMs: 12_000 },
+  );
 
   const contact = getStoreContact({
     storePhone: settings?.storePhone?.trim() || STORE_PHONE,
@@ -43,7 +34,7 @@ export async function SiteFooter() {
       telHref={contact.telHref}
       whatsappHref={contact.whatsappHref}
       supportEmail={settings?.supportEmail ?? null}
-      categories={filterHagourCategories(categories)}
+      categories={categories}
     />
   );
 }

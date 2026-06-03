@@ -1,32 +1,43 @@
-import { LegalDocumentClient } from "@/components/storefront/legal-document-client";
-import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
+import { HagourTermsPageClient } from "@/components/storefront/hagour-terms-page-client";
+import { getStoreContact } from "@/lib/contact";
+import { HAGOUR_DEFAULT_PHONE } from "@/lib/hagour-legal-contact";
+import { buildHagourTermsHtml } from "@/lib/hagour-terms-default";
+import { getStoreTermsContent } from "@/lib/store-pages";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-const TITLES = {
-  he: "תקנון השימוש",
-  ar: "شروط الاستخدام",
-  en: "Terms of use",
-} as const;
-
 export default async function TermsPage() {
-  const storeId = STORE_ID;
-  const s = await prisma.storeSettings.findUnique({
-    where: { storeId },
-    select: { terms_he: true, terms_ar: true, terms_en: true },
+  const [page, settings] = await Promise.all([
+    getStoreTermsContent(STORE_ID),
+    prisma.storeSettings.findUnique({
+      where: { storeId: STORE_ID },
+      select: { storePhone: true, whatsappPhone: true },
+    }),
+  ]);
+
+  const contact = getStoreContact({
+    storePhone: settings?.storePhone?.trim() || HAGOUR_DEFAULT_PHONE,
+    whatsappPhone: settings?.whatsappPhone?.trim() || undefined,
   });
 
+  const contactHref = contact.whatsappHref || contact.telHref || "#";
+
   return (
-    <LegalDocumentClient
-      titles={TITLES}
-      fallback={LEGAL_FALLBACK.terms}
-      htmlByLang={{
-        he: s?.terms_he ?? null,
-        ar: s?.terms_ar ?? null,
-        en: s?.terms_en ?? null,
+    <HagourTermsPageClient
+      fallback={{
+        he: buildHagourTermsHtml("he"),
+        ar: buildHagourTermsHtml("ar"),
+        en: buildHagourTermsHtml("en"),
       }}
+      htmlByLang={{
+        he: page.contentHe,
+        ar: page.contentAr,
+        en: page.contentEn,
+      }}
+      storePhone={contact.storePhone}
+      contactHref={contactHref}
     />
   );
 }

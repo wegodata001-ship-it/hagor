@@ -13,13 +13,14 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/products", label: "products", Icon: IconBox },
   { href: "/admin/categories", label: "categories", Icon: IconGrid },
   { href: "/admin/banners", label: "banners", Icon: IconImage },
+  { href: "/admin/reviews", label: "reviewsAdmin", Icon: IconChat },
   { href: "/admin/orders", label: "orders", Icon: IconCart },
   { href: "/admin/customers", label: "customer", Icon: IconUsers },
   { href: "/admin/delivery", label: "delivery", Icon: IconTruck },
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
   { href: "/admin/loyalty", label: "loyalty", Icon: IconStar },
+  { href: "/admin/content/terms", label: "contentManagement", Icon: IconDocument },
   { href: "/admin/settings", label: "storeSettings", Icon: IconGear },
-  { href: "/admin/settings/terms", label: "termsPolicies", Icon: IconDocument },
   { href: "/admin/webhooks", label: "paymentWebhooks", Icon: IconWebhook },
   { href: "/admin/observability", label: "observability", Icon: IconObservability },
 ];
@@ -27,10 +28,10 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
 function navActive(href: string, pathname: string) {
   if (href === "/admin") return pathname === "/admin";
   if (href === "/admin/settings") {
-    return pathname === "/admin/settings";
+    return pathname === "/admin/settings" || pathname.startsWith("/admin/settings/");
   }
-  if (href === "/admin/settings/terms") {
-    return pathname.startsWith("/admin/settings/terms");
+  if (href === "/admin/content/terms") {
+    return pathname.startsWith("/admin/content");
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -218,6 +219,17 @@ function IconCart({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.591 1.872-5.42 1.872-8.25V6.75A2.25 2.25 0 0018 4.5H6.75a2.25 2.25 0 00-2.25 2.25v5.25c0 .966.784 1.75 1.75 1.75z" />
+    </svg>
+  );
+}
+function IconChat({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
+      />
     </svg>
   );
 }

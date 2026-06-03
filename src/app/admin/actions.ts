@@ -18,6 +18,10 @@ import {
   removeTabDrafts,
   type PolicyLang,
 } from "@/lib/policy-storage";
+import { defaultHagourTermsContent, HAGOUR_TERMS_SLUG, HAGOUR_TERMS_TITLE } from "@/lib/hagour-terms-default";
+import { HAGOUR_PRIVACY_SLUG, HAGOUR_PRIVACY_TITLE } from "@/lib/hagour-privacy-default";
+import { HAGOUR_REFUNDS_SLUG, HAGOUR_REFUNDS_TITLE } from "@/lib/hagour-refunds-default";
+import { seedStorePage, type HagourContentSlug } from "@/lib/store-pages";
 
 async function guard() {
   const session = await requireAdminSession();
@@ -33,6 +37,8 @@ export type AdminOrderDetailDTO = {
   status: string;
   paymentStatus: string;
   fulfillmentStatus: string;
+  trackingNumber: string | null;
+  courierName: string | null;
   subtotal: number;
   deliveryPrice: number;
   discountAmount: number;
@@ -92,6 +98,8 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     status: order.status,
     paymentStatus: order.paymentStatus,
     fulfillmentStatus: order.fulfillmentStatus,
+    trackingNumber: order.trackingNumber,
+    courierName: order.courierName,
     subtotal: Number(order.subtotal),
     deliveryPrice: Number(order.deliveryPrice),
     discountAmount: Number(order.discountAmount),
@@ -928,6 +936,66 @@ export async function upsertCoupon(formData: FormData): Promise<AdminActionResul
   }
 }
 
+export async function upsertReview(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const id = String(formData.get("id") ?? "").trim();
+    const name = String(formData.get("name") ?? "").trim();
+    const comment = String(formData.get("comment") ?? "").trim();
+    const rating = Math.min(5, Math.max(1, Number(formData.get("rating")) || 5));
+    const sortOrder = Number(formData.get("sortOrder")) || 0;
+    const isApproved = formData.get("isApproved") === "on";
+    const imageUrlRaw = String(formData.get("imageUrl") ?? "").trim();
+
+    if (!name || !comment) return err("שם ותוכן חובה");
+
+    let imageUrl: string | null = imageUrlRaw || null;
+    if (imageUrl) {
+      const { assertStoreAssetPath } = await import("@/lib/store-assets");
+      try {
+        imageUrl = assertStoreAssetPath(imageUrl);
+      } catch {
+        return err("נתיב תמונה לא תקין");
+      }
+    }
+
+    const data = { name, comment, rating, sortOrder, isApproved, imageUrl };
+
+    if (id) {
+      await prisma.review.updateMany({ where: { id, storeId }, data });
+    } else {
+      await prisma.review.create({ data: { ...data, storeId } });
+    }
+
+    await logAdminAction({
+      userId,
+      action: id ? "review.update" : "review.create",
+      entity: "Review",
+      entityId: id || name,
+    });
+    revalidatePath("/admin/reviews");
+    revalidatePath("/");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שמירת חוות דעת נכשלה");
+  }
+}
+
+export async function deleteReview(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const id = String(formData.get("id") ?? "").trim();
+    if (!id) return err("חסר מזהה");
+    await prisma.review.deleteMany({ where: { id, storeId } });
+    await logAdminAction({ userId, action: "review.delete", entity: "Review", entityId: id });
+    revalidatePath("/admin/reviews");
+    revalidatePath("/");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "מחיקת חוות דעת נכשלה");
+  }
+}
+
 export async function deleteCoupon(formData: FormData): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
@@ -1019,6 +1087,28 @@ export async function deleteLoyaltyReward(formData: FormData): Promise<AdminActi
   }
 }
 
+export async function sendTestEmailAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { userId } = await guard();
+    const to = String(formData.get("to") ?? "").trim();
+    if (!to) return err("חסרה כתובת נמען");
+
+    const { sendTestEmail } = await import("@/lib/email/email-service");
+    const result = await sendTestEmail(to);
+    if (!result.ok) return err(result.error ?? "שליחת מייל בדיקה נכשלה");
+
+    await logAdminAction({
+      userId,
+      action: "email.test",
+      entity: "Email",
+      entityId: to,
+    });
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שליחת מייל נכשלה");
+  }
+}
+
 export async function saveStoreSettings(formData: FormData): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
@@ -1057,7 +1147,12 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
       whatsappPhone: (formData.get("whatsappPhone") as string) || null,
       storePhone: (formData.get("storePhone") as string) || null,
       storeAddress: (formData.get("storeAddress") as string) || null,
-      paymentProvider: (formData.get("paymentProvider") as string) || null,
+      paymentProvider: (() => {
+        const enabled = formData.get("paymentEnabled") === "on";
+        if (!enabled) return null;
+        const raw = (formData.get("paymentProvider") as string)?.trim();
+        return raw || null;
+      })(),
       paymentPublicKey: (formData.get("paymentPublicKey") as string) || null,
       paymentSecretKey: (formData.get("paymentSecretKey") as string) || null,
       paymentWebhookSecretOverride: (formData.get("paymentWebhookSecretOverride") as string) || null,
@@ -1187,6 +1282,126 @@ export async function publishPolicyTab(tab: PolicyTab): Promise<AdminActionResul
   }
 }
 
+const CONTENT_PAGE_META: Record<
+  HagourContentSlug,
+  { slug: string; defaultTitle: string; publicPath: string; adminPath: string }
+> = {
+  terms: {
+    slug: HAGOUR_TERMS_SLUG,
+    defaultTitle: HAGOUR_TERMS_TITLE,
+    publicPath: "/terms",
+    adminPath: "/admin/content/terms",
+  },
+  privacy: {
+    slug: HAGOUR_PRIVACY_SLUG,
+    defaultTitle: HAGOUR_PRIVACY_TITLE,
+    publicPath: "/privacy",
+    adminPath: "/admin/content/privacy",
+  },
+  refunds: {
+    slug: HAGOUR_REFUNDS_SLUG,
+    defaultTitle: HAGOUR_REFUNDS_TITLE,
+    publicPath: "/refunds",
+    adminPath: "/admin/content/refunds",
+  },
+};
+
+export async function saveStoreContentPage(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const key = String(formData.get("slug") ?? "terms").trim() as HagourContentSlug;
+    const meta = CONTENT_PAGE_META[key];
+    if (!meta) return err("דף תוכן לא תקין");
+
+    const emptyToNull = (v: FormDataEntryValue | null) => {
+      const s = String(v ?? "").trim();
+      return s === "" ? null : s;
+    };
+    const contentHe = emptyToNull(formData.get("contentHe"));
+    const contentEn = emptyToNull(formData.get("contentEn"));
+    const contentAr = emptyToNull(formData.get("contentAr"));
+    const title = String(formData.get("title") ?? meta.defaultTitle).trim() || meta.defaultTitle;
+
+    await prisma.storePage.upsert({
+      where: { storeId_slug: { storeId, slug: meta.slug } },
+      create: { storeId, slug: meta.slug, title, contentHe, contentEn, contentAr },
+      update: { title, contentHe, contentEn, contentAr },
+    });
+
+    if (key === "terms") {
+      await prisma.storeSettings.updateMany({
+        where: { storeId },
+        data: {
+          terms_he: contentHe,
+          terms_en: contentEn,
+          terms_ar: contentAr,
+          termsPublishedAt: new Date(),
+        },
+      });
+    }
+
+    await logAdminAction({
+      userId,
+      action: `store_page.${key}.save`,
+      entity: "StorePage",
+      entityId: meta.slug,
+    });
+    revalidatePath(meta.publicPath);
+    revalidatePath(meta.adminPath);
+    revalidatePath("/admin/content");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שמירת התוכן נכשלה");
+  }
+}
+
+export async function restoreStoreContentPage(key: HagourContentSlug): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const meta = CONTENT_PAGE_META[key];
+    if (!meta) return err("דף תוכן לא תקין");
+
+    await seedStorePage(storeId, key, true);
+
+    if (key === "terms") {
+      const content = defaultHagourTermsContent();
+      await prisma.storeSettings.updateMany({
+        where: { storeId },
+        data: {
+          terms_he: content.contentHe,
+          terms_en: content.contentEn,
+          terms_ar: content.contentAr,
+          termsPublishedAt: new Date(),
+        },
+      });
+    }
+
+    await logAdminAction({
+      userId,
+      action: `store_page.${key}.restore`,
+      entity: "StorePage",
+      entityId: meta.slug,
+    });
+    revalidatePath(meta.publicPath);
+    revalidatePath(meta.adminPath);
+    revalidatePath("/admin/content");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שחזור ברירת מחדל נכשל");
+  }
+}
+
+/** @deprecated use saveStoreContentPage */
+export async function saveStoreTermsPage(formData: FormData): Promise<AdminActionResult> {
+  if (!formData.has("slug")) formData.set("slug", "terms");
+  return saveStoreContentPage(formData);
+}
+
+/** @deprecated use restoreStoreContentPage */
+export async function restoreStoreTermsDefaults(): Promise<AdminActionResult> {
+  return restoreStoreContentPage("terms");
+}
+
 export async function restorePolicyTabDefaults(tab: PolicyTab): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
@@ -1270,13 +1485,20 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
     const status = formData.get("status") as string;
     const paymentStatus = formData.get("paymentStatus") as string;
     const fulfillmentRaw = String(formData.get("fulfillmentStatus") ?? "").trim();
+    const trackingNumber = String(formData.get("trackingNumber") ?? "").trim() || null;
+    const courierName = String(formData.get("courierName") ?? "").trim() || null;
     const fulfillmentOk = ["RECEIVED", "PROCESSING", "PACKED", "SHIPPED", "COMPLETED"].includes(
       fulfillmentRaw,
     );
     // Restore inventory when cancelling a previously active order (best-effort, backward compatible).
     const prev = await prisma.order.findFirst({
       where: { id, storeId },
-      select: { status: true, paymentStatus: true, inventoryReducedAt: true },
+      select: {
+        status: true,
+        paymentStatus: true,
+        inventoryReducedAt: true,
+        fulfillmentStatus: true,
+      },
     });
     const nextStatus = status as never;
     const nextPayment = paymentStatus as never;
@@ -1314,6 +1536,8 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
         data: {
           status: nextStatus,
           paymentStatus: nextPayment,
+          trackingNumber,
+          courierName,
           ...(fulfillmentOk ? { fulfillmentStatus: fulfillmentRaw as never } : {}),
         },
       });
@@ -1325,6 +1549,15 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
       const { reduceInventoryAfterPayment } = await import("@/lib/inventory/updateInventory");
       await reduceInventoryAfterPayment(id);
     }
+    if (
+      fulfillmentOk &&
+      prev?.fulfillmentStatus !== fulfillmentRaw &&
+      ["PACKED", "SHIPPED", "COMPLETED"].includes(fulfillmentRaw)
+    ) {
+      const { queueEmail, sendOrderStatusEmail } = await import("@/lib/email/email-service");
+      queueEmail(() => sendOrderStatusEmail(id, fulfillmentRaw));
+    }
+
     await logAdminAction({
       userId,
       action: "order.status.update",
@@ -1333,6 +1566,9 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
       metadata: { status, paymentStatus, fulfillmentStatus: fulfillmentOk ? fulfillmentRaw : undefined },
     });
     revalidatePath("/admin/orders");
+    revalidatePath("/account/orders");
+    revalidatePath(`/account/orders/${id}`);
+    revalidatePath(`/order/${id}`);
     return ok();
   } catch (e) {
     return err(e instanceof Error ? e.message : "עדכון הזמנה נכשל");

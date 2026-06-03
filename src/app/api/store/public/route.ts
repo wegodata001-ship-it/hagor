@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDemoPaymentAllowed } from "@/lib/payments/demo-guard";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 
@@ -13,5 +14,6 @@ export async function GET() {
     freeShippingMinAmount: s?.freeShippingMinAmount ? Number(s.freeShippingMinAmount) : 499,
     storePhone: s?.storePhone ?? null,
     whatsappPhone: s?.whatsappPhone ?? null,
+    allowDemoPayment: isDemoPaymentAllowed(),
   });
 }

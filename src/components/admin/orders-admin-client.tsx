@@ -38,7 +38,26 @@ export type OrderFilters = {
 };
 
 const ORDER_STATUS_OPTIONS = ["ALL", "PENDING", "PAID", "CANCELLED", "FAILED"];
-const PAYMENT_STATUS_OPTIONS = ["ALL", "UNPAID", "PAID", "REFUNDED", "FAILED"];
+const PAYMENT_STATUS_OPTIONS = ["ALL", "UNPAID", "PAID", "TEST_PAID", "DEMO_PAID", "REFUNDED", "FAILED"];
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  const { t } = useAdminI18n();
+  if (status === "TEST_PAID") {
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+        {t("testPaymentBadge")}
+      </span>
+    );
+  }
+  if (status === "DEMO_PAID") {
+    return (
+      <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
+        {t("demoPaymentBadge")}
+      </span>
+    );
+  }
+  return <>{status}</>;
+}
 const DELIVERY_TYPE_OPTIONS = ["ALL", "PICKUP", "SHIPPING"];
 
 export function OrdersAdminClient({
@@ -254,7 +273,9 @@ export function OrdersAdminClient({
                 <td className="px-4 py-2">{deliveryLabel(o)}</td>
                 <td className="px-4 py-2 tabular-nums">₪{o.total.toFixed(2)}</td>
                 <td className="px-4 py-2">{o.status}</td>
-                <td className="px-4 py-2">{o.paymentStatus}</td>
+                <td className="px-4 py-2">
+                  <PaymentStatusBadge status={o.paymentStatus} />
+                </td>
                 <td className="px-4 py-2 text-xs">{new Date(o.createdAt).toLocaleString("he-IL")}</td>
               </tr>
             ))}
@@ -309,6 +330,8 @@ export function OrdersAdminClient({
                 <select name="paymentStatus" defaultValue={detail.paymentStatus} className="mt-1 block rounded border px-2 py-1 text-sm">
                   <option value="UNPAID">UNPAID</option>
                   <option value="PAID">PAID</option>
+                  <option value="TEST_PAID">TEST_PAID</option>
+                  <option value="DEMO_PAID">DEMO_PAID</option>
                   <option value="REFUNDED">REFUNDED</option>
                   <option value="FAILED">FAILED</option>
                 </select>
@@ -320,12 +343,29 @@ export function OrdersAdminClient({
                   defaultValue={detail.fulfillmentStatus}
                   className="mt-1 block rounded border px-2 py-1 text-sm"
                 >
-                  <option value="RECEIVED">RECEIVED</option>
-                  <option value="PROCESSING">PROCESSING</option>
-                  <option value="PACKED">PACKED</option>
-                  <option value="SHIPPED">SHIPPED</option>
-                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="RECEIVED">RECEIVED — התקבלה</option>
+                  <option value="PROCESSING">PROCESSING — בהכנה</option>
+                  <option value="PACKED">PACKED — נארז</option>
+                  <option value="SHIPPED">SHIPPED — נשלח</option>
+                  <option value="COMPLETED">COMPLETED — נמסר</option>
                 </select>
+              </label>
+              <label className="text-xs">
+                מספר מעקב
+                <input
+                  name="trackingNumber"
+                  defaultValue={detail.trackingNumber ?? ""}
+                  className="mt-1 block w-36 rounded border px-2 py-1 font-mono text-sm"
+                  dir="ltr"
+                />
+              </label>
+              <label className="text-xs">
+                חברת משלוחים
+                <input
+                  name="courierName"
+                  defaultValue={detail.courierName ?? ""}
+                  className="mt-1 block w-32 rounded border px-2 py-1 text-sm"
+                />
               </label>
               <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-xs text-white">
                 {t("update")}
@@ -397,7 +437,10 @@ export function OrdersAdminClient({
               <div>{t("orderPointsDiscount")}: ₪{detail.pointsDiscountAmount.toFixed(2)}</div>
               <div>{t("orderDeliveryMethod")}: {detail.deliveryOptionName} ({detail.deliveryOptionType})</div>
               <div>{t("orderDeliveryPrice")}: ₪{detail.deliveryPrice.toFixed(2)}</div>
-              <div>{t("orderPaymentStatus")}: {detail.paymentStatus}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{t("orderPaymentStatus")}:</span>
+                <PaymentStatusBadge status={detail.paymentStatus} />
+              </div>
               <div className="font-semibold">{t("orderFinalTotal")}: ₪{detail.total.toFixed(2)}</div>
             </div>
           </div>

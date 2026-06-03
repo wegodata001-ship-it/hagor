@@ -7,6 +7,7 @@ import {
 import { prisma } from "../prisma";
 import { STORE_ID } from "@/lib/store";
 import { reduceInventoryAfterPayment } from "@/lib/inventory/updateInventory";
+import { queueEmail, sendDemoOrderConfirmationEmail } from "@/lib/email/email-service";
 import {
   notifyOrderConfirmationToCustomer,
   notifyOrderPaidToOwner,
@@ -22,6 +23,9 @@ export type WebhookInput = {
   transactionId?: string | null;
   confirmationNumber?: string | null;
   rawPayload?: unknown;
+  /** Default PAID — test checkout uses TEST_PAID */
+  orderPaymentStatus?: OrderPaymentStatus;
+  paymentRecordStatus?: string;
 };
 
 function roundMoney(n: number): number {
@@ -62,7 +66,12 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
     return { ok: false, message: "Currency mismatch" };
   }
 
-  if (order.paymentStatus === OrderPaymentStatus.PAID && order.status === OrderStatus.PAID) {
+  const settled =
+    order.status === OrderStatus.PAID &&
+    (order.paymentStatus === OrderPaymentStatus.PAID ||
+      order.paymentStatus === OrderPaymentStatus.TEST_PAID ||
+      order.paymentStatus === OrderPaymentStatus.DEMO_PAID);
+  if (settled) {
     return { ok: true, message: "Order already paid" };
   }
 
@@ -92,11 +101,14 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
     return { ok: true, message: "Payment failed recorded" };
   }
 
+  const orderPaymentStatus = input.orderPaymentStatus ?? OrderPaymentStatus.PAID;
+  const paymentRecordStatus = input.paymentRecordStatus ?? "PAID";
+
   await prisma.$transaction(async (tx) => {
     await tx.order.updateMany({
       where: { id: order.id, storeId },
       data: {
-        paymentStatus: OrderPaymentStatus.PAID,
+        paymentStatus: orderPaymentStatus,
         status: OrderStatus.PAID,
       },
     });
@@ -167,7 +179,7 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
         provider: input.provider,
         amount: new Prisma.Decimal(paidAmount),
         currency,
-        status: "PAID",
+        status: paymentRecordStatus,
         transactionId: input.transactionId ?? undefined,
         confirmationNumber: input.confirmationNumber ?? undefined,
         rawPayload: input.rawPayload === undefined ? Prisma.JsonNull : (input.rawPayload as Prisma.InputJsonValue),
@@ -204,7 +216,11 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
       total: Number(paidSummary.total),
       currency: curCurrency,
     };
-    void notifyOrderConfirmationToCustomer(payload).catch(() => {});
+    if (input.provider === "DEMO") {
+      queueEmail(() => sendDemoOrderConfirmationEmail(order.id));
+    } else {
+      void notifyOrderConfirmationToCustomer(payload).catch(() => {});
+    }
     void notifyOrderPaidToOwner(payload).catch(() => {});
   }
 

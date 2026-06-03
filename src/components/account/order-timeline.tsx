@@ -1,51 +1,64 @@
 "use client";
 
-import type { OrderFulfillmentStatus, OrderStatus } from "@prisma/client";
+import type { OrderFulfillmentStatus, OrderPaymentStatus, OrderStatus } from "@prisma/client";
 import { orderTimelineMeta } from "@/lib/order-tracking";
 
 export function OrderTimeline({
   status,
+  paymentStatus,
   fulfillmentStatus,
 }: {
   status: OrderStatus;
+  paymentStatus: OrderPaymentStatus;
   fulfillmentStatus: OrderFulfillmentStatus;
 }) {
-  const { cancelled, steps } = orderTimelineMeta({ status, fulfillmentStatus });
+  const { cancelled, awaitingPayment, steps } = orderTimelineMeta({
+    status,
+    paymentStatus,
+    fulfillmentStatus,
+  });
+
+  if (awaitingPayment) {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+        <p className="text-sm font-medium text-amber-100">ממתין לתשלום</p>
+        <p className="mt-1 text-xs text-amber-200/80">לאחר אישור התשלום יופיע מסלול המשלוח.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <ol className="space-y-4">
+      <ol className="relative space-y-0 border-s-2 border-zinc-700/80 ps-6 ms-2">
         {steps.map((s, i) => {
+          const isLast = i === steps.length - 1;
           const dotClass = cancelled
-            ? s.current
-              ? "border-red-400 bg-red-500/25 text-red-200"
-              : "border-slate-600 bg-slate-900 text-slate-600"
+            ? "border-red-500/50 bg-red-950 text-red-300"
             : s.current
-              ? "border-blue-400 bg-blue-500/20 text-blue-100 shadow-[0_0_0_3px_rgba(37,99,235,0.25)]"
+              ? "border-hagor-gold bg-hagor-gold/20 text-hagor-gold shadow-[0_0_12px_rgba(200,146,17,0.35)]"
               : s.done
-                ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                : "border-slate-600 bg-slate-900 text-slate-500";
+                ? "border-emerald-600/60 bg-emerald-950/40 text-emerald-400"
+                : "border-zinc-600 bg-zinc-900 text-zinc-500";
+
+          const labelClass = cancelled
+            ? "text-red-300"
+            : s.current
+              ? "text-hagor-gold font-bold"
+              : s.done
+                ? "text-zinc-300"
+                : "text-zinc-500";
 
           return (
-            <li key={s.key} className="flex gap-3">
+            <li key={s.key} className={`relative ${isLast ? "" : "pb-6"}`}>
               <span
-                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold ${dotClass}`}
+                className={`absolute -start-[1.65rem] top-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-bold ${dotClass}`}
               >
-                {cancelled && s.current ? "!" : s.done ? "✓" : i + 1}
+                {s.done ? "✓" : s.current ? "●" : ""}
               </span>
-              <p
-                className={`pt-1 text-sm font-medium leading-snug ${
-                  cancelled && s.current
-                    ? "text-red-300"
-                    : s.current
-                      ? "text-blue-200"
-                      : s.done
-                        ? "text-emerald-200"
-                        : "text-slate-500"
-                }`}
-              >
-                {s.label}
-              </p>
+              <p className={`text-sm leading-snug ${labelClass}`}>{s.label}</p>
+              {!isLast && s.current ? (
+                <span className="mt-1 block text-xs text-hagor-gold/80">שלב נוכחי</span>
+              ) : null}
             </li>
           );
         })}

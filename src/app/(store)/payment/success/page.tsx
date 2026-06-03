@@ -25,7 +25,10 @@ export default async function PaymentSuccessPage({
   });
   if (!order) notFound();
 
-  const paid = order.paymentStatus === "PAID";
+  const paid =
+    order.paymentStatus === "PAID" ||
+    order.paymentStatus === "TEST_PAID" ||
+    order.paymentStatus === "DEMO_PAID";
 
   return (
     <div className="mx-auto max-w-lg px-4 py-16 text-center">

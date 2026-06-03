@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getAppUrl } from "@/lib/app-url";
+import { queueEmail, sendWelcomeEmail } from "@/lib/email/email-service";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,11 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/login?verify=expired", base));
   }
 
+  const user = await prisma.user.findFirst({
+    where: { id: row.userId, storeId },
+    select: { name: true, email: true },
+  });
+
   await prisma.$transaction([
     prisma.user.updateMany({
       where: { id: row.userId, storeId },
@@ -38,6 +44,12 @@ export async function GET(req: Request) {
       data: { usedAt: new Date() },
     }),
   ]);
+
+  if (user?.email) {
+    queueEmail(() =>
+      sendWelcomeEmail({ name: user.name ?? "לקוח", email: user.email }),
+    );
+  }
 
   return NextResponse.redirect(new URL("/login?verify=ok", base));
 }

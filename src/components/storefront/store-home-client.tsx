@@ -5,6 +5,10 @@ import { Suspense } from "react";
 import { HeroSlider } from "@/components/storefront/hero-slider";
 import { BenefitsRow } from "@/components/storefront/benefits-row";
 import { FeaturedCategories } from "@/components/storefront/featured-categories";
+import {
+  CustomerReviewsSection,
+  type CustomerReviewItem,
+} from "@/components/storefront/customer-reviews-section";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { AboutSection } from "@/components/storefront/about-section";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
@@ -41,6 +45,7 @@ export function StoreHomeClient({
   banners,
   categories,
   featured,
+  reviews,
 }: {
   heroImageUrl: string | null;
   heroCopy: {
@@ -51,6 +56,7 @@ export function StoreHomeClient({
   banners: Banner[];
   categories: Category[];
   featured: StoreProductCardData[];
+  reviews: CustomerReviewItem[];
 }) {
   const { t, dir } = useStoreI18n();
 
@@ -62,10 +68,11 @@ export function StoreHomeClient({
         <Suspense fallback={<div className="min-h-[200px] animate-pulse rounded-[18px] bg-zinc-900/40" aria-hidden />}>
           <FeaturedCategories categories={categories} />
         </Suspense>
+        <CustomerReviewsSection reviews={reviews} />
         {featured.length > 0 ? (
           <ProductGrid title={t("featuredProducts")} products={featured} viewAllHref="/products" />
         ) : null}
-        <AboutSection />
+        <AboutSection imageUrl={heroImageUrl} />
       </div>
     </div>
   );

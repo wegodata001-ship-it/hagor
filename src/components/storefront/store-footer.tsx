@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ContactForm } from "@/components/storefront/contact-form";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { pickLocalized } from "@/lib/localized";
 import { SITE_NAME } from "@/lib/store";
@@ -97,11 +98,12 @@ export function StoreFooter({
                 </li>
               ) : null}
             </ul>
+            <ContactForm />
             <p className="mt-4 text-sm font-semibold text-zinc-200">{t("footerPolicies")}</p>
             <ul className="mt-2 space-y-2 text-sm text-zinc-400">
               <li>
                 <Link href="/terms" className="hover:text-hagor-gold">
-                  {t("terms")}
+                  {t("siteTerms")}
                 </Link>
               </li>
               <li>

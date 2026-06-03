@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { loadApprovedReviews } from "@/lib/load-reviews";
 import { getStoreId } from "@/lib/store-config";
 import { StoreHomeClient } from "@/components/storefront/store-home-client";
 import { safeQuery } from "@/lib/server/safe-query";
@@ -46,11 +47,14 @@ async function loadHomeData(storeId: string) {
     }),
   ]);
 
+  const reviews = await loadApprovedReviews(storeId);
+
   return {
     banners,
     categories: filterHagourCategories(categories),
     products: products.filter((p) => isHagourCategoryId(p.categoryId)),
     settings,
+    reviews,
   };
 }
 
@@ -61,8 +65,15 @@ export default async function HomePage() {
   const { banners, categories, products, settings } = await safeQuery(
     "store.home",
     () => loadHomeData(storeId),
-    { banners: [], categories: [], products: [], settings: null } as HomeLoaded,
+    { banners: [], categories: [], products: [], settings: null, reviews: [] } as HomeLoaded,
     { timeoutMs: 25_000 },
+  );
+
+  const reviews = await safeQuery(
+    "store.home.reviews",
+    () => loadApprovedReviews(storeId),
+    [],
+    { timeoutMs: 8_000 },
   );
 
   const featured = products.filter((p) => p.featured).slice(0, 8);
@@ -100,6 +111,13 @@ export default async function HomePage() {
       banners={banners}
       categories={categories}
       featured={displayFeatured.map(toCard)}
+      reviews={reviews.map((r) => ({
+        id: r.id,
+        name: r.name,
+        rating: r.rating,
+        comment: r.comment,
+        imageUrl: r.imageUrl,
+      }))}
     />
   );
 }

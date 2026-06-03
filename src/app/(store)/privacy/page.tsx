@@ -1,6 +1,6 @@
 import { LegalDocumentClient } from "@/components/storefront/legal-document-client";
-import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
-import { prisma } from "@/lib/prisma";
+import { buildHagourPrivacyHtml } from "@/lib/hagour-privacy-default";
+import { getStorePageContent } from "@/lib/store-pages";
 import { STORE_ID } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -12,20 +12,20 @@ const TITLES = {
 } as const;
 
 export default async function PrivacyPage() {
-  const storeId = STORE_ID;
-  const s = await prisma.storeSettings.findUnique({
-    where: { storeId },
-    select: { privacy_he: true, privacy_ar: true, privacy_en: true },
-  });
+  const page = await getStorePageContent(STORE_ID, "privacy");
 
   return (
     <LegalDocumentClient
       titles={TITLES}
-      fallback={LEGAL_FALLBACK.privacy}
+      fallback={{
+        he: buildHagourPrivacyHtml("he"),
+        ar: buildHagourPrivacyHtml("ar"),
+        en: buildHagourPrivacyHtml("en"),
+      }}
       htmlByLang={{
-        he: s?.privacy_he ?? null,
-        ar: s?.privacy_ar ?? null,
-        en: s?.privacy_en ?? null,
+        he: page.contentHe,
+        ar: page.contentAr,
+        en: page.contentEn,
       }}
     />
   );

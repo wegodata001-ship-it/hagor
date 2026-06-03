@@ -178,15 +178,40 @@ export function SettingsAdminClient({
           </div>
 
           <div className="col-span-full border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("emailSettings")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("emailSettingsSubtitle")}</p>
+            <Link
+              href="/admin/settings/email"
+              className="mt-2 inline-block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            >
+              {t("emailSettingsLink")}
+            </Link>
+          </div>
+
+          <div className="col-span-full border-t border-slate-200 pt-4">
             <h3 className="text-sm font-semibold text-slate-800">{t("paymentsSection")}</h3>
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-800">
+              <input
+                type="checkbox"
+                name="paymentEnabled"
+                defaultChecked={Boolean(settings.paymentProvider?.trim())}
+              />
+              {t("paymentEnabled")}
+            </label>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="text-xs font-medium">
                 {t("paymentProvider")}
-                <input name="paymentProvider" defaultValue={settings.paymentProvider ?? ""} className="ds-input mt-1 text-sm" />
+                <input
+                  name="paymentProvider"
+                  defaultValue={settings.paymentProvider ?? ""}
+                  placeholder="cardcom | tranzila | meshulam | stripe"
+                  className="ds-input mt-1 text-sm"
+                />
               </label>
               <label className="text-xs font-medium">
-                {t("paymentPublicKey")}
+                {t("paymentTerminalNumber")}
                 <input name="paymentPublicKey" defaultValue={settings.paymentPublicKey ?? ""} className="ds-input mt-1 font-mono text-sm" />
+                <span className="mt-0.5 block text-[10px] text-slate-500">{t("paymentPublicKey")}</span>
               </label>
               <label className="text-xs font-medium">
                 {t("paymentSecretKey")}

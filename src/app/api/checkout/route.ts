@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { DeliveryType, OrderPaymentStatus, OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
@@ -12,6 +11,13 @@ import {
   computeTotal,
   snapshotDeliveryName,
 } from "@/lib/checkout/compute-order";
+import { INVALID_CUSTOMER_DETAILS } from "@/lib/checkout/customer-validation";
+import {
+  checkoutBodySchema,
+  formatCheckoutValidationError,
+  formatShippingAddress,
+  validateCheckoutCustomerDetails,
+} from "@/lib/checkout/validation";
 import {
   parseSelectedOptions,
   resolveCategoryOptionProfile,
@@ -20,55 +26,54 @@ import {
 
 export const runtime = "nodejs";
 
-const selectedOptionsSchema = z
-  .object({
-    type: z.enum(["BELT", "HOLSTER"]),
-    beltSize: z.string().optional(),
-    policePantsSize: z.number().optional(),
-    beltLengthCm: z.number().optional(),
-    beltLengthInch: z.number().optional(),
-    buckleType: z.enum(["REGULAR", "TACTICAL", "QUICK_RELEASE"]).optional(),
-    handSide: z.enum(["RIGHT", "LEFT"]).optional(),
-  })
-  .optional()
-  .nullable();
-
-const Schema = z.object({
-  customerName: z.string().min(1),
-  customerEmail: z.string().email(),
-  customerPhone: z.string().min(1),
-  deliveryOptionId: z.string(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-  couponCode: z.string().optional(),
-  redeemPoints: z.number().int().min(0).optional(),
-  items: z
-    .array(
-      z.object({
-        productId: z.string(),
-        quantity: z.number().int().positive(),
-        optionIds: z.array(z.string()).optional(),
-        selectedOptions: selectedOptionsSchema,
-      }),
-    )
-    .min(1),
-});
+function resolveLocale(req: Request): "he" | "ar" | "en" {
+  const h = req.headers.get("x-locale")?.trim().toLowerCase();
+  if (h === "ar" || h === "en") return h;
+  return "he";
+}
 
 export async function POST(req: Request) {
   const storeId = STORE_ID;
+  const locale = resolveLocale(req);
   let json: unknown;
   try {
     json = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
 
-  const parsed = Schema.safeParse(json);
+  const parsed = checkoutBodySchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid checkout payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: formatCheckoutValidationError(parsed.error, locale) },
+      { status: 400 },
+    );
   }
 
   const body = parsed.data;
+
+  const customerCheck = validateCheckoutCustomerDetails(body, locale);
+  if (!customerCheck.ok) {
+    return NextResponse.json(
+      {
+        error: INVALID_CUSTOMER_DETAILS,
+        fieldErrors: customerCheck.fieldErrors,
+      },
+      { status: 400 },
+    );
+  }
+
+  const customerEmail = body.customerEmail.trim();
+  const shippingAddress = formatShippingAddress(body.city, body.address);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[checkout] payload", {
+      items: body.items.length,
+      deliveryOptionId: body.deliveryOptionId,
+      hasCity: Boolean(body.city?.trim()),
+      hasAddress: Boolean(body.address?.trim()),
+    });
+  }
   const jar = await cookies();
   const session = await decodeSessionToken(jar.get("session")?.value ?? "");
 
@@ -130,7 +135,25 @@ export async function POST(req: Request) {
     where: { id: body.deliveryOptionId, storeId, active: true },
   });
   if (!delivery) {
-    return NextResponse.json({ error: "Invalid delivery option" }, { status: 400 });
+    return NextResponse.json(
+      { error: locale === "ar" ? "طريقة الشحن غير صالحة." : "אופן המשלוח שנבחר אינו זמין." },
+      { status: 400 },
+    );
+  }
+
+  if (delivery.type === DeliveryType.SHIPPING) {
+    if (!body.city?.trim()) {
+      return NextResponse.json(
+        { error: locale === "ar" ? "يرجى إدخال المدينة." : "יש למלא עיר." },
+        { status: 400 },
+      );
+    }
+    if (!body.address?.trim()) {
+      return NextResponse.json(
+        { error: locale === "ar" ? "يرجى إدخال عنوان الشحن." : "יש למלא כתובת למשלוח." },
+        { status: 400 },
+      );
+    }
   }
 
   const storeSettings = await prisma.storeSettings.findUnique({ where: { storeId } });
@@ -224,7 +247,7 @@ export async function POST(req: Request) {
           orderNumber,
           customerId: customerProfileId,
           customerName: body.customerName,
-          customerEmail: body.customerEmail,
+          customerEmail,
           customerPhone: body.customerPhone,
           status: OrderStatus.PENDING,
           paymentStatus: OrderPaymentStatus.UNPAID,
@@ -236,7 +259,7 @@ export async function POST(req: Request) {
           deliveryOptionName: deliveryName,
           deliveryOptionType: delivery.type as DeliveryType,
           deliveryOptionPrice: new Prisma.Decimal(deliveryPrice),
-          address: body.address ?? null,
+          address: shippingAddress || null,
           notes: body.notes ?? null,
           couponCode: appliedCoupon,
           loyaltyPointsRedeemed: pointsUsed,
@@ -279,10 +302,14 @@ export async function POST(req: Request) {
   const currency =
     (await prisma.storeSettings.findUnique({ where: { storeId } }))?.currency ?? "ILS";
 
+  if (process.env.NODE_ENV === "development") {
+    console.log("[checkout] created order", orderId);
+  }
+
   void notifyNewOrderToOwner({
     orderId,
     orderNumber,
-    customerEmail: body.customerEmail,
+    customerEmail,
     customerName: body.customerName,
     customerPhone: body.customerPhone,
     total,

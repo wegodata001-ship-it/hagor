@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AssetImg } from "@/components/asset-img";
 import { useCart } from "@/components/cart-context";
@@ -24,6 +25,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const { t, lang, dir } = useStoreI18n();
   const [products, setProducts] = useState<Record<string, ProductRow>>({});
   const [freeShippingMin, setFreeShippingMin] = useState(499);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch("/api/store/public")
@@ -50,6 +56,18 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       .catch(() => setProducts({}));
   }, [items]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouch = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouch;
+    };
+  }, [open]);
+
   const subtotal = useMemo(() => {
     let sum = 0;
     for (const it of items) {
@@ -59,26 +77,56 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
     return sum;
   }, [items, products]);
 
-  return (
+  const slideClass =
+    dir === "rtl"
+      ? open
+        ? "translate-x-0"
+        : "translate-x-full"
+      : open
+        ? "translate-x-0"
+        : "-translate-x-full";
+
+  const edgeClass = dir === "rtl" ? "cart-drawer--rtl" : "cart-drawer--ltr";
+
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-40 bg-black/60 transition ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        aria-hidden={!open}
+        className={`cart-drawer-overlay bg-black/60 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       />
       <aside
         dir={dir}
-        className={`fixed bottom-0 top-0 z-50 w-full max-w-md border-zinc-800 bg-zinc-950 p-4 text-white shadow-2xl transition-transform md:w-[420px] ${
-          open ? "translate-x-0" : dir === "rtl" ? "translate-x-full" : "-translate-x-full"
-        } ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("cart")}
+        aria-hidden={!open}
+        inert={!open ? true : undefined}
+        className={`cart-drawer w-full max-w-md border-zinc-800 bg-zinc-950 text-white shadow-2xl transition-transform duration-300 md:w-[420px] ${edgeClass} ${slideClass} ${
+          dir === "rtl" ? "border-l" : "border-r"
+        }`}
+        style={{ pointerEvents: open ? "auto" : "none" }}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <header className="cart-drawer__header flex items-center justify-between px-4 pb-3">
           <h3 className="text-lg font-semibold">{t("cart")}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-300" aria-label="close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-300"
+            aria-label="close"
+          >
             <HagourNavIcon name="close" />
           </button>
-        </div>
-        <div className="h-[calc(100vh-180px)] space-y-3 overflow-y-auto pr-1">
-          {items.length === 0 && <p className="rounded-lg bg-zinc-900 p-3 text-sm text-zinc-400">{t("emptyCart")}</p>}
+        </header>
+
+        <div className="cart-drawer__items space-y-3 px-4">
+          {items.length === 0 && (
+            <p className="rounded-lg bg-zinc-900 p-3 text-sm text-zinc-400">{t("emptyCart")}</p>
+          )}
           {items.map((line) => {
             const p = products[line.productId];
             if (!p) return null;
@@ -86,7 +134,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             return (
               <div key={line.key} className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
                 <div className="flex gap-3">
-                  <div className="h-16 w-16 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
                     <AssetImg path={p.image} alt={name} className="h-full w-full object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -115,7 +163,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                       >
                         +
                       </button>
-                      <button type="button" onClick={() => removeItem(line.key)} className="ml-auto text-xs text-red-400">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(line.key)}
+                        className="ms-auto text-xs text-red-400"
+                      >
                         הסר
                       </button>
                     </div>
@@ -125,7 +177,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             );
           })}
         </div>
-        <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4">
+
+        <footer className="cart-drawer__footer space-y-3 px-4 pt-4">
           {freeShippingMin > 0 && subtotal < freeShippingMin ? (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-zinc-400">
@@ -144,15 +197,12 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             <span className="text-zinc-300">{t("subtotal")}</span>
             <strong className="text-hagor-gold">₪{subtotal.toFixed(2)}</strong>
           </div>
-          <Link
-            href="/checkout"
-            onClick={onClose}
-            className="hagor-btn block w-full text-center"
-          >
+          <Link href="/checkout" onClick={onClose} className="hagor-btn block w-full text-center">
             {t("checkout")}
           </Link>
-        </div>
+        </footer>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

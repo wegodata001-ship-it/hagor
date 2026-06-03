@@ -1,6 +1,6 @@
 import { LegalDocumentClient } from "@/components/storefront/legal-document-client";
-import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
-import { prisma } from "@/lib/prisma";
+import { buildHagourRefundsHtml } from "@/lib/hagour-refunds-default";
+import { getStorePageContent } from "@/lib/store-pages";
 import { STORE_ID } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -12,20 +12,20 @@ const TITLES = {
 } as const;
 
 export default async function RefundsPage() {
-  const storeId = STORE_ID;
-  const s = await prisma.storeSettings.findUnique({
-    where: { storeId },
-    select: { refund_he: true, refund_ar: true, refund_en: true },
-  });
+  const page = await getStorePageContent(STORE_ID, "refunds");
 
   return (
     <LegalDocumentClient
       titles={TITLES}
-      fallback={LEGAL_FALLBACK.refund}
+      fallback={{
+        he: buildHagourRefundsHtml("he"),
+        ar: buildHagourRefundsHtml("ar"),
+        en: buildHagourRefundsHtml("en"),
+      }}
       htmlByLang={{
-        he: s?.refund_he ?? null,
-        ar: s?.refund_ar ?? null,
-        en: s?.refund_en ?? null,
+        he: page.contentHe,
+        ar: page.contentAr,
+        en: page.contentEn,
       }}
     />
   );

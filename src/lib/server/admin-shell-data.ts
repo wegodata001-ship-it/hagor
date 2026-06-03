@@ -2,6 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { safeQuery } from "@/lib/server/safe-query";
+import { getCachedStoreContactSettings } from "@/lib/server/storefront-layout-data";
 
 export type AdminShellData = {
   storeName: string;
@@ -13,12 +14,18 @@ export const getCachedAdminShellData = cache(async (userId: string): Promise<Adm
   const storeId = STORE_ID;
   const [user, store, settings] = await safeQuery(
     "admin.shell",
-    () =>
-      Promise.all([
-        prisma.user.findFirst({ where: { id: userId, storeId }, select: { name: true } }),
-        prisma.store.findUnique({ where: { id: storeId }, select: { name: true } }),
-        prisma.storeSettings.findUnique({ where: { storeId }, select: { logoUrl: true } }),
-      ]),
+    async () => {
+      const userRow = await prisma.user.findFirst({
+        where: { id: userId, storeId },
+        select: { name: true },
+      });
+      const storeRow = await prisma.store.findUnique({
+        where: { id: storeId },
+        select: { name: true },
+      });
+      const settingsRow = await getCachedStoreContactSettings(storeId);
+      return [userRow, storeRow, settingsRow] as const;
+    },
     [null, null, null] as [null, null, null],
     { timeoutMs: 15_000 },
   );

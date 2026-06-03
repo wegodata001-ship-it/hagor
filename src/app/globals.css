@@ -87,6 +87,68 @@ body {
     border-radius: 12px;
   }
 
+  .hagor-btn-demo {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hagor-gold/50 bg-zinc-800 px-6 py-3 text-sm font-semibold text-hagor-gold shadow-lg shadow-black/40 transition hover:-translate-y-0.5 hover:bg-zinc-700 hover:border-hagor-gold;
+    border-radius: 12px;
+  }
+
+  /* Mobile cart drawer — full viewport (100dvh), flex layout, safe areas */
+  .cart-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+  }
+
+  .cart-drawer {
+    position: fixed;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 9999;
+    /* iOS / mobile viewport — prefer dvh over vh */
+    height: 100vh;
+    height: -webkit-fill-available;
+    height: 100dvh;
+    max-height: 100dvh;
+    max-height: -webkit-fill-available;
+  }
+
+  .cart-drawer--rtl {
+    right: 0;
+    left: auto;
+  }
+
+  .cart-drawer--ltr {
+    left: 0;
+    right: auto;
+  }
+
+  .cart-drawer__header {
+    flex-shrink: 0;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+  }
+
+  .cart-drawer__items {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+  }
+
+  .cart-drawer__footer {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: #0b0b0b;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+
   .hero-title {
     font-size: clamp(64px, 8vw, 132px);
     font-weight: 900;
@@ -297,6 +359,448 @@ body {
       padding: 22px;
     }
   }
+
+  /* —— HAGOUR terms page (premium tactical) —— */
+  .hagour-terms-page {
+    background: #050505;
+  }
+
+  .hagour-terms-hero {
+    position: relative;
+    border-bottom: 1px solid rgba(200, 146, 17, 0.22);
+    background: linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+  }
+
+  .hagour-terms-hero::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #c89211 20%, #e8b84a 50%, #c89211 80%, transparent);
+  }
+
+  .hagour-terms-hero__inner {
+    text-align: center;
+  }
+
+  .hagour-terms-hero__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(200, 146, 17, 0.35);
+    background: rgba(200, 146, 17, 0.08);
+    color: #c89211;
+    margin-bottom: 1.25rem;
+  }
+
+  .hagour-terms-hero__icon svg {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .hagour-terms-hero__title {
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+
+  .hagour-terms-hero__subtitle {
+    margin-top: 0.75rem;
+    max-width: 42rem;
+    margin-inline: auto;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .hagour-terms-hero__intro {
+    margin-top: 1.25rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .hagour-terms-hero__intro p {
+    margin: 0;
+  }
+
+  .hagour-terms-hero__intro h2 {
+    display: none;
+  }
+
+  .hagour-terms-layout {
+    display: grid;
+    gap: 2rem;
+  }
+
+  @media (min-width: 1024px) {
+    .hagour-terms-layout {
+      grid-template-columns: 220px minmax(0, 1fr);
+      align-items: start;
+      gap: 2.5rem;
+    }
+  }
+
+  .hagour-terms-sidebar {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .hagour-terms-sidebar {
+      display: block;
+      position: sticky;
+      top: 6rem;
+      padding: 1.25rem;
+      border-radius: 18px;
+      border: 1px solid rgba(200, 146, 17, 0.18);
+      background: #0b0b0b;
+    }
+  }
+
+  .hagour-terms-sidebar__label {
+    margin-bottom: 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(200, 146, 17, 0.85);
+  }
+
+  .hagour-terms-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .hagour-terms-sidebar__link {
+    text-align: start;
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.72);
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .hagour-terms-sidebar__link:hover,
+  .hagour-terms-sidebar__link.is-active {
+    background: rgba(200, 146, 17, 0.12);
+    color: #e8b84a;
+  }
+
+  .hagour-terms-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .hagour-terms-sections {
+      gap: 1.75rem;
+    }
+  }
+
+  .hagour-terms-card {
+    background: #0b0b0b;
+    border: 1px solid rgba(200, 146, 17, 0.18);
+    border-radius: 18px;
+    padding: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .hagour-terms-card {
+      padding: 28px;
+    }
+  }
+
+  .hagour-terms-card__head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .hagour-terms-card__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 12px;
+    border: 1px solid rgba(200, 146, 17, 0.28);
+    background: rgba(200, 146, 17, 0.07);
+    color: #c89211;
+  }
+
+  .hagour-terms-card__icon svg {
+    width: 1.45rem;
+    height: 1.45rem;
+  }
+
+  .hagour-terms-card__title {
+    font-size: clamp(1.35rem, 2.5vw, 28px);
+    font-weight: 800;
+    line-height: 1.25;
+    color: #fff;
+  }
+
+  .hagour-terms-card__body {
+    font-size: 17px;
+    line-height: 1.9;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .hagour-terms-card__body p {
+    margin: 0 0 1rem;
+  }
+
+  .hagour-terms-card__body p:last-child {
+    margin-bottom: 0;
+  }
+
+  .hagour-terms-card__body ul,
+  .hagour-terms-card__body ol {
+    margin: 0 0 1rem;
+    padding-inline-start: 1.35rem;
+  }
+
+  .hagour-terms-card__body li {
+    margin-bottom: 0.35rem;
+  }
+
+  .hagour-terms-card__body a {
+    color: #c89211;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .hagour-terms-card__body a:hover {
+    color: #e8b84a;
+  }
+
+  .hagour-terms-card__body strong {
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .hagour-terms-support {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.75rem;
+    padding: 1.5rem;
+    border-radius: 18px;
+    border: 1px solid rgba(200, 146, 17, 0.35);
+    background: linear-gradient(135deg, rgba(200, 146, 17, 0.14) 0%, #0b0b0b 55%);
+  }
+
+  @media (min-width: 768px) {
+    .hagour-terms-support {
+      padding: 28px;
+    }
+  }
+
+  .hagour-terms-support__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 12px;
+    background: rgba(200, 146, 17, 0.15);
+    color: #c89211;
+  }
+
+  .hagour-terms-support__title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .hagour-terms-support__phone {
+    margin-top: 0.35rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #e8b84a;
+  }
+
+  .hagour-terms-support__phone a:hover {
+    color: #fff;
+  }
+
+  .hagour-terms-support__hint {
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .hagour-terms-support__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0b0b0b;
+    background: linear-gradient(180deg, #e8b84a 0%, #c89211 100%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    transition: filter 0.15s, transform 0.15s;
+  }
+
+  .hagour-terms-support__cta:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+
+  /* —— Customer reviews (homepage) —— */
+  .hagour-reviews-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (min-width: 768px) {
+    .hagour-reviews-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  .hagour-review-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 1rem;
+    display: block;
+    border: 2px solid rgba(200, 146, 17, 0.35);
+    flex-shrink: 0;
+  }
+
+  .hagour-review-avatar--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, #1a1a1a, #2a2418);
+    color: #c89211;
+    font-size: 1.75rem;
+    font-weight: 800;
+  }
+
+  .hagour-review-card {
+    background: #111;
+    border: 1px solid rgba(200, 146, 17, 0.2);
+    border-radius: 18px;
+    padding: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100%;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hagour-review-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(200, 146, 17, 0.38);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  .hagour-review-card__name {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .hagour-review-stars {
+    margin: 0 0 0.65rem;
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    color: #c89211;
+    line-height: 1;
+  }
+
+  .hagour-review-card__quote {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .hagour-review-card__quote p {
+    margin: 0 0 0.5rem;
+  }
+
+  .hagour-review-card__quote p:last-child {
+    margin-bottom: 0;
+  }
+
+  .hagour-review-card__quote p::before {
+    content: open-quote;
+    color: rgba(200, 146, 17, 0.65);
+  }
+
+  .hagour-reviews-carousel {
+    overflow: hidden;
+    position: relative;
+  }
+
+  .hagour-reviews-carousel__track {
+    display: flex;
+    transition: transform 0.55s ease;
+    will-change: transform;
+  }
+
+  .hagour-reviews-carousel__slide {
+    min-width: 100%;
+    flex: 0 0 100%;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 2px;
+  }
+
+  @media (min-width: 768px) {
+    .hagour-reviews-carousel__slide {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  .hagour-reviews-carousel__dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .hagour-reviews-carousel__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .hagour-reviews-carousel__dot.is-active {
+    background: #c89211;
+    transform: scale(1.15);
+  }
 }
 
 @keyframes fadeUp {
@@ -308,4 +812,223 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Homepage — premium About / מי אנחנו */
+.hagour-about {
+  position: relative;
+  border-radius: 24px;
+  background: #070707;
+  overflow: hidden;
+}
+
+.hagour-about::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 50%, rgba(200, 146, 17, 0.08), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(200, 146, 17, 0.05), transparent 50%);
+}
+
+.hagour-about__shell {
+  position: relative;
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.75s ease,
+    transform 0.75s ease;
+}
+
+.hagour-about__shell.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hagour-about__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 500px;
+  max-height: none;
+}
+
+@media (min-width: 768px) {
+  .hagour-about__grid {
+    grid-template-columns: 1fr 1fr;
+    max-height: 650px;
+  }
+}
+
+.hagour-about__media {
+  position: relative;
+  min-height: 240px;
+  padding: 1.25rem 1.25rem 0;
+}
+
+@media (min-width: 768px) {
+  .hagour-about__media {
+    min-height: 0;
+    padding: 1.75rem 1rem 1.75rem 1.75rem;
+  }
+}
+
+[dir="rtl"] .hagour-about__media {
+  padding: 1.25rem 1.25rem 0;
+}
+
+@media (min-width: 768px) {
+  [dir="rtl"] .hagour-about__media {
+    padding: 1.75rem 1.75rem 1.75rem 1rem;
+  }
+}
+
+.hagour-about__image-wrap {
+  position: relative;
+  height: 100%;
+  min-height: 220px;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@media (min-width: 768px) {
+  .hagour-about__image-wrap {
+    min-height: 100%;
+  }
+}
+
+.hagour-about__image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    145deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.55) 50%,
+    rgba(7, 7, 7, 0.75) 100%
+  );
+  pointer-events: none;
+}
+
+.hagour-about__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.25rem 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .hagour-about__content {
+    padding: 2rem 2rem 2rem 1.25rem;
+  }
+
+  [dir="rtl"] .hagour-about__content {
+    padding: 2rem 1.25rem 2rem 2rem;
+  }
+}
+
+.hagour-about__kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  color: rgba(200, 146, 17, 0.85);
+}
+
+.hagour-about__title {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+.hagour-about__subtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: #c89211;
+}
+
+.hagour-about__lead,
+.hagour-about__body {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #a1a1aa;
+}
+
+.hagour-about__body {
+  color: #71717a;
+  font-size: 0.85rem;
+}
+
+.hagour-about__benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  list-style: none;
+  padding: 0;
+}
+
+.hagour-about__benefit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.hagour-about__check {
+  display: inline-flex;
+  height: 1.125rem;
+  width: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(200, 146, 17, 0.15);
+  color: #c89211;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.hagour-about__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hagour-about__stat {
+  text-align: center;
+}
+
+.hagour-about__stat-value {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #c89211;
+  line-height: 1.2;
+}
+
+.hagour-about__stat-label {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.hagour-about__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }

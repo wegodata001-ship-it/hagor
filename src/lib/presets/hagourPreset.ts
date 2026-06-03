@@ -1,5 +1,6 @@
 import { BannerType, PrismaClient } from "@prisma/client";
-import { hagourCategoryId } from "@/lib/hagour-catalog";
+import { hagourCategoryId, type HagourCategoryKey } from "@/lib/hagour-catalog";
+import { FALLBACK_CATEGORY_IMAGES } from "@/lib/category-images";
 
 const HEBREW_DESCRIPTION =
   "חגורות ונרתיקים מקצועיים — איכות פרימיום, התאמה מדויקת ועמידות לשימוש יומיומי.";
@@ -49,15 +50,128 @@ const categories = [
     name_en: "Accessories",
     sortOrder: 50,
   },
-];
+] as const;
 
-const products = [
-  { title: "חגורת טקטית Pro", categoryKey: "belts" as const, basePrice: 289 },
-  { title: "חגורת MOLLE Heavy Duty", categoryKey: "belts" as const, basePrice: 349 },
-  { title: "נרתיק Kydex לאקדח", categoryKey: "pistol-holsters" as const, basePrice: 249 },
-  { title: "נרתיק Retention IWB", categoryKey: "pistol-holsters" as const, basePrice: 299 },
-  { title: "נרתיק OWB לנשק ארוך", categoryKey: "weapon-holsters" as const, basePrice: 399 },
-  { title: "נרתיק סער מודולרי", categoryKey: "weapon-holsters" as const, basePrice: 449 },
+type HagourProductSeed = {
+  slug: string;
+  name_he: string;
+  description_he: string;
+  name_en: string;
+  name_ar: string;
+  description_en: string;
+  description_ar: string;
+  categoryKey: HagourCategoryKey;
+  price: number;
+  featured?: boolean;
+};
+
+/** Official HAGOUR catalog — only these products (no demo / electronics). */
+const products: HagourProductSeed[] = [
+  {
+    slug: "pistol-holster-fabric",
+    name_he: "נרתיק אקדח בד",
+    description_he: "נרתיק אקדח אוניברסלי.",
+    name_en: "Fabric pistol holster",
+    name_ar: "جراب مسدس قماش",
+    description_en: "Universal fabric pistol holster.",
+    description_ar: "جراب مسدس قماشي عالمي.",
+    categoryKey: "pistol-holsters",
+    price: 70,
+  },
+  {
+    slug: "pistol-holster-with-flashlight",
+    name_he: "נרתיק אקדח עם פנס",
+    description_he:
+      "נרתיק אקדח שמתחבר לחגור.\nמתאים לאקדח עם פנס ולייזר.\nמתאים גם לאקדח רגיל.",
+    name_en: "Pistol holster with flashlight",
+    name_ar: "جراب مسدس مع مصباح",
+    description_en:
+      "Belt-mounted pistol holster.\nFits pistols with flashlight and laser.\nAlso fits standard pistols.",
+    description_ar:
+      "جراب مسدس يتصل بالحزام.\nمناسب لمسدس مع مصباح وليزر.\nمناسب أيضاً للمسدس العادي.",
+    categoryKey: "pistol-holsters",
+    price: 100,
+    featured: true,
+  },
+  {
+    slug: "belt-phone-holster",
+    name_he: "נרתיק טלפון לחגורה",
+    description_he: "נרתיק טלפון המתחבר לחגור.\nניתן לשימוש במצב עמידה או שכיבה.",
+    name_en: "Belt phone pouch",
+    name_ar: "جراب هاتف للحزام",
+    description_en: "Phone pouch that mounts on the belt.\nUsable standing or prone.",
+    description_ar: "جراب هاتف يتصل بالحزام.\nللاستخدام وقوفاً أو استلقاءً.",
+    categoryKey: "accessories",
+    price: 80,
+    featured: true,
+  },
+  {
+    slug: "flashlight-holster",
+    name_he: "נרתיק פנס",
+    description_he: "נרתיק לפנס המתחבר לחגור.",
+    name_en: "Flashlight holster",
+    name_ar: "جراب مصباح",
+    description_en: "Flashlight holster that mounts on the belt.",
+    description_ar: "جراب مصباح يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 40,
+  },
+  {
+    slug: "pepper-spray-holster",
+    name_he: "נרתיק גז פלפל",
+    description_he: "נרתיק לגז פלפל המתחבר לחגור.",
+    name_en: "Pepper spray holster",
+    name_ar: "جراب رذاذ الفلفل",
+    description_en: "Pepper spray holster that mounts on the belt.",
+    description_ar: "جراب رذاذ الفلفل يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 40,
+  },
+  {
+    slug: "double-magazine-holster",
+    name_he: "נרתיק מחסניות כפולה",
+    description_he: "נרתיק כפול למחסניות המתחבר לחגור.",
+    name_en: "Double magazine pouch",
+    name_ar: "جراب مخازن مزدوج",
+    description_en: "Double magazine pouch that mounts on the belt.",
+    description_ar: "جراب مزدوج للمخازن يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 70,
+    featured: true,
+  },
+  {
+    slug: "single-magazine-holster",
+    name_he: "נרתיק מחסנית בודדת",
+    description_he: "נרתיק למחסנית בודדת המתחבר לחגור.",
+    name_en: "Single magazine pouch",
+    name_ar: "جراب مخزن مفرد",
+    description_en: "Single magazine pouch that mounts on the belt.",
+    description_ar: "جراب لمخزن مفرد يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 40,
+  },
+  {
+    slug: "handcuff-holster",
+    name_he: "נרתיק אזיקים",
+    description_he: "נרתיק לאזיקים המתחבר לחגור.",
+    name_en: "Handcuff holster",
+    name_ar: "جراب أصفاد",
+    description_en: "Handcuff holster that mounts on the belt.",
+    description_ar: "جراب أصفاد يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 70,
+  },
+  {
+    slug: "radio-holster",
+    name_he: "נרתיק מכשיר קשר",
+    description_he: "נרתיק למכשיר קשר המתחבר לחגור.",
+    name_en: "Radio holster",
+    name_ar: "جراب جهاز لاسلكي",
+    description_en: "Radio holster that mounts on the belt.",
+    description_ar: "جراب جهاز لاسلكي يتصل بالحزام.",
+    categoryKey: "accessories",
+    price: 70,
+  },
 ];
 
 /** Hard-delete legacy demo/tactical/electronics catalog data for this store. */
@@ -67,71 +181,108 @@ export async function purgeLegacyHagourCatalog(
 ): Promise<{ products: number; categories: number; banners: number }> {
   const heroBannerId = `${storeId}-banner-hero`;
 
-  const products = await prisma.product.deleteMany({ where: { storeId } });
+  const productsDeleted = await prisma.product.deleteMany({ where: { storeId } });
   const categories = await prisma.category.deleteMany({ where: { storeId } });
   const banners = await prisma.banner.deleteMany({
     where: { storeId, id: { not: heroBannerId } },
   });
 
   return {
-    products: products.count,
+    products: productsDeleted.count,
     categories: categories.count,
     banners: banners.count,
   };
 }
 
-export async function seedHagourPreset(prisma: PrismaClient, storeId: string): Promise<void> {
-  await purgeLegacyHagourCatalog(prisma, storeId);
-
+/** Resolve category IDs without touching optionProfile (DB column may be missing). */
+async function resolveHagourCategoryIds(prisma: PrismaClient, storeId: string) {
   const categoryIdByKey = new Map<string, string>();
+  const now = new Date();
 
   for (const category of categories) {
     const id = hagourCategoryId(storeId, category.key);
-    await prisma.category.create({
-      data: {
-        id,
-        storeId,
-        parentId: null,
-        name_he: category.name_he,
-        name_ar: category.name_ar,
-        name_en: category.name_en,
-        description_he: HEBREW_DESCRIPTION,
-        description_ar: ARABIC_DESCRIPTION,
-        description_en: ENGLISH_DESCRIPTION,
-        imageUrl: null,
-        active: true,
-        sortOrder: category.sortOrder,
-        optionProfile: category.optionProfile ?? null,
-      },
+    const existing = await prisma.category.findFirst({
+      where: { id, storeId },
+      select: { id: true },
     });
+
+    if (existing) {
+      categoryIdByKey.set(category.key, id);
+      continue;
+    }
+
+    await prisma.$executeRaw`
+      INSERT INTO "Category" (
+        id, "storeId", "parentId",
+        name_he, name_ar, name_en,
+        description_he, description_ar, description_en,
+        "imageUrl", active, "sortOrder",
+        "createdAt", "updatedAt"
+      ) VALUES (
+        ${id}, ${storeId}, NULL,
+        ${category.name_he}, ${category.name_ar}, ${category.name_en},
+        ${HEBREW_DESCRIPTION}, ${ARABIC_DESCRIPTION}, ${ENGLISH_DESCRIPTION},
+        NULL, true, ${category.sortOrder},
+        ${now}, ${now}
+      )
+    `;
     categoryIdByKey.set(category.key, id);
   }
+
+  return categoryIdByKey;
+}
+
+/** Replace all store products with the official catalog (keeps categories). */
+export async function seedHagourProducts(prisma: PrismaClient, storeId: string): Promise<number> {
+  const categoryIdByKey = await resolveHagourCategoryIds(prisma, storeId);
+  await prisma.product.deleteMany({ where: { storeId } });
 
   let idx = 0;
   for (const product of products) {
     const categoryId = categoryIdByKey.get(product.categoryKey);
     if (!categoryId) continue;
+
     const sku = `HAG-${String(++idx).padStart(3, "0")}`;
-    const id = `${storeId}-prod-${sku}`;
+    const id = `${storeId}-prod-${product.slug}`;
+    const imageUrl = FALLBACK_CATEGORY_IMAGES[product.categoryKey];
+
     await prisma.product.create({
       data: {
         id,
         storeId,
         categoryId,
         sku,
-        name_he: product.title,
-        name_ar: product.title,
-        name_en: product.title,
-        description_he: HEBREW_DESCRIPTION,
-        description_ar: ARABIC_DESCRIPTION,
-        description_en: ENGLISH_DESCRIPTION,
-        price: product.basePrice,
-        stock: 25,
+        name_he: product.name_he,
+        name_ar: product.name_ar,
+        name_en: product.name_en,
+        title_he: product.name_he,
+        title_ar: product.name_ar,
+        title_en: product.name_en,
+        description_he: product.description_he,
+        description_ar: product.description_ar,
+        description_en: product.description_en,
+        price: product.price,
+        stock: 100,
         active: true,
-        featured: idx <= 4,
+        featured: product.featured === true,
+        images: {
+          create: {
+            storeId,
+            url: imageUrl,
+            isMain: true,
+            sortOrder: 0,
+          },
+        },
       },
     });
   }
+
+  return products.length;
+}
+
+export async function seedHagourPreset(prisma: PrismaClient, storeId: string): Promise<void> {
+  await purgeLegacyHagourCatalog(prisma, storeId);
+  await seedHagourProducts(prisma, storeId);
 
   const heroBanner = {
     id: `${storeId}-banner-hero`,
@@ -168,7 +319,6 @@ export async function seedHagourPreset(prisma: PrismaClient, storeId: string): P
     },
   });
 
-  // Deactivate any stray banners that survived purge by id mismatch
   await prisma.banner.updateMany({
     where: { storeId, id: { not: heroBanner.id } },
     data: { active: false },

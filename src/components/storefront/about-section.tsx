@@ -1,27 +1,107 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { AssetImg } from "@/components/asset-img";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
-import { SITE_NAME } from "@/lib/store";
+import { DEFAULT_HERO_IMAGE } from "@/lib/hero";
 
-export function AboutSection() {
+function useScrollReveal(threshold = 0.12) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold, rootMargin: "0px 0px -8% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [threshold]);
+
+  return { ref, visible };
+}
+
+export function AboutSection({ imageUrl }: { imageUrl?: string | null }) {
   const { t, dir } = useStoreI18n();
+  const { ref, visible } = useScrollReveal();
+  const src = imageUrl?.trim() || DEFAULT_HERO_IMAGE;
+
+  const imageOrder = dir === "rtl" ? "order-1" : "order-1 md:order-2";
+  const contentOrder = dir === "rtl" ? "order-2" : "order-2 md:order-1";
+
+  const benefits = [
+    { key: "aboutBenefit1" as const },
+    { key: "aboutBenefit2" as const },
+    { key: "aboutBenefit3" as const },
+  ];
+
+  const stats = [
+    { value: "500+", labelKey: "aboutStatCustomers" as const },
+    { value: "1000+", labelKey: "aboutStatProducts" as const },
+    { value: "5★", labelKey: "aboutStatSatisfaction" as const },
+  ];
 
   return (
-    <section id="about" className="scroll-mt-28 overflow-hidden rounded-[18px] border border-zinc-800/90 bg-gradient-to-br from-hagor-olive/25 via-[#141810] to-hagor-black">
-      <div className="grid gap-0 md:grid-cols-2" dir={dir}>
-        <div className="relative min-h-[220px] bg-[url('/hagor-hero-fallback.svg')] bg-cover bg-center md:min-h-[320px]">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20 md:bg-gradient-to-l md:from-black/60 md:to-transparent" />
-          <div className="absolute bottom-4 start-4 end-4 md:bottom-8 md:start-8">
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-hagor-gold">{SITE_NAME}</p>
+    <section id="about" className="hagour-about scroll-mt-28" aria-labelledby="about-heading">
+      <div
+        ref={ref}
+        className={`hagour-about__shell ${visible ? "is-visible" : ""}`}
+        dir={dir}
+      >
+        <div className="hagour-about__grid">
+          <div className={`hagour-about__media ${imageOrder}`}>
+            <div className="hagour-about__image-wrap">
+              <AssetImg path={src} alt="HAGOUR Tactical Equipment" className="h-full w-full object-cover" />
+              <div className="hagour-about__image-overlay" aria-hidden />
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col justify-center p-6 sm:p-8 md:p-10">
-          <h2 className="text-2xl font-black text-white sm:text-3xl">{t("aboutTitle")}</h2>
-          <p className="mt-4 text-sm leading-relaxed text-zinc-300 sm:text-base">{t("aboutText")}</p>
-          <Link href="/#about" className="hagor-btn-outline mt-6 w-fit">
-            {t("heroContact")}
-          </Link>
+
+          <div className={`hagour-about__content ${contentOrder}`}>
+            <h2 id="about-heading" className="hagour-about__title">
+              {t("aboutTitle")}
+            </h2>
+            <p className="hagour-about__subtitle">{t("aboutSubtitle")}</p>
+
+            <p className="hagour-about__lead">{t("aboutLead")}</p>
+            <p className="hagour-about__body">{t("aboutBody")}</p>
+
+            <ul className="hagour-about__benefits">
+              {benefits.map((b) => (
+                <li key={b.key} className="hagour-about__benefit">
+                  <span className="hagour-about__check" aria-hidden>
+                    ✓
+                  </span>
+                  <span>{t(b.key)}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hagour-about__stats">
+              {stats.map((s) => (
+                <div key={s.labelKey} className="hagour-about__stat">
+                  <span className="hagour-about__stat-value">{s.value}</span>
+                  <span className="hagour-about__stat-label">{t(s.labelKey)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="hagour-about__actions">
+              <Link href="/products" className="hagor-btn min-w-[140px] text-center">
+                {t("aboutCtaCatalog")}
+              </Link>
+              <Link href="/#contact" className="hagor-btn-outline min-w-[140px] text-center">
+                {t("aboutCtaContact")}
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </section>

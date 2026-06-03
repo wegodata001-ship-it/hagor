@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { STORAGE_BUCKET } from "../src/lib/storage";
 import { seedStorePreset } from "../src/lib/presets";
 import { defaultLegalFlat } from "../src/lib/legal-defaults";
+import { HAGOUR_DEFAULT_PHONE } from "../src/lib/hagour-legal-contact";
+import { seedAllHagourLegalPages } from "../src/lib/store-pages";
 
 const prisma = new PrismaClient();
 
@@ -13,7 +15,7 @@ const STORE_NAME = "HAGOR BY WAEL";
 const ASSETS_FOLDER =
   process.env.NEXT_PUBLIC_ASSETS_FOLDER?.trim().replace(/^\/+|\/+$/g, "") || STORE_ID;
 
-const STORE_PHONE = process.env.NEXT_PUBLIC_STORE_PHONE?.trim() || "";
+const STORE_PHONE = process.env.NEXT_PUBLIC_STORE_PHONE?.trim() || HAGOUR_DEFAULT_PHONE;
 const WHATSAPP_PHONE = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.trim() || "";
 
 function requiredEnv(name: "STORE_OWNER_EMAIL" | "STORE_OWNER_PASSWORD"): string {
@@ -205,6 +207,7 @@ async function main() {
   });
 
   await seedStorePreset(prisma, STORE_ID, "hagour");
+  await seedAllHagourLegalPages(STORE_ID, true);
 
   console.log("HAGOR BY WAEL seed OK - owner:", owner.email);
 }

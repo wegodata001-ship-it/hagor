@@ -18,7 +18,12 @@ export async function reduceInventoryAfterPayment(orderId: string): Promise<{ ok
           include: { items: true },
         });
         if (!order) throw new Error("Order not found");
-        if (order.paymentStatus !== OrderPaymentStatus.PAID || order.status !== OrderStatus.PAID) {
+        const paid =
+          order.status === OrderStatus.PAID &&
+          (order.paymentStatus === OrderPaymentStatus.PAID ||
+            order.paymentStatus === OrderPaymentStatus.TEST_PAID ||
+            order.paymentStatus === OrderPaymentStatus.DEMO_PAID);
+        if (!paid) {
           throw new Error("Order is not paid");
         }
         if (order.inventoryReducedAt) return; // already reduced

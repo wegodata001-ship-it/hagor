@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getPaymentProviderConfig } from "@/lib/payments/config";
+import { getPaymentProviderConfig, isPaymentConfigured } from "@/lib/payments/config";
+import { isDemoPaymentAllowed } from "@/lib/payments/demo-guard";
 import { STORE_ID } from "@/lib/store";
 import { PaymentActions } from "@/components/payment-actions";
 
@@ -31,6 +32,12 @@ export default async function PaymentPage({
     getPaymentProviderConfig(),
   ]);
   const currency = settings?.currency ?? "ILS";
+  const paymentReady = isPaymentConfigured(paymentConfig);
+  const demoPaymentEnabled = isDemoPaymentAllowed();
+  const isPaid =
+    order.paymentStatus === "PAID" ||
+    order.paymentStatus === "TEST_PAID" ||
+    order.paymentStatus === "DEMO_PAID";
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
@@ -42,14 +49,13 @@ export default async function PaymentPage({
           {Number(order.total).toFixed(2)} {currency}
         </span>
       </p>
-      <p className="mt-2 text-center text-xs text-zinc-500">
-        ספק: {paymentConfig.provider} · המלאי יירד רק לאחר אישור תשלום
-      </p>
+      <p className="mt-2 text-center text-xs text-zinc-500">המלאי יירד רק לאחר אישור תשלום מאובטח</p>
       <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6">
         <PaymentActions
           orderId={order.id}
-          isPaid={order.paymentStatus === "PAID"}
-          provider={paymentConfig.provider}
+          isPaid={isPaid}
+          paymentReady={paymentReady}
+          demoPaymentEnabled={demoPaymentEnabled}
         />
       </div>
       <Link href="/account/orders" className="mt-6 block text-center text-sm text-hagor-gold hover:underline">
