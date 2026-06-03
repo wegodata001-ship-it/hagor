@@ -20,6 +20,14 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const SOCIAL_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: SITE_SEO_TITLE,
+  type: "image/png",
+} as const;
+
 export const metadata: Metadata = {
   metadataBase: new URL(PRODUCTION_SITE_URL),
   title: { default: SITE_SEO_TITLE, template: `%s | ${SITE_SEO_TITLE}` },
@@ -28,6 +36,14 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  icons: {
+    icon: [
+      { url: "/icon", type: "image/png", sizes: "32x32" },
+      { url: "/brand/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
+    shortcut: "/icon",
+  },
   openGraph: {
     type: "website",
     locale: "he_IL",
@@ -35,16 +51,19 @@ export const metadata: Metadata = {
     siteName: SITE_SEO_TITLE,
     title: SITE_SEO_TITLE,
     description: SITE_SEO_DESCRIPTION,
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_SEO_TITLE,
     description: SITE_SEO_DESCRIPTION,
+    images: [SOCIAL_IMAGE.url],
   },
   robots: {
     index: true,
     follow: true,
   },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

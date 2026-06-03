@@ -1,0 +1,24 @@
+{
+  "name": "HAGOUR BY WAEL",
+  "short_name": "HAGOUR",
+  "description": "ציוד טקטי מקצועי, חגורות ונרתיקים",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0b",
+  "theme_color": "#c89211",
+  "lang": "he",
+  "icons": [
+    {
+      "src": "/brand/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
