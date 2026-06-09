@@ -39,6 +39,8 @@ const prisma = new PrismaClient();
 const LEGACY_EMAILS = [
   "deloxfon1999888@gmail.com",
   "Deloxfon1999888@gmail.com",
+  "m.desigma@gmail.com",
+  "M.desigma@gmail.com",
   HAGOUR_DEFAULT_SUPPORT_EMAIL,
 ].filter((e, i, a) => a.indexOf(e) === i && e.toLowerCase() !== EMAIL.toLowerCase());
 
