@@ -51,8 +51,8 @@ function linkify(escaped) {
       '<a href="mailto:$1">$1</a>',
     )
     .replace(
-      /(www\.hagor\.co\.il)/g,
-      '<a href="https://www.hagor.co.il" rel="noopener noreferrer">$1</a>',
+      /(https:\/\/hagourbywael\.com\/?|www\.hagourbywael\.com)/g,
+      '<a href="https://hagourbywael.com/" rel="noopener noreferrer">https://hagourbywael.com/</a>',
     );
 }
 
