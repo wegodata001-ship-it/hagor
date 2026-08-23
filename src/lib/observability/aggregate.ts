@@ -57,6 +57,13 @@ export type ObservabilityDashboardData = {
     count: number;
   }>;
   recentTraces: Array<{ traceId: string; events: number }>;
+  recentAlerts: Array<{
+    createdAt: string;
+    level: string;
+    scope: string | null;
+    message: string;
+    path: string | null;
+  }>;
 };
 
 function emptyObservabilityDashboard(storeId: string): ObservabilityDashboardData {
@@ -85,6 +92,7 @@ function emptyObservabilityDashboard(storeId: string): ObservabilityDashboardDat
     topFailingRoutes: [],
     timeouts: [],
     recentTraces: [],
+    recentAlerts: [],
   };
 }
 
@@ -113,6 +121,7 @@ export async function loadObservabilityDashboard(storeId: string): Promise<Obser
     timeoutsGrouped,
     authRows,
     traceRows,
+    alertRows,
   ] = await Promise.all([
     prisma.observabilityEvent.count({ where: { ...base, level: "error" } }),
     prisma.observabilityEvent.count({ where: { ...base, level: "warn" } }),
@@ -184,6 +193,22 @@ export async function loadObservabilityDashboard(storeId: string): Promise<Obser
       orderBy: { _count: { id: "desc" } },
       take: 15,
     }),
+    prisma.observabilityEvent.findMany({
+      where: {
+        storeId,
+        createdAt: { gte: t24 },
+        level: { in: ["error", "warn"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+      select: {
+        createdAt: true,
+        level: true,
+        scope: true,
+        message: true,
+        path: true,
+      },
+    }),
   ]);
 
   const durations = authRows
@@ -242,5 +267,12 @@ export async function loadObservabilityDashboard(storeId: string): Promise<Obser
     recentTraces: traceRows
       .filter((r) => r.traceId != null)
       .map((r) => ({ traceId: r.traceId as string, events: r._count.id })),
+    recentAlerts: alertRows.map((r) => ({
+      createdAt: r.createdAt.toISOString(),
+      level: r.level,
+      scope: r.scope,
+      message: r.message,
+      path: r.path,
+    })),
   };
 }
