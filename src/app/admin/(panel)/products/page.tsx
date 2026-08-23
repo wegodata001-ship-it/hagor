@@ -38,6 +38,7 @@ const productListSelect = {
   stock: true,
   active: true,
   featured: true,
+  createdAt: true,
   categoryId: true,
   category: { select: { name_he: true } },
   images: {
@@ -111,6 +112,7 @@ async function loadProductsForAdmin(storeId: string): Promise<{ data: ProductRow
         stock: p.stock,
         active: p.active,
         featured: p.featured,
+        createdAt: p.createdAt.toISOString(),
         categoryId: p.categoryId,
         category: { name_he: p.category.name_he },
         images: p.images.map((im) => ({

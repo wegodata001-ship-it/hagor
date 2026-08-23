@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { Search, X } from "lucide-react";
 import { AssetImg } from "@/components/asset-img";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
@@ -46,6 +47,7 @@ export type ProductRow = {
   stock: number;
   active: boolean;
   featured: boolean;
+  createdAt: string;
   categoryId: string;
   category: { name_he: string };
   images: Img[];
@@ -54,6 +56,142 @@ export type ProductRow = {
 };
 
 export type CategoryOpt = { id: string; label: string };
+
+/** Same threshold as admin dashboard low-stock query (`stock: { lt: 5 }`). */
+const LOW_STOCK_LT = 5;
+
+type StockFilter = "all" | "in" | "low" | "out";
+type StatusFilter = "all" | "active" | "inactive";
+type SortKey =
+  | "newest"
+  | "oldest"
+  | "name-asc"
+  | "name-desc"
+  | "price-asc"
+  | "price-desc"
+  | "stock-asc"
+  | "stock-desc";
+
+type ProductFilters = {
+  search: string;
+  category: string;
+  stock: StockFilter;
+  status: StatusFilter;
+  minPrice: string;
+  maxPrice: string;
+  sort: SortKey;
+};
+
+const DEFAULT_FILTERS: ProductFilters = {
+  search: "",
+  category: "all",
+  stock: "all",
+  status: "all",
+  minPrice: "",
+  maxPrice: "",
+  sort: "newest",
+};
+
+function parseFiltersFromParams(sp: URLSearchParams): ProductFilters {
+  const stockRaw = sp.get("stock") ?? "all";
+  const statusRaw = sp.get("status") ?? "all";
+  const sortRaw = sp.get("sort") ?? "newest";
+  const stock: StockFilter =
+    stockRaw === "in" || stockRaw === "low" || stockRaw === "out" ? stockRaw : "all";
+  const status: StatusFilter =
+    statusRaw === "active" || statusRaw === "inactive" ? statusRaw : "all";
+  const sort: SortKey =
+    sortRaw === "oldest" ||
+    sortRaw === "name-asc" ||
+    sortRaw === "name-desc" ||
+    sortRaw === "price-asc" ||
+    sortRaw === "price-desc" ||
+    sortRaw === "stock-asc" ||
+    sortRaw === "stock-desc"
+      ? sortRaw
+      : "newest";
+  return {
+    search: sp.get("search") ?? "",
+    category: sp.get("category") ?? "all",
+    stock,
+    status,
+    minPrice: sp.get("minPrice") ?? "",
+    maxPrice: sp.get("maxPrice") ?? "",
+    sort,
+  };
+}
+
+function filtersActive(f: ProductFilters): boolean {
+  return (
+    f.search.trim() !== "" ||
+    f.category !== "all" ||
+    f.stock !== "all" ||
+    f.status !== "all" ||
+    f.minPrice.trim() !== "" ||
+    f.maxPrice.trim() !== "" ||
+    f.sort !== "newest"
+  );
+}
+
+function productMatchesSearch(p: ProductRow, q: string): boolean {
+  if (!q) return true;
+  const hay = [
+    p.name_he,
+    p.name_ar,
+    p.name_en,
+    p.sku,
+    p.description_he ?? "",
+    p.description_ar ?? "",
+    p.description_en ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
+
+function filterAndSortProducts(list: ProductRow[], f: ProductFilters): ProductRow[] {
+  const q = f.search.trim().toLowerCase();
+  const min = f.minPrice.trim() === "" ? null : Number(f.minPrice);
+  const max = f.maxPrice.trim() === "" ? null : Number(f.maxPrice);
+  const minOk = min != null && Number.isFinite(min) ? min : null;
+  const maxOk = max != null && Number.isFinite(max) ? max : null;
+
+  const rows = list.filter((p) => {
+    if (!productMatchesSearch(p, q)) return false;
+    if (f.category !== "all" && p.categoryId !== f.category) return false;
+    if (f.stock === "in" && !(p.stock > 0)) return false;
+    if (f.stock === "out" && p.stock !== 0) return false;
+    if (f.stock === "low" && !(p.stock > 0 && p.stock < LOW_STOCK_LT)) return false;
+    if (f.status === "active" && !p.active) return false;
+    if (f.status === "inactive" && p.active) return false;
+    if (minOk != null && p.price < minOk) return false;
+    if (maxOk != null && p.price > maxOk) return false;
+    return true;
+  });
+
+  const nameOf = (p: ProductRow) => p.name_he || p.name_en || p.name_ar || "";
+  return [...rows].sort((a, b) => {
+    switch (f.sort) {
+      case "name-asc":
+        return nameOf(a).localeCompare(nameOf(b), "he");
+      case "name-desc":
+        return nameOf(b).localeCompare(nameOf(a), "he");
+      case "price-asc":
+        return a.price - b.price;
+      case "price-desc":
+        return b.price - a.price;
+      case "stock-asc":
+        return a.stock - b.stock;
+      case "stock-desc":
+        return b.stock - a.stock;
+      case "oldest":
+        return a.createdAt.localeCompare(b.createdAt);
+      case "newest":
+      default:
+        return b.createdAt.localeCompare(a.createdAt);
+    }
+  });
+}
 
 function SuccessBar({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => {
@@ -83,6 +221,7 @@ export function ProductsAdminClient({
   loadHint?: string | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -93,12 +232,57 @@ export function ProductsAdminClient({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const { t } = useAdminI18n();
 
+  const [filters, setFilters] = useState<ProductFilters>(() => parseFiltersFromParams(searchParams));
+  const [searchInput, setSearchInput] = useState(() => parseFiltersFromParams(searchParams).search);
+
   useEffect(() => {
     if (initialOpenAdd || searchParams.get("add") === "1") {
       setAddOpen(true);
-      router.replace("/admin/products", { scroll: false });
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("add");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }
-  }, [initialOpenAdd, router, searchParams]);
+  }, [initialOpenAdd, router, searchParams, pathname]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setFilters((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput }));
+    }, 280);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (filters.search.trim()) next.set("search", filters.search.trim());
+    if (filters.category !== "all") next.set("category", filters.category);
+    if (filters.stock !== "all") next.set("stock", filters.stock);
+    if (filters.status !== "all") next.set("status", filters.status);
+    if (filters.minPrice.trim()) next.set("minPrice", filters.minPrice.trim());
+    if (filters.maxPrice.trim()) next.set("maxPrice", filters.maxPrice.trim());
+    if (filters.sort !== "newest") next.set("sort", filters.sort);
+    const qs = next.toString();
+    const target = qs ? `${pathname}?${qs}` : pathname;
+    const currentQs = searchParams.toString();
+    // Ignore transient `add` when comparing so open-add flow does not fight URL sync.
+    const currentComparable = new URLSearchParams(currentQs);
+    currentComparable.delete("add");
+    if (qs !== currentComparable.toString()) {
+      router.replace(target, { scroll: false });
+    }
+  }, [filters, pathname, router, searchParams]);
+
+  const filteredProducts = useMemo(() => filterAndSortProducts(products, filters), [products, filters]);
+  const hasActiveFilters = filtersActive(filters);
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setFilters(DEFAULT_FILTERS);
+  };
+
+  const setFilter = <K extends keyof ProductFilters>(key: K, value: ProductFilters[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   const refresh = useCallback(() => {
     startTransition(() => router.refresh());
@@ -213,7 +397,115 @@ export function ProductsAdminClient({
         }}
       />
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))]">
+          <label className="relative block min-w-0 sm:col-span-2 lg:col-span-1">
+            <span className="sr-only">{t("productSearchPlaceholder")}</span>
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t("productSearchPlaceholder")}
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pe-3 ps-9 text-sm text-slate-800"
+              autoComplete="off"
+            />
+          </label>
+          <select
+            value={filters.category}
+            onChange={(e) => setFilter("category", e.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+            aria-label={t("allCategories")}
+          >
+            <option value="all">{t("allCategories")}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filters.stock}
+            onChange={(e) => setFilter("stock", e.target.value as StockFilter)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+            aria-label={t("allStock")}
+          >
+            <option value="all">{t("allStock")}</option>
+            <option value="in">{t("stockInStock")}</option>
+            <option value="low">{t("stockLow")}</option>
+            <option value="out">{t("stockOut")}</option>
+          </select>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilter("status", e.target.value as StatusFilter)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+            aria-label={t("status")}
+          >
+            <option value="all">{t("allStatuses")}</option>
+            <option value="active">{t("statusActive")}</option>
+            <option value="inactive">{t("statusInactive")}</option>
+          </select>
+          <select
+            value={filters.sort}
+            onChange={(e) => setFilter("sort", e.target.value as SortKey)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+            aria-label={t("sortBy")}
+          >
+            <option value="newest">{t("sortNewest")}</option>
+            <option value="oldest">{t("sortOldest")}</option>
+            <option value="name-asc">{t("sortNameAsc")}</option>
+            <option value="name-desc">{t("sortNameDesc")}</option>
+            <option value="price-asc">{t("sortPriceAsc")}</option>
+            <option value="price-desc">{t("sortPriceDesc")}</option>
+            <option value="stock-asc">{t("sortStockAsc")}</option>
+            <option value="stock-desc">{t("sortStockDesc")}</option>
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500">{t("priceFrom")}</span>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={filters.minPrice}
+              onChange={(e) => setFilter("minPrice", e.target.value)}
+              className="w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+              inputMode="decimal"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500">{t("priceTo")}</span>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={filters.maxPrice}
+              onChange={(e) => setFilter("maxPrice", e.target.value)}
+              className="w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+              inputMode="decimal"
+            />
+          </div>
+          <p className="text-sm text-slate-600">
+            {t("showingProductsCount")
+              .replace("{shown}", String(filteredProducts.length))
+              .replace("{total}", String(products.length))}
+          </p>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="ms-auto inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              <X className="h-3.5 w-3.5" />
+              {t("clearFilters")}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-right text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -226,7 +518,7 @@ export function ProductsAdminClient({
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => {
+            {filteredProducts.map((p) => {
               const main = p.images.find((i) => i.isMain) ?? p.images[0];
               return (
                 <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/80">
@@ -269,9 +561,11 @@ export function ProductsAdminClient({
             })}
           </tbody>
         </table>
-        {products.length === 0 && (
+        {products.length === 0 ? (
           <p className="p-8 text-center text-slate-500">{t("noProducts")}</p>
-        )}
+        ) : filteredProducts.length === 0 ? (
+          <p className="p-8 text-center text-slate-500">{t("noProductsMatchFilters")}</p>
+        ) : null}
       </div>
 
       {pending && (
