@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PrivacyPolicyLink } from "@/components/storefront/privacy-policy-link";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 export function ContactForm() {
@@ -80,6 +81,7 @@ export function ContactForm() {
         onChange={(e) => setMessage(e.target.value)}
       />
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      <PrivacyPolicyLink />
       <button type="submit" disabled={loading} className="hagor-btn-outline w-full text-sm disabled:opacity-50">
         {loading ? t("contactFormSending") : t("contactFormSubmit")}
       </button>

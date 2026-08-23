@@ -12,6 +12,7 @@
     "db:seed-hagour-products": "tsx scripts/seed-hagour-products.ts",
     "db:safe-sync": "tsx scripts/apply-safe-db-sync.ts",
     "db:seed-legal": "tsx scripts/seed-hagour-legal.ts",
+    "db:verify-legal": "tsx scripts/verify-official-legal.ts",
     "db:sync-phone": "tsx scripts/sync-store-phone.ts",
     "db:sync-email": "tsx scripts/sync-store-email.ts",
     "db:seed-reviews": "tsx scripts/seed-hagour-reviews.ts",

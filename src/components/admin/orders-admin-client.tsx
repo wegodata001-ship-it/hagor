@@ -2,11 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Trash2 } from "lucide-react";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
+import { AssetImg } from "@/components/asset-img";
 import { useAdminI18n } from "@/lib/admin-i18n";
 import { formatSelectedOptionsLines, parseSelectedOptions } from "@/lib/hagour-product-options";
 import {
+  deleteOrderItemImage,
   getAdminOrderDetail,
   updateOrderStatus,
   type AdminOrderDetailDTO,
@@ -72,10 +75,11 @@ export function OrdersAdminClient({
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminOrderDetailDTO | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<OrderFilters>(initialFilters);
   const { t } = useAdminI18n();
 
@@ -92,11 +96,39 @@ export function OrdersAdminClient({
   async function saveStatus(form: HTMLFormElement) {
     const fd = new FormData(form);
     const res = await updateOrderStatus(fd);
-    if (!res.ok) setToast(res.error);
+    if (!res.ok) setToast({ message: res.error, error: true });
     else {
-      setToast(t("savedSuccessfully"));
+      setToast({ message: t("savedSuccessfully") });
       refresh();
       if (detailId) await openDetail(detailId);
+    }
+  }
+
+  async function handleDeleteItemImage(itemId: string) {
+    if (!detail || deletingImageId) return;
+    if (!window.confirm(t("deleteOrderImageConfirm"))) return;
+    setDeletingImageId(itemId);
+    try {
+      const res = await deleteOrderItemImage(detail.id, itemId);
+      if (!res.ok) {
+        setToast({ message: t("deleteOrderImageError"), error: true });
+        return;
+      }
+      setDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((item) =>
+                item.id === itemId ? { ...item, productImage: null } : item,
+              ),
+            }
+          : prev,
+      );
+      setToast({ message: t("deleteOrderImageSuccess") });
+    } catch {
+      setToast({ message: t("deleteOrderImageError"), error: true });
+    } finally {
+      setDeletingImageId(null);
     }
   }
 
@@ -142,7 +174,17 @@ export function OrdersAdminClient({
 
   return (
     <div>
-      {toast && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm">{toast}</div>}
+      {toast && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-2 text-sm ${
+            toast.error
+              ? "border-red-200 bg-red-50 text-red-800"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
       <h1 className="text-xl font-semibold text-slate-900">{t("orders")}</h1>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -297,6 +339,17 @@ export function OrdersAdminClient({
         )}
         {!loadingDetail && detail && (
           <div className="space-y-4 text-sm">
+            {toast && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  toast.error
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                }`}
+              >
+                {toast.message}
+              </div>
+            )}
             <div className="flex flex-wrap gap-4 border-b border-slate-100 pb-3">
               <div>
                 <span className="text-slate-500">{t("orderLabel")}:</span>{" "}
@@ -397,19 +450,44 @@ export function OrdersAdminClient({
                 <tbody>
                   {detail.items.map((i) => (
                     <tr key={i.id} className="border-b border-slate-100 align-top">
-                      <td className="py-1">
-                        <div>{i.productName}</div>
-                        {parseSelectedOptions(i.selectedOptions)?.type ? (
-                          <div className="mt-1 text-[11px] text-slate-500">
-                            <div className="font-medium">אפשרויות שנבחרו:</div>
-                            {formatSelectedOptionsLines(parseSelectedOptions(i.selectedOptions), "he").map((line) => (
-                              <div key={line}>{line}</div>
-                            ))}
+                      <td className="py-2">
+                        <div className="flex items-start gap-2">
+                          {i.productImage ? (
+                            <div className="flex shrink-0 items-start gap-0.5">
+                              <div className="h-12 w-12 overflow-hidden rounded-md border border-slate-200">
+                                <AssetImg path={i.productImage} alt="" className="h-full w-full object-cover" />
+                              </div>
+                              <button
+                                type="button"
+                                title={t("deleteOrderImage")}
+                                aria-label={t("deleteOrderImage")}
+                                disabled={deletingImageId === i.id}
+                                onClick={() => void handleDeleteItemImage(i.id)}
+                                className="rounded p-0.5 text-slate-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
+                              >
+                                {deletingImageId === i.id ? (
+                                  <AdminSpinner className="h-3.5 w-3.5 border-t-slate-500" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          ) : null}
+                          <div>
+                            <div>{i.productName}</div>
+                            {parseSelectedOptions(i.selectedOptions)?.type ? (
+                              <div className="mt-1 text-[11px] text-slate-500">
+                                <div className="font-medium">אפשרויות שנבחרו:</div>
+                                {formatSelectedOptionsLines(parseSelectedOptions(i.selectedOptions), "he").map((line) => (
+                                  <div key={line}>{line}</div>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
+                        </div>
                       </td>
-                      <td className="py-1 text-center">×{i.quantity}</td>
-                      <td className="py-1 text-end tabular-nums">₪{i.totalPrice.toFixed(2)}</td>
+                      <td className="py-2 text-center">×{i.quantity}</td>
+                      <td className="py-2 text-end tabular-nums">₪{i.totalPrice.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

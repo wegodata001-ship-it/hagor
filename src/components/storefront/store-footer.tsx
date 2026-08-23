@@ -48,10 +48,12 @@ export function StoreFooter({
   const year = new Date().getFullYear();
 
   const legalLinks = [
-    { href: "/terms", label: t("siteTerms") },
+    { href: "/terms", label: t("footerLegalTerms") },
     { href: "/privacy", label: t("footerLegalPrivacy") },
-    { href: "/refunds", label: t("footerLegalRefunds") },
-    { href: "/shipping", label: t("footerLegalShipping") },
+    { href: "/accessibility", label: t("footerLegalAccessibilityShort") },
+    { href: "/cancellation-policy", label: t("footerLegalCancellation") },
+    { href: "/returns-policy", label: t("footerLegalReturns") },
+    { href: "/shipping-policy", label: t("footerLegalShipping") },
   ] as const;
 
   return (
@@ -141,8 +143,8 @@ export function StoreFooter({
           </section>
 
           {/* Col 4 — legal policies */}
-          <nav className="site-footer__legal order-2 lg:order-4" aria-label={t("footerPolicies")}>
-            <p className="text-sm font-semibold text-zinc-200">{t("footerPolicies")}</p>
+          <nav className="site-footer__legal order-2 lg:order-4" aria-label={t("footerLegalInfo")}>
+            <p className="text-sm font-semibold text-zinc-200">{t("footerLegalInfo")}</p>
             <ul className="mt-3 space-y-2.5 text-sm text-zinc-300">
               {legalLinks.map((link) => (
                 <li key={link.href}>
@@ -151,6 +153,11 @@ export function StoreFooter({
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/accessibility" className="hover:text-hagor-gold">
+                  {t("footerLegalAccessibility")}
+                </Link>
+              </li>
             </ul>
           </nav>
         </div>

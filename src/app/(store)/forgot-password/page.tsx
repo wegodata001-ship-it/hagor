@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PrivacyPolicyLink } from "@/components/storefront/privacy-policy-link";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -49,6 +50,7 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            <PrivacyPolicyLink />
             <button type="submit" disabled={loading} className="hagor-btn w-full disabled:opacity-50">
               {loading ? "שולח…" : "שלח קישור לאיפוס"}
             </button>

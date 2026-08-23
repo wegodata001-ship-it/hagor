@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS "StorePage" (
 CREATE UNIQUE INDEX IF NOT EXISTS "StorePage_storeId_slug_key" ON "StorePage"("storeId", "slug");
 CREATE INDEX IF NOT EXISTS "StorePage_storeId_idx" ON "StorePage"("storeId");
 
+ALTER TABLE "StorePage" ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS "Review" (
   "id" TEXT NOT NULL,
   "storeId" TEXT NOT NULL,

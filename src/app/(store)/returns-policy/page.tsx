@@ -4,9 +4,9 @@ import { officialLegalMetadata } from "@/lib/official-legal-page";
 export const dynamic = "force-dynamic";
 
 export function generateMetadata() {
-  return officialLegalMetadata("privacy");
+  return officialLegalMetadata("returns-policy");
 }
 
-export default function PrivacyPage() {
-  return <OfficialLegalRoute slug="privacy" />;
+export default function ReturnsPolicyPage() {
+  return <OfficialLegalRoute slug="returns-policy" />;
 }

@@ -48,8 +48,17 @@ async function main() {
     },
   });
 
+  const OFFICIAL_SLUGS = new Set([
+    "terms",
+    "privacy",
+    "accessibility",
+    "cancellation-policy",
+    "returns-policy",
+    "shipping-policy",
+  ]);
   const pages = await prisma.storePage.findMany({ where: { storeId: STORE_ID } });
   for (const p of pages) {
+    if (OFFICIAL_SLUGS.has(p.slug)) continue;
     await prisma.storePage.update({
       where: { id: p.id },
       data: {

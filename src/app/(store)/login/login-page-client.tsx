@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PrivacyPolicyLink } from "@/components/storefront/privacy-policy-link";
 
 function mapLoginError(raw: string | undefined): string {
   if (!raw) return "משהו השתבש. נסו שוב.";
@@ -116,6 +117,7 @@ export function LoginPageClient() {
             </Link>
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
+          <PrivacyPolicyLink />
           <button
             type="submit"
             disabled={loading}

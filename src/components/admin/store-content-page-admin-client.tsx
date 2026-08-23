@@ -20,34 +20,27 @@ export type StoreContentPageDTO = {
   updatedAt: string | null;
 };
 
-const SLUG_META: Record<
-  HagourContentSlug,
-  { pageTitleKey: string; subtitleKey: string; confirmKey: string; previewPath: string }
-> = {
-  terms: {
-    pageTitleKey: "storeTerms",
-    subtitleKey: "storeTermsSubtitle",
-    confirmKey: "restoreTermsConfirm",
-    previewPath: "/terms",
-  },
+const DEFAULT_META = {
+  pageTitleKey: "storeTerms",
+  subtitleKey: "storeTermsSubtitle",
+  confirmKey: "restoreTermsConfirm",
+  previewPath: "/terms",
+};
+
+const SLUG_META: Record<string, typeof DEFAULT_META> = {
+  terms: DEFAULT_META,
   privacy: {
     pageTitleKey: "storePrivacy",
     subtitleKey: "storePrivacySubtitle",
     confirmKey: "restorePrivacyConfirm",
     previewPath: "/privacy",
   },
-  refunds: {
-    pageTitleKey: "storeRefunds",
-    subtitleKey: "storeRefundsSubtitle",
-    confirmKey: "restoreRefundsConfirm",
-    previewPath: "/refunds",
-  },
 };
 
 export function StoreContentPageAdminClient({ initial }: { initial: StoreContentPageDTO }) {
   const router = useRouter();
   const { t, lang: adminLang } = useAdminI18n();
-  const meta = SLUG_META[initial.slug];
+  const meta = SLUG_META[initial.slug] ?? DEFAULT_META;
   const [lang, setLang] = useState<Lang>("he");
   const [title, setTitle] = useState(initial.title);
   const [content, setContent] = useState<Record<Lang, string>>({

@@ -137,16 +137,17 @@ model Review {
 
 /// Store-owned CMS pages (terms, etc.) — scoped by storeId + slug.
 model StorePage {
-  id         String   @id @default(cuid())
-  storeId    String
-  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  slug       String
-  title      String
-  contentHe  String?  @db.Text
-  contentEn  String?  @db.Text
-  contentAr  String?  @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  slug        String
+  title       String
+  contentHe   String?  @db.Text
+  contentEn   String?  @db.Text
+  contentAr   String?  @db.Text
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([storeId, slug])
   @@index([storeId])

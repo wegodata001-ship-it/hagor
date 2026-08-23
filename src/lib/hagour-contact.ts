@@ -1,6 +1,6 @@
 /** Official HAGOUR contact — single source for phone / WhatsApp / email defaults. */
-export const HAGOUR_DEFAULT_PHONE = "054-779-358";
-export const HAGOUR_DEFAULT_WHATSAPP = "97254779358";
+export const HAGOUR_DEFAULT_PHONE = "054-779-3580";
+export const HAGOUR_DEFAULT_WHATSAPP = "972547793580";
 export const HAGOUR_DEFAULT_SUPPORT_EMAIL = "hagourbywael@gmail.com";
 
 /** Support + system mail inbox (CONTACT_RECEIVER_EMAIL in .env). */

@@ -19,7 +19,7 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/delivery", label: "delivery", Icon: IconTruck },
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
   { href: "/admin/loyalty", label: "loyalty", Icon: IconStar },
-  { href: "/admin/content/terms", label: "contentManagement", Icon: IconDocument },
+  { href: "/admin/content", label: "contentManagement", Icon: IconDocument },
   { href: "/admin/settings", label: "storeSettings", Icon: IconGear },
   { href: "/admin/webhooks", label: "paymentWebhooks", Icon: IconWebhook },
   { href: "/admin/observability", label: "observability", Icon: IconObservability },
@@ -30,8 +30,8 @@ function navActive(href: string, pathname: string) {
   if (href === "/admin/settings") {
     return pathname === "/admin/settings" || pathname.startsWith("/admin/settings/");
   }
-  if (href === "/admin/content/terms") {
-    return pathname.startsWith("/admin/content");
+  if (href === "/admin/content") {
+    return pathname === "/admin/content" || pathname.startsWith("/admin/content/");
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

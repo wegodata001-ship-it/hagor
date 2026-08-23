@@ -8,6 +8,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { assertAssetPath, assertBannerImagePath } from "@/lib/assets-path";
 import { logAdminAction } from "@/lib/admin-audit";
 import { err, ok, type AdminActionResult } from "@/lib/admin-action-result";
+import { deleteStoreAssetIfUnreferenced } from "@/lib/store-asset-references";
 import type { PolicyTab } from "@/lib/legal-defaults";
 import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
 import {
@@ -18,10 +19,13 @@ import {
   removeTabDrafts,
   type PolicyLang,
 } from "@/lib/policy-storage";
-import { defaultHagourTermsContent, HAGOUR_TERMS_SLUG, HAGOUR_TERMS_TITLE } from "@/lib/hagour-terms-default";
-import { HAGOUR_PRIVACY_SLUG, HAGOUR_PRIVACY_TITLE } from "@/lib/hagour-privacy-default";
-import { HAGOUR_REFUNDS_SLUG, HAGOUR_REFUNDS_TITLE } from "@/lib/hagour-refunds-default";
-import { seedStorePage, type HagourContentSlug } from "@/lib/store-pages";
+import { OFFICIAL_LEGAL_BY_SLUG } from "@/lib/hagour-official-legal";
+import {
+  isOfficialLegalSlug,
+  LEGAL_PUBLIC_PATH,
+  seedOfficialLegalPage,
+  type OfficialLegalSlug,
+} from "@/lib/store-pages";
 
 async function guard() {
   const session = await requireAdminSession();
@@ -58,6 +62,7 @@ export type AdminOrderDetailDTO = {
     unitPrice: number;
     totalPrice: number;
     selectedOptions: unknown;
+    productImage: string | null;
   }[];
   payments: {
     id: string;
@@ -119,6 +124,7 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
       unitPrice: Number(i.unitPrice),
       totalPrice: Number(i.totalPrice),
       selectedOptions: i.selectedOptions,
+      productImage: i.productImage,
     })),
     payments: order.payments.map((p) => ({
       id: p.id,
@@ -137,6 +143,57 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
         }
       : null,
   };
+}
+
+/** Remove one image from an order line. Never deletes the order or the line itself. Admin only. */
+export async function deleteOrderItemImage(
+  orderId: string,
+  itemId: string,
+): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    if (!orderId?.trim() || !itemId?.trim()) {
+      return err("לא ניתן היה למחוק את התמונה");
+    }
+
+    const item = await prisma.orderItem.findFirst({
+      where: { id: itemId, orderId, storeId },
+      select: { id: true, productImage: true, orderId: true },
+    });
+    if (!item?.productImage) {
+      return err("לא ניתן היה למחוק את התמונה");
+    }
+
+    const imagePath = item.productImage;
+    const cleared = await prisma.orderItem.updateMany({
+      where: { id: item.id, orderId: item.orderId, storeId, productImage: imagePath },
+      data: { productImage: null },
+    });
+    if (cleared.count === 0) {
+      return err("לא ניתן היה למחוק את התמונה");
+    }
+
+    try {
+      await deleteStoreAssetIfUnreferenced({
+        storeId,
+        pathOrUrl: imagePath,
+      });
+    } catch (storageErr) {
+      console.error("order image storage delete failed", storageErr);
+    }
+
+    await logAdminAction({
+      userId,
+      action: "order.item.image.delete",
+      entity: "OrderItem",
+      entityId: item.id,
+      metadata: { orderId: item.orderId, imagePath },
+    });
+    return ok();
+  } catch (e) {
+    console.error("deleteOrderItemImage", e);
+    return err("לא ניתן היה למחוק את התמונה");
+  }
 }
 
 export async function deleteProduct(formData: FormData): Promise<AdminActionResult> {
@@ -1197,6 +1254,10 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
 function revalidateLegalStorefrontPaths() {
   revalidatePath("/terms");
   revalidatePath("/privacy");
+  revalidatePath("/accessibility");
+  revalidatePath("/cancellation-policy");
+  revalidatePath("/returns-policy");
+  revalidatePath("/shipping-policy");
   revalidatePath("/refunds");
   revalidatePath("/shipping");
 }
@@ -1282,72 +1343,58 @@ export async function publishPolicyTab(tab: PolicyTab): Promise<AdminActionResul
   }
 }
 
-const CONTENT_PAGE_META: Record<
-  HagourContentSlug,
-  { slug: string; defaultTitle: string; publicPath: string; adminPath: string }
-> = {
-  terms: {
-    slug: HAGOUR_TERMS_SLUG,
-    defaultTitle: HAGOUR_TERMS_TITLE,
-    publicPath: "/terms",
-    adminPath: "/admin/content/terms",
-  },
-  privacy: {
-    slug: HAGOUR_PRIVACY_SLUG,
-    defaultTitle: HAGOUR_PRIVACY_TITLE,
-    publicPath: "/privacy",
-    adminPath: "/admin/content/privacy",
-  },
-  refunds: {
-    slug: HAGOUR_REFUNDS_SLUG,
-    defaultTitle: HAGOUR_REFUNDS_TITLE,
-    publicPath: "/refunds",
-    adminPath: "/admin/content/refunds",
-  },
-};
-
-export async function saveStoreContentPage(formData: FormData): Promise<AdminActionResult> {
+export async function saveOfficialLegalPage(formData: FormData): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
-    const key = String(formData.get("slug") ?? "terms").trim() as HagourContentSlug;
-    const meta = CONTENT_PAGE_META[key];
-    if (!meta) return err("דף תוכן לא תקין");
+    const slug = String(formData.get("slug") ?? "").trim();
+    if (!isOfficialLegalSlug(slug)) return err("דף תוכן לא תקין");
 
-    const emptyToNull = (v: FormDataEntryValue | null) => {
-      const s = String(v ?? "").trim();
-      return s === "" ? null : s;
-    };
-    const contentHe = emptyToNull(formData.get("contentHe"));
-    const contentEn = emptyToNull(formData.get("contentEn"));
-    const contentAr = emptyToNull(formData.get("contentAr"));
-    const title = String(formData.get("title") ?? meta.defaultTitle).trim() || meta.defaultTitle;
+    const fallback = OFFICIAL_LEGAL_BY_SLUG[slug];
+    const contentHe = String(formData.get("contentHe") ?? "").trim() || null;
+    const title = String(formData.get("title") ?? fallback.title).trim() || fallback.title;
+    const isPublished = String(formData.get("isPublished") ?? "1") === "1";
 
     await prisma.storePage.upsert({
-      where: { storeId_slug: { storeId, slug: meta.slug } },
-      create: { storeId, slug: meta.slug, title, contentHe, contentEn, contentAr },
-      update: { title, contentHe, contentEn, contentAr },
+      where: { storeId_slug: { storeId, slug } },
+      create: {
+        storeId,
+        slug,
+        title,
+        contentHe,
+        contentEn: null,
+        contentAr: null,
+        isPublished,
+      },
+      update: { title, contentHe, isPublished },
     });
 
-    if (key === "terms") {
+    if (slug === "terms") {
       await prisma.storeSettings.updateMany({
         where: { storeId },
-        data: {
-          terms_he: contentHe,
-          terms_en: contentEn,
-          terms_ar: contentAr,
-          termsPublishedAt: new Date(),
-        },
+        data: { terms_he: contentHe, termsPublishedAt: new Date() },
+      });
+    }
+    if (slug === "privacy") {
+      await prisma.storeSettings.updateMany({
+        where: { storeId },
+        data: { privacy_he: contentHe, privacyPublishedAt: new Date() },
+      });
+    }
+    if (slug === "shipping-policy") {
+      await prisma.storeSettings.updateMany({
+        where: { storeId },
+        data: { shipping_he: contentHe, shippingPublishedAt: new Date() },
       });
     }
 
     await logAdminAction({
       userId,
-      action: `store_page.${key}.save`,
+      action: `store_page.${slug}.save`,
       entity: "StorePage",
-      entityId: meta.slug,
+      entityId: slug,
     });
-    revalidatePath(meta.publicPath);
-    revalidatePath(meta.adminPath);
+    revalidatePath(LEGAL_PUBLIC_PATH[slug]);
+    revalidatePath(`/admin/content/${slug}`);
     revalidatePath("/admin/content");
     return ok();
   } catch (e) {
@@ -1355,40 +1402,44 @@ export async function saveStoreContentPage(formData: FormData): Promise<AdminAct
   }
 }
 
-export async function restoreStoreContentPage(key: HagourContentSlug): Promise<AdminActionResult> {
+export async function restoreOfficialLegalPage(slug: OfficialLegalSlug): Promise<AdminActionResult> {
   try {
     const { storeId, userId } = await guard();
-    const meta = CONTENT_PAGE_META[key];
-    if (!meta) return err("דף תוכן לא תקין");
+    if (!isOfficialLegalSlug(slug)) return err("דף תוכן לא תקין");
 
-    await seedStorePage(storeId, key, true);
+    await seedOfficialLegalPage(storeId, slug, true);
+    const doc = OFFICIAL_LEGAL_BY_SLUG[slug];
 
-    if (key === "terms") {
-      const content = defaultHagourTermsContent();
+    if (slug === "terms") {
       await prisma.storeSettings.updateMany({
         where: { storeId },
-        data: {
-          terms_he: content.contentHe,
-          terms_en: content.contentEn,
-          terms_ar: content.contentAr,
-          termsPublishedAt: new Date(),
-        },
+        data: { terms_he: doc.html, termsPublishedAt: new Date() },
       });
     }
 
     await logAdminAction({
       userId,
-      action: `store_page.${key}.restore`,
+      action: `store_page.${slug}.restore`,
       entity: "StorePage",
-      entityId: meta.slug,
+      entityId: slug,
     });
-    revalidatePath(meta.publicPath);
-    revalidatePath(meta.adminPath);
+    revalidatePath(LEGAL_PUBLIC_PATH[slug]);
+    revalidatePath(`/admin/content/${slug}`);
     revalidatePath("/admin/content");
     return ok();
   } catch (e) {
     return err(e instanceof Error ? e.message : "שחזור ברירת מחדל נכשל");
   }
+}
+
+/** @deprecated use saveOfficialLegalPage */
+export async function saveStoreContentPage(formData: FormData): Promise<AdminActionResult> {
+  return saveOfficialLegalPage(formData);
+}
+
+/** @deprecated use restoreOfficialLegalPage */
+export async function restoreStoreContentPage(key: OfficialLegalSlug): Promise<AdminActionResult> {
+  return restoreOfficialLegalPage(key);
 }
 
 /** @deprecated use saveStoreContentPage */

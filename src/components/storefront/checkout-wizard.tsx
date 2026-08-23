@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-context";
+import { PrivacyPolicyLink } from "@/components/storefront/privacy-policy-link";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import {
   INVALID_CUSTOMER_DETAILS,
@@ -365,7 +366,7 @@ export function CheckoutWizard() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="054-779-358"
+                placeholder="054-779-3580"
                 className="ds-input mt-1.5"
                 value={customerPhone}
                 onChange={(e) => {
@@ -375,6 +376,7 @@ export function CheckoutWizard() {
               />
               <FieldError message={customerErrors.customerPhone} />
             </div>
+            <PrivacyPolicyLink />
             <div className="flex gap-2">
               <button type="button" onClick={() => setStep("cart")} className="hagor-btn-outline flex-1">
                 חזרה
@@ -432,6 +434,7 @@ export function CheckoutWizard() {
                   />
                   <FieldError message={addressError} />
                 </div>
+                <PrivacyPolicyLink />
               </>
             ) : null}
             <div>
