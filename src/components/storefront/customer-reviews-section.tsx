@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 
@@ -22,34 +23,103 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-function ReviewAvatar({ name, imageUrl }: { name: string; imageUrl: string | null }) {
-  if (imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={resolvePublicAssetSrc(imageUrl)} alt={name} className="hagour-review-avatar" loading="lazy" />
-    );
-  }
-  const initial = name.trim().charAt(0) || "?";
+function shortComment(comment: string): string | null {
+  const text = comment.replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  if (text.length <= 120) return text;
+  return `${text.slice(0, 117).trim()}…`;
+}
+
+function ReviewCard({
+  review,
+  onOpen,
+}: {
+  review: CustomerReviewItem;
+  onOpen: (review: CustomerReviewItem) => void;
+}) {
+  const hasImage = Boolean(review.imageUrl?.trim());
+  const blurb = hasImage ? shortComment(review.comment) : review.comment.trim() || null;
+  const lines = !hasImage && blurb ? blurb.split("\n").filter(Boolean) : null;
+
   return (
-    <div className="hagour-review-avatar hagour-review-avatar--placeholder" aria-hidden>
-      {initial}
-    </div>
+    <article className="hagour-review-card">
+      {hasImage ? (
+        <button
+          type="button"
+          className="hagour-review-card__media"
+          onClick={() => onOpen(review)}
+          aria-label={`הגדלת חוות דעת של ${review.name}`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={resolvePublicAssetSrc(review.imageUrl!)}
+            alt={`חוות דעת של ${review.name}`}
+            className="hagour-review-card__image"
+            loading="lazy"
+          />
+        </button>
+      ) : (
+        <div className="hagour-review-card__media hagour-review-card__media--empty" aria-hidden>
+          <span className="text-hagor-gold/80 text-3xl font-black">★</span>
+        </div>
+      )}
+      <div className="hagour-review-card__body">
+        <StarRow rating={review.rating} />
+        <p className="hagour-review-card__name">{review.name}</p>
+        {hasImage && blurb ? <p className="hagour-review-card__blurb">{blurb}</p> : null}
+        {!hasImage && lines ? (
+          <blockquote className="hagour-review-card__quote">
+            {lines.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </blockquote>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
-function ReviewCard({ review }: { review: CustomerReviewItem }) {
-  const lines = review.comment.split("\n").filter(Boolean);
+function ReviewLightbox({
+  review,
+  onClose,
+}: {
+  review: CustomerReviewItem;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
   return (
-    <article className="hagour-review-card">
-      <ReviewAvatar name={review.name} imageUrl={review.imageUrl} />
-      <StarRow rating={review.rating} />
-      <p className="hagour-review-card__name">{review.name}</p>
-      <blockquote className="hagour-review-card__quote">
-        {lines.map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
-      </blockquote>
-    </article>
+    <div className="hagour-review-lightbox" role="dialog" aria-modal="true" aria-label={review.name}>
+      <button type="button" className="hagour-review-lightbox__backdrop" aria-label="סגור" onClick={onClose} />
+      <div className="hagour-review-lightbox__panel">
+        <button type="button" className="hagour-review-lightbox__close" onClick={onClose} aria-label="סגור">
+          <X className="h-5 w-5" />
+        </button>
+        {review.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolvePublicAssetSrc(review.imageUrl)}
+            alt={`חוות דעת של ${review.name}`}
+            className="hagour-review-lightbox__image"
+          />
+        ) : null}
+        <div className="hagour-review-lightbox__meta">
+          <StarRow rating={review.rating} />
+          <p className="hagour-review-card__name">{review.name}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -67,7 +137,13 @@ function usePerView() {
   return perView;
 }
 
-function ReviewsCarousel({ reviews }: { reviews: CustomerReviewItem[] }) {
+function ReviewsCarousel({
+  reviews,
+  onOpen,
+}: {
+  reviews: CustomerReviewItem[];
+  onOpen: (review: CustomerReviewItem) => void;
+}) {
   const perView = usePerView();
   const slides = useMemo(() => {
     const chunks: CustomerReviewItem[][] = [];
@@ -94,12 +170,33 @@ function ReviewsCarousel({ reviews }: { reviews: CustomerReviewItem[] }) {
 
   useEffect(() => {
     if (slideCount <= 1) return;
-    const id = window.setInterval(() => go(index + 1), 5000);
+    const id = window.setInterval(() => go(index + 1), 6000);
     return () => window.clearInterval(id);
   }, [go, index, slideCount]);
 
   return (
     <div className="hagour-reviews-carousel mt-8 md:mt-10">
+      {slideCount > 1 ? (
+        <>
+          <button
+            type="button"
+            className="hagour-reviews-carousel__arrow hagour-reviews-carousel__arrow--prev"
+            onClick={() => go(index - 1)}
+            aria-label="הקודם"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            className="hagour-reviews-carousel__arrow hagour-reviews-carousel__arrow--next"
+            onClick={() => go(index + 1)}
+            aria-label="הבא"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </>
+      ) : null}
+
       <div
         className="hagour-reviews-carousel__track"
         style={{ transform: `translateX(-${index * 100}%)` }}
@@ -107,11 +204,12 @@ function ReviewsCarousel({ reviews }: { reviews: CustomerReviewItem[] }) {
         {slides.map((group, slideIdx) => (
           <div key={slideIdx} className="hagour-reviews-carousel__slide">
             {group.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard key={review.id} review={review} onOpen={onOpen} />
             ))}
           </div>
         ))}
       </div>
+
       {slideCount > 1 ? (
         <div className="hagour-reviews-carousel__dots" role="tablist" aria-label="חוות דעת">
           {slides.map((_, i) => (
@@ -133,9 +231,12 @@ function ReviewsCarousel({ reviews }: { reviews: CustomerReviewItem[] }) {
 
 export function CustomerReviewsSection({ reviews }: { reviews: CustomerReviewItem[] }) {
   const { t } = useStoreI18n();
+  const [lightbox, setLightbox] = useState<CustomerReviewItem | null>(null);
+
   if (reviews.length === 0) return null;
 
-  const useCarousel = reviews.length > 3;
+  // Carousel when multiple reviews: desktop packs 3/slide; mobile 1/slide with arrows + dots.
+  const useCarousel = reviews.length > 1;
 
   return (
     <section id="customer-reviews" className="scroll-mt-28" aria-labelledby="customer-reviews-title">
@@ -148,15 +249,18 @@ export function CustomerReviewsSection({ reviews }: { reviews: CustomerReviewIte
           {t("customerReviewsSubtitle")}
         </p>
       </div>
+
       {useCarousel ? (
-        <ReviewsCarousel reviews={reviews} />
+        <ReviewsCarousel reviews={reviews} onOpen={setLightbox} />
       ) : (
         <div className="hagour-reviews-grid mt-8 md:mt-10">
           {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard key={review.id} review={review} onOpen={setLightbox} />
           ))}
         </div>
       )}
+
+      {lightbox?.imageUrl ? <ReviewLightbox review={lightbox} onClose={() => setLightbox(null)} /> : null}
     </section>
   );
 }

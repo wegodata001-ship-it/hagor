@@ -899,65 +899,99 @@ body {
     }
   }
 
-  .hagour-review-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin: 0 auto 1rem;
-    display: block;
-    border: 2px solid rgba(200, 146, 17, 0.35);
-    flex-shrink: 0;
-  }
-
-  .hagour-review-avatar--placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(145deg, #1a1a1a, #2a2418);
-    color: #c89211;
-    font-size: 1.75rem;
-    font-weight: 800;
-  }
-
   .hagour-review-card {
-    background: #111;
-    border: 1px solid rgba(200, 146, 17, 0.2);
+    background: #101010;
+    border: 1px solid rgba(200, 146, 17, 0.25);
     border-radius: 18px;
-    padding: 24px;
-    text-align: center;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    align-items: center;
     min-height: 100%;
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .hagour-review-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(200, 146, 17, 0.38);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    transform: translateY(-3px);
+    border-color: rgba(200, 146, 17, 0.4);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+  }
+
+  .hagour-review-card__media {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 12px;
+    border: 0;
+    background: #0d0d0d;
+    cursor: zoom-in;
+    text-align: center;
+  }
+
+  .hagour-review-card__media--empty {
+    cursor: default;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hagour-review-card__image {
+    width: 100%;
+    height: 340px;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    border-radius: 16px;
+    background: #0d0d0d;
+  }
+
+  @media (min-width: 768px) {
+    .hagour-review-card__image {
+      height: 380px;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .hagour-review-card__image {
+      height: 420px;
+    }
+  }
+
+  .hagour-review-card__body {
+    padding: 16px 18px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
   }
 
   .hagour-review-card__name {
-    margin: 0 0 0.75rem;
+    margin: 0;
     font-size: 1rem;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.92);
   }
 
   .hagour-review-stars {
-    margin: 0 0 0.65rem;
-    font-size: 1.15rem;
+    margin: 0;
+    font-size: 1.1rem;
     letter-spacing: 0.12em;
     color: #c89211;
     line-height: 1;
   }
 
+  .hagour-review-card__blurb {
+    margin: 0.35rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
   .hagour-review-card__quote {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.75;
+    margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
     color: rgba(255, 255, 255, 0.88);
   }
 
@@ -969,14 +1003,16 @@ body {
     margin-bottom: 0;
   }
 
-  .hagour-review-card__quote p::before {
-    content: open-quote;
-    color: rgba(200, 146, 17, 0.65);
-  }
-
   .hagour-reviews-carousel {
     overflow: hidden;
     position: relative;
+    padding: 0 2.25rem;
+  }
+
+  @media (max-width: 767px) {
+    .hagour-reviews-carousel {
+      padding: 0 2rem;
+    }
   }
 
   .hagour-reviews-carousel__track {
@@ -1001,6 +1037,37 @@ body {
     }
   }
 
+  .hagour-reviews-carousel__arrow {
+    position: absolute;
+    top: 42%;
+    z-index: 2;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 1px solid rgba(200, 146, 17, 0.35);
+    background: rgba(16, 16, 16, 0.92);
+    color: #c89211;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .hagour-reviews-carousel__arrow:hover {
+    background: rgba(200, 146, 17, 0.12);
+    border-color: rgba(200, 146, 17, 0.55);
+  }
+
+  .hagour-reviews-carousel__arrow--prev {
+    inset-inline-start: 0;
+  }
+
+  .hagour-reviews-carousel__arrow--next {
+    inset-inline-end: 0;
+  }
+
   .hagour-reviews-carousel__dots {
     display: flex;
     justify-content: center;
@@ -1022,6 +1089,92 @@ body {
   .hagour-reviews-carousel__dot.is-active {
     background: #c89211;
     transform: scale(1.15);
+  }
+
+  .hagour-review-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .hagour-review-lightbox__backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.82);
+    cursor: pointer;
+  }
+
+  .hagour-review-lightbox__panel {
+    position: relative;
+    z-index: 1;
+    width: min(960px, 100%);
+    max-height: min(94vh, 920px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #101010;
+    border: 1px solid rgba(200, 146, 17, 0.3);
+    border-radius: 18px;
+    padding: 0.75rem 0.75rem 1rem;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  }
+
+  .hagour-review-lightbox__close {
+    position: absolute;
+    top: 0.65rem;
+    inset-inline-end: 0.65rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .hagour-review-lightbox__image {
+    width: 100%;
+    max-height: min(78vh, 780px);
+    object-fit: contain;
+    object-position: center;
+    background: #0d0d0d;
+    border-radius: 14px;
+    display: block;
+  }
+
+  .hagour-review-lightbox__meta {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  @media (max-width: 767px) {
+    .hagour-review-lightbox {
+      padding: 0.35rem;
+    }
+
+    .hagour-review-lightbox__panel {
+      width: 100%;
+      max-height: 98vh;
+      border-radius: 14px;
+      padding: 0.5rem 0.5rem 0.85rem;
+    }
+
+    .hagour-review-lightbox__image {
+      max-height: 82vh;
+      border-radius: 12px;
+    }
   }
 }
 
