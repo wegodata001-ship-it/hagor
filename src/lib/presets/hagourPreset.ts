@@ -68,6 +68,51 @@ type HagourProductSeed = {
 /** Official HAGOUR catalog — only these products (no demo / electronics). */
 const products: HagourProductSeed[] = [
   {
+    slug: "tactical-belt-full-rg",
+    name_he: "חגור טקטי שלם RG",
+    description_he:
+      "חגור טקטי שלם בצבע Ranger Green (RG), הכולל חגור חיצוני וחגור פנימי.\n\nהסט כולל 6 נרתקים:\n- נרתיק אקדח\n- נרתיק גז\n- נרתיק פנס\n- נרתיק אזיקים\n- נרתיק מכשיר קשר\n- נרתיק מחסניות כפולה\n\nצבע: Ranger Green (RG)",
+    name_en: "Full tactical belt RG",
+    name_ar: "حزام تكتيكي كامل RG",
+    description_en:
+      "Full tactical belt in Ranger Green (RG), including outer and inner belt.\n\nThe set includes 6 pouches:\n- Pistol holster\n- Gas pouch\n- Flashlight pouch\n- Handcuff pouch\n- Radio pouch\n- Double magazine pouch\n\nColor: Ranger Green (RG)",
+    description_ar:
+      "حزام تكتيكي كامل بلون Ranger Green (RG)، يشمل حزام خارجي وداخلي.\n\nالمجموعة تشمل 6 جرابات:\n- جراب مسدس\n- جراب غاز\n- جراب مصباح\n- جراب أصفاد\n- جراب جهاز اتصال\n- جراب مخازن مزدوج\n\nاللون: Ranger Green (RG)",
+    categoryKey: "belts",
+    price: 400,
+    featured: true,
+  },
+  {
+    slug: "patrol-belt-black-velcro",
+    name_he: "חגור סייר שחור עם סגירת סקוץ'",
+    description_he:
+      "חגור סייר בצבע שחור עם סגירת סקוץ', הכולל חגור חיצוני וחגור פנימי.\n\nהסט כולל 6 נרתקים:\n- נרתיק אקדח\n- נרתיק גז\n- נרתיק פנס\n- נרתיק אזיקים\n- נרתיק מכשיר קשר\n- נרתיק מחסניות כפולה\n\nצבע: שחור\nסוג סגירה: סקוץ'",
+    name_en: "Black patrol belt with velcro closure",
+    name_ar: "حزام دورية أسود بإغلاق فيلكرو",
+    description_en:
+      "Black patrol belt with velcro closure, including outer and inner belt.\n\nThe set includes 6 pouches:\n- Pistol holster\n- Gas pouch\n- Flashlight pouch\n- Handcuff pouch\n- Radio pouch\n- Double magazine pouch\n\nColor: Black\nClosure: Velcro",
+    description_ar:
+      "حزام دورية أسود بإغلاق فيلكرو، يشمل حزام خارجي وداخلي.\n\nالمجموعة تشمل 6 جرابات:\n- جراب مسدس\n- جراب غاز\n- جراب مصباح\n- جراب أصفاد\n- جراب جهاز اتصال\n- جراب مخازن مزدوج\n\nاللون: أسود\nنوع الإغلاق: فيلكرو",
+    categoryKey: "belts",
+    price: 400,
+    featured: true,
+  },
+  {
+    slug: "patrol-belt-metal-buckle",
+    name_he: "חגור סייר עם אבזם מתכת",
+    description_he:
+      "חגור סייר הכולל חגור חיצוני וחגור פנימי, עם סגירת אבזם מתכת.\n\nהסט כולל 6 נרתקים:\n- נרתיק אקדח\n- נרתיק גז\n- נרתיק פנס\n- נרתיק אזיקים\n- נרתיק מכשיר קשר\n- נרתיק מחסניות כפולה\n\nסוג סגירה: אבזם מתכת",
+    name_en: "Patrol belt with metal buckle",
+    name_ar: "حزام دورية بإبزيم معدني",
+    description_en:
+      "Patrol belt including outer and inner belt, with metal buckle closure.\n\nThe set includes 6 pouches:\n- Pistol holster\n- Gas pouch\n- Flashlight pouch\n- Handcuff pouch\n- Radio pouch\n- Double magazine pouch\n\nClosure: Metal buckle",
+    description_ar:
+      "حزام دورية يشمل حزام خارجي وداخلي، مع إغلاق إبزيم معدني.\n\nالمجموعة تشمل 6 جرابات:\n- جراب مسدس\n- جراب غاز\n- جراب مصباح\n- جراب أصفاد\n- جراب جهاز اتصال\n- جراب مخازن مزدوج\n\nنوع الإغلاق: إبزيم معدني",
+    categoryKey: "belts",
+    price: 430,
+    featured: true,
+  },
+  {
     slug: "pistol-holster-fabric",
     name_he: "נרתיק אקדח בד",
     description_he: "נרתיק אקדח אוניברסלי.",
@@ -278,6 +323,127 @@ export async function seedHagourProducts(prisma: PrismaClient, storeId: string):
   }
 
   return products.length;
+}
+
+const BELT_PRODUCT_SLUGS = new Set([
+  "tactical-belt-full-rg",
+  "patrol-belt-black-velcro",
+  "patrol-belt-metal-buckle",
+]);
+
+/** Additive upsert of the 3 belt kits — never deletes other products. */
+export async function upsertHagourBeltProducts(
+  prisma: PrismaClient,
+  storeId: string,
+): Promise<{ created: string[]; updated: string[] }> {
+  const categoryIdByKey = await resolveHagourCategoryIds(prisma, storeId);
+  const beltsCategoryId = categoryIdByKey.get("belts");
+  if (!beltsCategoryId) throw new Error("Belts category missing");
+
+  // Best-effort: mark category as BELT profile when column exists.
+  try {
+    await prisma.$executeRaw`
+      UPDATE "Category"
+      SET "optionProfile" = 'BELT'
+      WHERE id = ${beltsCategoryId} AND "storeId" = ${storeId}
+    `;
+  } catch {
+    /* column may be missing in some environments */
+  }
+
+  const created: string[] = [];
+  const updated: string[] = [];
+  const beltProducts = products.filter((p) => BELT_PRODUCT_SLUGS.has(p.slug));
+
+  for (const product of beltProducts) {
+    const id = `${storeId}-prod-${product.slug}`;
+    const sku = `HAG-${product.slug.toUpperCase().replace(/-/g, "_").slice(0, 24)}`;
+    const imageUrl = FALLBACK_CATEGORY_IMAGES.belts;
+    const existing = await prisma.product.findFirst({
+      where: { id, storeId },
+      select: { id: true, images: { select: { id: true }, take: 1 } },
+    });
+
+    if (existing) {
+      await prisma.product.update({
+        where: { id },
+        data: {
+          categoryId: beltsCategoryId,
+          sku,
+          name_he: product.name_he,
+          name_ar: product.name_ar,
+          name_en: product.name_en,
+          title_he: product.name_he,
+          title_ar: product.name_ar,
+          title_en: product.name_en,
+          description_he: product.description_he,
+          description_ar: product.description_ar,
+          description_en: product.description_en,
+          price: product.price,
+          stock: 100,
+          active: true,
+          featured: product.featured === true,
+        },
+      });
+      if (existing.images.length === 0) {
+        await prisma.productImage.create({
+          data: { storeId, productId: id, url: imageUrl, isMain: true, sortOrder: 0 },
+        });
+      }
+      updated.push(product.name_he);
+    } else {
+      await prisma.product.create({
+        data: {
+          id,
+          storeId,
+          categoryId: beltsCategoryId,
+          sku,
+          name_he: product.name_he,
+          name_ar: product.name_ar,
+          name_en: product.name_en,
+          title_he: product.name_he,
+          title_ar: product.name_ar,
+          title_en: product.name_en,
+          description_he: product.description_he,
+          description_ar: product.description_ar,
+          description_en: product.description_en,
+          price: product.price,
+          stock: 100,
+          active: true,
+          featured: product.featured === true,
+          images: {
+            create: {
+              storeId,
+              url: imageUrl,
+              isMain: true,
+              sortOrder: 0,
+            },
+          },
+        },
+      });
+      created.push(product.name_he);
+    }
+  }
+
+  return { created, updated };
+}
+
+/** Set stock=100 for every active product in this store only. */
+export async function resetActiveHagourStockTo100(
+  prisma: PrismaClient,
+  storeId: string,
+): Promise<{ updated: number; skippedInactive: number; totalActive: number }> {
+  const skippedInactive = await prisma.product.count({
+    where: { storeId, active: false },
+  });
+  const result = await prisma.product.updateMany({
+    where: { storeId, active: true },
+    data: { stock: 100 },
+  });
+  const totalActive = await prisma.product.count({
+    where: { storeId, active: true },
+  });
+  return { updated: result.count, skippedInactive, totalActive };
 }
 
 export async function seedHagourPreset(prisma: PrismaClient, storeId: string): Promise<void> {

@@ -605,6 +605,10 @@ export function ProductsAdminClient({
             onSubmit={(fd, files) => handleUpsert(fd, files, editProduct)}
             onCancel={() => setEditProduct(null)}
             onRefresh={refresh}
+            onImagesChange={(images) => {
+              setEditProduct((prev) => (prev ? { ...prev, images } : prev));
+            }}
+            onToast={setToast}
           />
         )}
       </AdminModal>
@@ -646,6 +650,8 @@ function ProductForm({
   onSubmit,
   onCancel,
   onRefresh,
+  onImagesChange,
+  onToast,
 }: {
   categories: CategoryOpt[];
   allProducts: ProductRow[];
@@ -654,6 +660,8 @@ function ProductForm({
   onSubmit: (fd: FormData, files: File[] | null) => Promise<void>;
   onCancel: () => void;
   onRefresh?: () => void;
+  onImagesChange?: (images: Img[]) => void;
+  onToast?: (message: string) => void;
 }) {
   const [pending, setPending] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -868,6 +876,8 @@ function ProductForm({
         selectedFiles={selectedFiles}
         setSelectedFiles={setSelectedFiles}
         onRefresh={onRefresh}
+        onImagesChange={onImagesChange}
+        onToast={onToast}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

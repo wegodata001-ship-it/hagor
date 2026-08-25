@@ -299,6 +299,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     deleteOrderImageConfirm: "Delete this image?",
     deleteOrderImageSuccess: "Image deleted successfully",
     deleteOrderImageError: "Could not delete the image",
+    deletingImage: "Deleting…",
     deliveryTitle: "Delivery",
     customerTitle: "Customer",
     deleteShort: "Del",
@@ -372,6 +373,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     productImagesLabel: "Product images",
     productImagesStudioHint:
       "Large preview, reorder by dragging thumbnails, set cover — saves when you save the product.",
+    noProductImagesYet: "No images yet — drop files above or choose images.",
     previewDesktop: "Desktop preview",
     previewMobile: "Mobile preview",
     dropImagesHere: "Drag images here or choose files",
@@ -760,6 +762,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     deleteOrderImageConfirm: "האם למחוק את התמונה הזו?",
     deleteOrderImageSuccess: "התמונה נמחקה בהצלחה",
     deleteOrderImageError: "לא ניתן היה למחוק את התמונה",
+    deletingImage: "מוחק...",
     deliveryTitle: "משלוח",
     customerTitle: "לקוח",
     deleteShort: "מחק",
@@ -833,6 +836,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     productImagesLabel: "תמונות מוצר",
     productImagesStudioHint:
       "תצוגה גדולה, סדר בגרירת תמונות ממוזערות, תמונה ראשית — נשמר בשמירת המוצר.",
+    noProductImagesYet: "אין תמונות עדיין — גרור קבצים למעלה או בחר תמונות.",
     previewDesktop: "תצוגת דסקטופ",
     previewMobile: "תצוגת מובייל",
     dropImagesHere: "גרור תמונות לכאן או בחר קבצים",
@@ -1222,6 +1226,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     deleteOrderImageConfirm: "هل تريد حذف هذه الصورة؟",
     deleteOrderImageSuccess: "تم حذف الصورة بنجاح",
     deleteOrderImageError: "تعذر حذف الصورة",
+    deletingImage: "جارٍ الحذف...",
     deliveryTitle: "التوصيل",
     customerTitle: "العميل",
     deleteShort: "حذف",
@@ -1295,6 +1300,7 @@ export const translations: Record<AdminLang, Record<string, string>> = {
     productImagesLabel: "صور المنتج",
     productImagesStudioHint:
       "معاينة كبيرة، إعادة ترتيب بالسحب، صورة غلاف — تُحفظ عند حفظ المنتج.",
+    noProductImagesYet: "لا توجد صور بعد — اسحب ملفات أعلاه أو اختر صورًا.",
     previewDesktop: "معاينة سطح المكتب",
     previewMobile: "معاينة الجوال",
     dropImagesHere: "اسحب الصور هنا أو اختر ملفات",

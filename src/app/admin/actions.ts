@@ -527,25 +527,79 @@ export async function addProductImage(formData: FormData): Promise<AdminActionRe
   }
 }
 
-export async function deleteProductImage(formData: FormData): Promise<AdminActionResult> {
+export async function deleteProductImage(
+  formData: FormData,
+): Promise<
+  AdminActionResult<{
+    images: { id: string; url: string; isMain: boolean; sortOrder: number }[];
+  }>
+> {
   try {
     const { storeId, userId } = await guard();
-    const imageId = formData.get("imageId") as string;
+    const imageId = String(formData.get("imageId") ?? "").trim();
+    const productId = String(formData.get("productId") ?? "").trim();
+    if (!imageId) return err("לא ניתן היה למחוק את התמונה");
+
     const img = await prisma.productImage.findFirst({
-      where: { id: imageId, storeId },
+      where: {
+        id: imageId,
+        storeId,
+        ...(productId ? { productId } : {}),
+      },
     });
-    if (!img) return err("תמונה לא נמצאה");
-    await prisma.productImage.deleteMany({ where: { id: imageId, storeId } });
+    if (!img) return err("לא ניתן היה למחוק את התמונה");
+
+    const imagePath = img.url;
+    const wasMain = img.isMain;
+    const pid = img.productId;
+
+    const deleted = await prisma.productImage.deleteMany({
+      where: { id: imageId, storeId, productId: pid },
+    });
+    if (deleted.count === 0) return err("לא ניתן היה למחוק את התמונה");
+
+    if (wasMain) {
+      const nextMain = await prisma.productImage.findFirst({
+        where: { productId: pid, storeId },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
+      });
+      if (nextMain) {
+        await prisma.productImage.updateMany({
+          where: { id: nextMain.id, storeId, productId: pid },
+          data: { isMain: true },
+        });
+      }
+    }
+
+    try {
+      await deleteStoreAssetIfUnreferenced({
+        storeId,
+        pathOrUrl: imagePath,
+      });
+    } catch (storageErr) {
+      console.error("product image storage delete failed", storageErr);
+    }
+
+    const remaining = await prisma.productImage.findMany({
+      where: { productId: pid, storeId },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, url: true, isMain: true, sortOrder: true },
+    });
+
     await logAdminAction({
       userId,
       action: "product.image.delete",
       entity: "ProductImage",
       entityId: imageId,
+      metadata: { productId: pid, imagePath },
     });
     revalidatePath("/admin/products");
-    return ok();
+    revalidatePath(`/products/${pid}`);
+    return ok({ images: remaining });
   } catch (e) {
-    return err(e instanceof Error ? e.message : "מחיקת תמונה נכשלה");
+    console.error("deleteProductImage", e);
+    return err("לא ניתן היה למחוק את התמונה");
   }
 }
 

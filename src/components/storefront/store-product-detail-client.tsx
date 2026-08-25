@@ -13,6 +13,7 @@ import {
   type BuckleType,
   type CategoryOptionProfile,
   type ProductSelectedOptions,
+  resolveFixedBuckleType,
   validateSelectedOptionsForProfile,
 } from "@/lib/hagour-product-options";
 
@@ -65,7 +66,12 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
   const [buckleType, setBuckleType] = useState<BuckleType | null>(null);
   const [selectedSizeKey, setSelectedSizeKey] = useState<string | null>(null);
   const optionProfile = product.optionProfile;
-  const validationError = validateSelectedOptionsForProfile(optionProfile, hagourOptions);
+  const fixedBuckleType = resolveFixedBuckleType(product.id);
+  const validationError = validateSelectedOptionsForProfile(
+    optionProfile,
+    hagourOptions,
+    fixedBuckleType,
+  );
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const g of product.variantGroups ?? []) {
@@ -165,7 +171,8 @@ export function StoreProductDetailClient({ product }: { product: ProductDetails 
           {optionProfile === "BELT" ? (
             <BeltProductOptions
               selectedSizeKey={selectedSizeKey}
-              buckleType={buckleType}
+              buckleType={fixedBuckleType ?? buckleType}
+              fixedBuckleType={fixedBuckleType}
               onSizeChange={(opts) => {
                 setHagourOptions(opts);
                 if (opts) setSelectedSizeKey(`${opts.beltSize}-${opts.policePantsSize}`);

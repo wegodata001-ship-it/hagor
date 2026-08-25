@@ -2,8 +2,23 @@ import type { Locale } from "@/lib/localized";
 
 export type CategoryOptionProfile = "BELT" | "HOLSTER";
 
-export type BuckleType = "REGULAR" | "TACTICAL" | "QUICK_RELEASE";
+/** Free-choice buckles + product-fixed closures (velcro / metal). */
+export type BuckleType = "REGULAR" | "TACTICAL" | "QUICK_RELEASE" | "VELCRO" | "METAL";
 export type HandSide = "RIGHT" | "LEFT";
+
+export const FREE_BUCKLE_OPTIONS: BuckleType[] = ["REGULAR", "TACTICAL", "QUICK_RELEASE"];
+
+const ALL_BUCKLE_TYPES: readonly BuckleType[] = [
+  "REGULAR",
+  "TACTICAL",
+  "QUICK_RELEASE",
+  "VELCRO",
+  "METAL",
+];
+
+export function isBuckleType(v: unknown): v is BuckleType {
+  return typeof v === "string" && (ALL_BUCKLE_TYPES as readonly string[]).includes(v);
+}
 
 export type BeltSizeRow = {
   beltSize: string;
@@ -47,6 +62,21 @@ export type HolsterSelectedOptions = {
 
 export type ProductSelectedOptions = BeltSelectedOptions | HolsterSelectedOptions;
 
+/** Product-level fixed closure — customer cannot switch (slug after `{storeId}-prod-`). */
+const FIXED_BUCKLE_BY_SLUG: Record<string, BuckleType> = {
+  "tactical-belt-full-rg": "TACTICAL",
+  "patrol-belt-black-velcro": "VELCRO",
+  "patrol-belt-metal-buckle": "METAL",
+};
+
+export function resolveFixedBuckleType(productId: string | null | undefined): BuckleType | null {
+  if (!productId) return null;
+  const marker = "-prod-";
+  const i = productId.indexOf(marker);
+  const slug = i >= 0 ? productId.slice(i + marker.length) : productId;
+  return FIXED_BUCKLE_BY_SLUG[slug] ?? null;
+}
+
 export function beltRowKey(row: BeltSizeRow): string {
   return `${row.beltSize}-${row.policePantsSize}`;
 }
@@ -71,7 +101,7 @@ export function parseSelectedOptions(raw: unknown): ProductSelectedOptions | nul
   const o = raw as Record<string, unknown>;
   if (o.type === "BELT") {
     const buckleType = o.buckleType;
-    if (buckleType !== "REGULAR" && buckleType !== "TACTICAL" && buckleType !== "QUICK_RELEASE") return null;
+    if (!isBuckleType(buckleType)) return null;
     return {
       type: "BELT",
       beltSize: String(o.beltSize ?? ""),
@@ -92,15 +122,22 @@ export function parseSelectedOptions(raw: unknown): ProductSelectedOptions | nul
 export function validateSelectedOptionsForProfile(
   profile: CategoryOptionProfile | null,
   options: ProductSelectedOptions | null | undefined,
+  fixedBuckleType?: BuckleType | null,
 ): string | null {
   if (!profile) return null;
   if (!options) {
     return profile === "BELT"
-      ? "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה"
+      ? fixedBuckleType
+        ? "נא לבחור מידה לפני הוספה לעגלה"
+        : "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה"
       : "נא לבחור צד לפני הוספה לעגלה";
   }
   if (profile === "BELT") {
-    if (options.type !== "BELT") return "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה";
+    if (options.type !== "BELT") {
+      return fixedBuckleType
+        ? "נא לבחור מידה לפני הוספה לעגלה"
+        : "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה";
+    }
     const ok = BELT_SIZE_TABLE.some(
       (r) =>
         r.beltSize === options.beltSize &&
@@ -109,16 +146,21 @@ export function validateSelectedOptionsForProfile(
     );
     if (!ok) return "מידת חגורה לא תקינה";
     if (!options.buckleType) return "נא לבחור סוג סגירה";
+    if (fixedBuckleType && options.buckleType !== fixedBuckleType) {
+      return "סוג הסגירה אינו תואם למוצר זה";
+    }
     return null;
   }
   if (options.type !== "HOLSTER" || !options.handSide) return "נא לבחור צד לפני הוספה לעגלה";
   return null;
 }
 
-const BUCKLE_LABELS: Record<BuckleType, Record<Locale, string>> = {
+export const BUCKLE_LABELS: Record<BuckleType, Record<Locale, string>> = {
   REGULAR: { he: "סגירה רגילה", ar: "إغلاق عادي", en: "Regular Buckle" },
   TACTICAL: { he: "סגירה טקטית", ar: "إغلاق تكتيكي", en: "Tactical Buckle" },
   QUICK_RELEASE: { he: "סגירה מהירה", ar: "إغلاق سريع", en: "Quick Release Buckle" },
+  VELCRO: { he: "סגירת סקוץ׳", ar: "إغلاق فيلكرو", en: "Velcro closure" },
+  METAL: { he: "אבזם מתכת", ar: "إبزيم معدني", en: "Metal buckle" },
 };
 
 const HAND_LABELS: Record<HandSide, Record<Locale, string>> = {

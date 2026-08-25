@@ -34,12 +34,16 @@ export function ProductImagesSection({
   selectedFiles,
   setSelectedFiles,
   onRefresh,
+  onImagesChange,
+  onToast,
 }: {
   product: { id: string; images: Img[] } | null;
   galleryDisplay: GalleryDisplayConfig;
   selectedFiles: File[];
   setSelectedFiles: (files: File[]) => void;
   onRefresh?: () => void;
+  onImagesChange?: (images: Img[]) => void;
+  onToast?: (message: string) => void;
 }) {
   const { t } = useAdminI18n();
   const fileInputId = useId();
@@ -48,6 +52,7 @@ export function ProductImagesSection({
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [dragId, setDragId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const next = sortImages(product?.images ?? []);
@@ -58,6 +63,16 @@ export function ProductImagesSection({
   const active = ordered[activeIdx] ?? null;
   const mainStyle = galleryMainMaxStyle(galleryDisplay);
   const thumbClass = galleryThumbSizeClass(galleryDisplay);
+
+  const applyImages = useCallback(
+    (next: Img[]) => {
+      const sorted = sortImages(next);
+      setOrdered(sorted);
+      setActiveIdx((i) => Math.min(i, Math.max(0, sorted.length - 1)));
+      onImagesChange?.(sorted);
+    },
+    [onImagesChange],
+  );
 
   const onDropFiles = useCallback(
     (list: FileList | File[]) => {
@@ -76,9 +91,10 @@ export function ProductImagesSection({
       fd.append("orderedIds", JSON.stringify(next.map((x) => x.id)));
       const res = await setProductImageOrder(fd);
       if (!res.ok) throw new Error(res.error);
+      onImagesChange?.(next);
       onRefresh?.();
     },
-    [product, onRefresh],
+    [product, onImagesChange, onRefresh],
   );
 
   const handleDropReorder = async (targetId: string) => {
@@ -124,9 +140,50 @@ export function ProductImagesSection({
       fd.append("url", path);
       const res = await replaceProductImage(fd);
       if (!res.ok) throw new Error(res.error);
+      const next = ordered.map((im) => (im.id === imageId ? { ...im, url: path } : im));
+      applyImages(next);
       onRefresh?.();
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleDeleteImage = async (image: Img) => {
+    if (!product || deletingId) return;
+    if (!window.confirm(t("deleteOrderImageConfirm"))) return;
+
+    const snapshot = ordered;
+    const remaining = ordered.filter((im) => im.id !== image.id);
+    let next = remaining;
+    if (image.isMain && remaining.length > 0) {
+      next = remaining.map((im, idx) => ({
+        ...im,
+        isMain: idx === 0,
+        sortOrder: im.sortOrder,
+      }));
+    }
+
+    setDeletingId(image.id);
+    applyImages(next);
+
+    try {
+      const fd = new FormData();
+      fd.append("imageId", image.id);
+      fd.append("productId", product.id);
+      const res = await deleteProductImage(fd);
+      if (!res.ok) {
+        applyImages(snapshot);
+        onToast?.(t("deleteOrderImageError"));
+        return;
+      }
+      applyImages(res.data.images);
+      onToast?.(t("deleteOrderImageSuccess"));
+      onRefresh?.();
+    } catch {
+      applyImages(snapshot);
+      onToast?.(t("deleteOrderImageError"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -140,6 +197,8 @@ export function ProductImagesSection({
       for (const p of previews) URL.revokeObjectURL(p.url);
     };
   }, [previews]);
+
+  const actionBusy = Boolean(busyId || deletingId);
 
   return (
     <div className="space-y-4">
@@ -226,7 +285,7 @@ export function ProductImagesSection({
                 <button
                   key={im.id}
                   type="button"
-                  draggable
+                  draggable={!actionBusy}
                   onDragStart={() => setDragId(im.id)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => void handleDropReorder(im.id)}
@@ -268,14 +327,17 @@ export function ProductImagesSection({
                 <>
                   <button
                     type="button"
-                    disabled={busyId === active.id}
+                    disabled={actionBusy}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
                     onClick={async () => {
                       const fd = new FormData();
                       fd.append("productId", product.id);
                       fd.append("imageId", active.id);
                       const res = await setMainProductImage(fd);
-                      if (res.ok) onRefresh?.();
+                      if (res.ok) {
+                        applyImages(ordered.map((im) => ({ ...im, isMain: im.id === active.id })));
+                        onRefresh?.();
+                      }
                     }}
                   >
                     ★ {t("setAsMainImage")}
@@ -286,17 +348,18 @@ export function ProductImagesSection({
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={actionBusy}
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
                         e.target.value = "";
-                        if (!f) return;
+                        if (!f || actionBusy) return;
                         await runReplaceUpload(active.id, f);
                       }}
                     />
                   </label>
                   <button
                     type="button"
-                    disabled={busyId === active.id}
+                    disabled={actionBusy}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
                     onClick={async () => {
                       try {
@@ -320,15 +383,11 @@ export function ProductImagesSection({
                   </a>
                   <button
                     type="button"
-                    className="w-full rounded-lg border border-red-200 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                    onClick={async () => {
-                      const fd = new FormData();
-                      fd.append("imageId", active.id);
-                      const res = await deleteProductImage(fd);
-                      if (res.ok) onRefresh?.();
-                    }}
+                    disabled={actionBusy}
+                    className="w-full rounded-lg border border-red-200 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    onClick={() => void handleDeleteImage(active)}
                   >
-                    ✕ {t("deleteShort")}
+                    {deletingId === active.id ? t("deletingImage") : `✕ ${t("deleteShort")}`}
                   </button>
                 </>
               )}
@@ -337,6 +396,12 @@ export function ProductImagesSection({
           <p className="mt-2 text-xs text-slate-400">{t("dragReorderHint")}</p>
         </div>
       )}
+
+      {product && ordered.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+          {t("noProductImagesYet")}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { HagourHandIcon } from "@/components/storefront/hagour-icon";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
 import {
   BELT_SIZE_TABLE,
+  BUCKLE_LABELS,
+  FREE_BUCKLE_OPTIONS,
   beltRowFromKey,
   beltRowKey,
   type BeltSelectedOptions,
@@ -13,14 +15,6 @@ import {
   formatBeltSizeCard,
 } from "@/lib/hagour-product-options";
 
-const BUCKLE_OPTIONS: BuckleType[] = ["REGULAR", "TACTICAL", "QUICK_RELEASE"];
-
-const BUCKLE_LABELS: Record<BuckleType, Record<"he" | "ar" | "en", string>> = {
-  REGULAR: { he: "סגירה רגילה", ar: "إغلاق عادي", en: "Regular Buckle" },
-  TACTICAL: { he: "סגירה טקטית", ar: "إغلاق تكتيكي", en: "Tactical Buckle" },
-  QUICK_RELEASE: { he: "סגירה מהירה", ar: "إغلاق سريع", en: "Quick Release Buckle" },
-};
-
 const HAND_LABELS: Record<HandSide, Record<"he" | "ar" | "en", string>> = {
   RIGHT: { he: "יד ימין", ar: "يمين", en: "Right Hand" },
   LEFT: { he: "יד שמאל", ar: "شمال", en: "Left Hand" },
@@ -29,6 +23,7 @@ const HAND_LABELS: Record<HandSide, Record<"he" | "ar" | "en", string>> = {
 const TITLES = {
   chooseSize: { he: "בחר מידה", ar: "اختر المقاس", en: "Choose size" },
   chooseBuckle: { he: "בחר סוג סגירה", ar: "اختر نوع الإغلاق", en: "Choose buckle type" },
+  fixedBuckle: { he: "סוג סגירה", ar: "نوع الإغلاق", en: "Closure type" },
   chooseSide: { he: "בחר צד", ar: "اختر الجهة", en: "Choose side" },
   sizeTable: { he: "טבלת מידות", ar: "جدول المقاسات", en: "Size chart" },
   beltSize: { he: "מידת חגורה", ar: "مقاس الحزام", en: "Belt size" },
@@ -40,31 +35,38 @@ const TITLES = {
 export function BeltProductOptions({
   selectedSizeKey,
   buckleType,
+  fixedBuckleType = null,
   onSizeChange,
   onBuckleChange,
 }: {
   selectedSizeKey: string | null;
   buckleType: BuckleType | null;
+  /** When set, closure is part of the product — no free choice. */
+  fixedBuckleType?: BuckleType | null;
   onSizeChange: (opts: BeltSelectedOptions | null) => void;
   onBuckleChange: (type: BuckleType | null) => void;
 }) {
   const { lang } = useStoreI18n();
   const l = lang as "he" | "ar" | "en";
+  const effectiveBuckle = fixedBuckleType ?? buckleType;
 
   const handleSize = (key: string) => {
     const row = beltRowFromKey(key);
     if (!row) return;
+    const nextBuckle = fixedBuckleType ?? buckleType ?? "REGULAR";
+    if (fixedBuckleType) onBuckleChange(fixedBuckleType);
     onSizeChange({
       type: "BELT",
       beltSize: row.beltSize,
       policePantsSize: row.policePantsSize,
       beltLengthCm: row.beltLengthCm,
       beltLengthInch: row.beltLengthInch,
-      buckleType: buckleType ?? "REGULAR",
+      buckleType: nextBuckle,
     });
   };
 
   const handleBuckle = (type: BuckleType) => {
+    if (fixedBuckleType) return;
     onBuckleChange(type);
     if (selectedSizeKey) {
       const row = beltRowFromKey(selectedSizeKey);
@@ -133,12 +135,17 @@ export function BeltProductOptions({
         </table>
       </div>
 
-      {selectedSizeKey ? (
+      {fixedBuckleType ? (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{TITLES.fixedBuckle[l]}</p>
+          <p className="mt-1 text-sm font-medium text-hagor-gold">{BUCKLE_LABELS[fixedBuckleType][l]}</p>
+        </div>
+      ) : selectedSizeKey ? (
         <div>
           <h3 className="text-sm font-semibold text-zinc-100">{TITLES.chooseBuckle[l]}</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {BUCKLE_OPTIONS.map((type) => {
-              const selected = buckleType === type;
+            {FREE_BUCKLE_OPTIONS.map((type) => {
+              const selected = effectiveBuckle === type;
               return (
                 <button
                   key={type}

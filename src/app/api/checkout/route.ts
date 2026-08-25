@@ -21,6 +21,7 @@ import {
 import {
   parseSelectedOptions,
   resolveCategoryOptionProfile,
+  resolveFixedBuckleType,
   validateSelectedOptionsForProfile,
 } from "@/lib/hagour-product-options";
 
@@ -112,7 +113,8 @@ export async function POST(req: Request) {
 
   for (const line of lines) {
     const profile = resolveCategoryOptionProfile(undefined, line.product.category.id);
-    const err = validateSelectedOptionsForProfile(profile, line.selectedOptions);
+    const fixedBuckle = resolveFixedBuckleType(line.product.id);
+    const err = validateSelectedOptionsForProfile(profile, line.selectedOptions, fixedBuckle);
     if (err) {
       return NextResponse.json({ error: err }, { status: 400 });
     }
