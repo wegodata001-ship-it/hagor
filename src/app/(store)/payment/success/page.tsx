@@ -42,7 +42,7 @@ export default async function PaymentSuccessPage({
       </p>
       <p className="mt-2 text-hagor-gold">₪{Number(order.total).toFixed(2)}</p>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <Link href="/account/orders" className="hagor-btn">
+        <Link href="/track-order" className="hagor-btn">
           מעקב הזמנה
         </Link>
         <Link href="/products" className="hagor-btn-outline">

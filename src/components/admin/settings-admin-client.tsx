@@ -204,7 +204,7 @@ export function SettingsAdminClient({
                 <input
                   name="paymentProvider"
                   defaultValue={settings.paymentProvider ?? ""}
-                  placeholder="cardcom | tranzila | meshulam | stripe"
+                  placeholder="hyp | cardcom | tranzila | stripe | demo"
                   className="ds-input mt-1 text-sm"
                 />
               </label>

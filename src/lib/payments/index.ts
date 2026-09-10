@@ -9,6 +9,7 @@ import {
   paymentNotConfiguredMessage,
 } from "./config";
 import { createCardcomSession } from "./cardcom";
+import { createHypSession } from "./hyp";
 import { createMeshulamSession } from "./meshulam";
 import { createStripeCheckoutSession } from "./stripe";
 import { createTranzilaSession } from "./tranzila";
@@ -26,6 +27,7 @@ export async function loadOrderForPayment(orderId: string) {
     where: { id: orderId, storeId: STORE_ID },
     select: {
       id: true,
+      storeId: true,
       orderNumber: true,
       total: true,
       paymentStatus: true,
@@ -40,6 +42,9 @@ export async function loadOrderForPayment(orderId: string) {
 export async function createPaymentSession(orderId: string): Promise<PaymentSessionResult> {
   const order = await loadOrderForPayment(orderId);
   if (!order) throw new Error("Order not found");
+  if (order.storeId !== STORE_ID) {
+    throw new Error("STORE_MISMATCH");
+  }
   if (
     order.paymentStatus === "PAID" ||
     order.paymentStatus === "TEST_PAID" ||
@@ -76,6 +81,7 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
   if (process.env.NODE_ENV === "development") {
     console.log("[payment] create session", {
       orderId: order.id,
+      storeId: order.storeId,
       provider: config.provider,
       amount: req.amount,
     });
@@ -88,6 +94,8 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
       return createCardcomSession(config, req);
     case "tranzila":
       return createTranzilaSession(config, req);
+    case "hyp":
+      return createHypSession(config, req);
     case "meshulam":
       return createMeshulamSession(config, req);
     case "demo":

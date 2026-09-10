@@ -14,6 +14,7 @@ export type OrderEmailPayload = {
   order: {
     id: string;
     orderNumber: string;
+    createdAt: Date;
     customerName: string;
     customerEmail: string;
     customerPhone: string;
@@ -33,13 +34,26 @@ export type OrderEmailPayload = {
   };
   items: OrderEmailLine[];
   currency: string;
+  payment: {
+    provider: string;
+    transactionId: string | null;
+    confirmationNumber: string | null;
+    status: string;
+  } | null;
 };
 
 export async function loadOrderEmailPayload(orderId: string): Promise<OrderEmailPayload | null> {
   const storeId = STORE_ID;
   const order = await prisma.order.findFirst({
     where: { id: orderId, storeId },
-    include: { items: true },
+    include: {
+      items: true,
+      payments: {
+        where: { status: { in: ["PAID", "TEST_PAID", "DEMO_PAID"] } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
   });
   if (!order) return null;
 
@@ -48,10 +62,13 @@ export async function loadOrderEmailPayload(orderId: string): Promise<OrderEmail
     select: { currency: true },
   });
 
+  const payment = order.payments[0] ?? null;
+
   return {
     order: {
       id: order.id,
       orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
       customerName: order.customerName,
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
@@ -76,6 +93,14 @@ export async function loadOrderEmailPayload(orderId: string): Promise<OrderEmail
       lineTotal: Number(i.totalPrice),
     })),
     currency: settings?.currency ?? "ILS",
+    payment: payment
+      ? {
+          provider: payment.provider,
+          transactionId: payment.transactionId,
+          confirmationNumber: payment.confirmationNumber,
+          status: payment.status,
+        }
+      : null,
   };
 }
 

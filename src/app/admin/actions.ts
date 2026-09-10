@@ -71,6 +71,7 @@ export type AdminOrderDetailDTO = {
     currency: string;
     status: string;
     transactionId: string | null;
+    confirmationNumber: string | null;
     createdAt: string;
   }[];
   customerProfile: {
@@ -133,6 +134,7 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
       currency: p.currency,
       status: p.status,
       transactionId: p.transactionId,
+      confirmationNumber: p.confirmationNumber,
       createdAt: p.createdAt.toISOString(),
     })),
     customerProfile: order.customerProfile
@@ -1657,7 +1659,7 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
     if (
       fulfillmentOk &&
       prev?.fulfillmentStatus !== fulfillmentRaw &&
-      ["PACKED", "SHIPPED", "COMPLETED"].includes(fulfillmentRaw)
+      ["SHIPPED", "COMPLETED"].includes(fulfillmentRaw)
     ) {
       const { queueEmail, sendOrderStatusEmail } = await import("@/lib/email/email-service");
       queueEmail(() => sendOrderStatusEmail(id, fulfillmentRaw));

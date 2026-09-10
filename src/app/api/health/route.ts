@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthEnvError } from "@/lib/auth/env-check";
 import { STORE_ID } from "@/lib/store";
 import { loadAdminCatalogStats } from "@/lib/server/admin-catalog-load";
+import { getHypConfigStatus } from "@/lib/payments/hyp";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,8 @@ export async function GET() {
     database === "ok" &&
     Object.values(checks).every((v) => v === "ok");
 
+  const hyp = getHypConfigStatus();
+
   return NextResponse.json(
     {
       ok,
@@ -42,6 +45,13 @@ export async function GET() {
       nodeEnv: process.env.NODE_ENV ?? "unknown",
       checks: { ...checks, database },
       catalog,
+      hyp: {
+        provider: hyp.provider,
+        configured: hyp.configured,
+        apiKey: hyp.apiKey,
+        passP: hyp.passP,
+        masof: hyp.masof,
+      },
       hint: ok
         ? null
         : "העתיקו את כל משתני הסביבה מ-.env ל-Vercel → Settings → Environment Variables, ואז Deploy מחדש.",

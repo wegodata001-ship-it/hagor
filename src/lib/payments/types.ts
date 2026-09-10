@@ -1,4 +1,4 @@
-export type PaymentProviderId = "stripe" | "cardcom" | "tranzila" | "meshulam" | "demo";
+export type PaymentProviderId = "stripe" | "cardcom" | "tranzila" | "meshulam" | "hyp" | "demo";
 
 export type PaymentSessionRequest = {
   orderId: string;

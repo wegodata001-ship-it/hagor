@@ -191,9 +191,8 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
   // Centralized logic: supports variants + prevents double-decrement.
   const inv = await reduceInventoryAfterPayment(order.id);
   if (!inv.ok) {
-    // Payment is valid, but inventory couldn't be reduced safely.
-    // We keep the order as PAID and store the error on the order.
-    return { ok: false, message: `Inventory error: ${inv.message}` };
+    // Payment stays PAID — inventory error is stored on the order. Emails still go out.
+    console.error("[payments] inventory_error_after_paid", order.id, inv.message);
   }
 
   const paidSummary = await prisma.order.findFirst({
@@ -224,5 +223,7 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
     void notifyOrderPaidToOwner(payload).catch(() => {});
   }
 
-  return { ok: true, message: "Payment recorded" };
+  return inv.ok
+    ? { ok: true, message: "Payment recorded" }
+    : { ok: true, message: `Payment recorded; inventory error: ${inv.message}` };
 }

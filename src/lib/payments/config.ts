@@ -3,9 +3,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { isDemoPaymentAllowed } from "@/lib/payments/demo-guard";
+import { isHypConfigured } from "@/lib/payments/hyp";
 import type { PaymentProviderConfig, PaymentProviderId } from "./types";
 
-const ALLOWED: PaymentProviderId[] = ["stripe", "cardcom", "tranzila", "meshulam", "demo"];
+const ALLOWED: PaymentProviderId[] = ["stripe", "cardcom", "tranzila", "meshulam", "hyp", "demo"];
 
 const PAYMENT_NOT_CONFIGURED_HE =
   "מערכת התשלום עדיין לא הופעלה. נא להגדיר ספק סליקה באדמין.";
@@ -34,6 +35,9 @@ export function isPaymentConfigured(config: PaymentProviderConfig): boolean {
         process.env.CARDCOM_API_PASSWORD?.trim() ||
         process.env.PAYMENT_SECRET_KEY?.trim(),
     );
+  }
+  if (config.provider === "hyp") {
+    return isHypConfigured(config);
   }
   if (config.provider === "tranzila" || config.provider === "meshulam") {
     return Boolean(config.secretKey?.trim() || process.env.PAYMENT_SECRET_KEY?.trim());
@@ -80,10 +84,14 @@ export async function getPaymentProviderConfig(): Promise<PaymentProviderConfig>
   const envProvider = process.env.PAYMENT_PROVIDER?.trim();
   const resolved = normalizeProvider(settings?.paymentProvider ?? envProvider);
   const provider: PaymentProviderId =
-    resolved ?? (isDemoPaymentAllowed() ? "demo" : "cardcom");
+    resolved ?? (isDemoPaymentAllowed() ? "demo" : isHypConfigured() ? "hyp" : "cardcom");
 
   const config = buildPaymentConfig(provider, settings);
   if (isPaymentConfigured(config)) return config;
+
+  if (isHypConfigured(config) && (!resolved || resolved === "hyp")) {
+    return buildPaymentConfig("hyp", settings);
+  }
 
   if (isDemoPaymentAllowed()) {
     return buildPaymentConfig("demo", settings);

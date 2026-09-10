@@ -2,6 +2,13 @@ import "server-only";
 
 import { getAppUrl } from "@/lib/app-url";
 import { getEmailConfig } from "@/lib/email/config";
+import {
+  markCustomerConfirmationEmailSent,
+  markOrderEmailFailed,
+  markOwnerPaidEmailSent,
+  wasCustomerConfirmationEmailSent,
+  wasOwnerPaidEmailSent,
+} from "@/lib/email/email-idempotency";
 import { emailButton, escapeHtml, infoRow, wrapEmailHtml } from "@/lib/email/layout";
 import {
   formatMoney,
@@ -10,6 +17,8 @@ import {
   type OrderEmailPayload,
 } from "@/lib/email/order-data";
 import { sendMail } from "@/lib/email/send";
+import { buildOrderTrackingUrl } from "@/lib/order-tracking-access";
+import { formatOrderDate } from "@/lib/order-tracking";
 import { SITE_NAME } from "@/lib/store";
 
 function adminReceiver(): string | null {
@@ -17,17 +26,27 @@ function adminReceiver(): string | null {
   return cfg.contactReceiver || null;
 }
 
-function orderBodyBlock(payload: OrderEmailPayload, intro: string): string {
+function paymentProviderLabel(provider: string | null | undefined): string {
+  const p = (provider || "").toLowerCase();
+  if (p === "hyp" || p === "hypay") return "Hyp";
+  if (p === "demo") return "Demo";
+  if (p === "stripe") return "Stripe";
+  return provider || "—";
+}
+
+function orderBodyBlock(payload: OrderEmailPayload, intro: string, extraRows = ""): string {
   const o = payload.order;
   return `
     <p style="margin:0 0 16px;">${intro}</p>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
       ${infoRow("שם לקוח", escapeHtml(o.customerName))}
       ${infoRow("מספר הזמנה", escapeHtml(o.orderNumber))}
+      ${infoRow("תאריך", escapeHtml(formatOrderDate(o.createdAt)))}
       ${infoRow("טלפון", escapeHtml(o.customerPhone))}
       ${infoRow("אימייל", escapeHtml(o.customerEmail))}
       ${infoRow("משלוח", escapeHtml(o.deliveryOptionName))}
       ${infoRow("כתובת", o.address ? escapeHtml(o.address) : "—")}
+      ${extraRows}
     </table>
     ${renderOrderItemsHtml(payload.items, payload.currency)}
     <p style="margin:16px 0 0;font-size:18px;font-weight:800;color:#c89211;">סה״כ: ${formatMoney(o.total, payload.currency)}</p>
@@ -92,16 +111,29 @@ export async function sendOrderCreatedEmail(orderId: string): Promise<void> {
 }
 
 export async function sendOrderConfirmationEmail(orderId: string): Promise<void> {
+  if (await wasCustomerConfirmationEmailSent(orderId)) return;
   const payload = await loadOrderEmailPayload(orderId);
   if (!payload?.order.customerEmail.trim()) return;
-  const track = `${getAppUrl()}/orders`;
-  const body = `${orderBodyBlock(payload, `שלום ${escapeHtml(payload.order.customerName)},<br/>תודה! התשלום אושר ואנחנו מכינים את ההזמנה.`)}<p style="text-align:center;">${emailButton(track, "מעקב הזמנה")}</p>`;
-  await sendMail({
+  let track = `${getAppUrl()}/track-order`;
+  try {
+    track = buildOrderTrackingUrl(orderId);
+  } catch {
+    /* fall back to public track page */
+  }
+  const paymentRows = `${infoRow("סטטוס תשלום", "שולם")}${infoRow("ספק תשלום", escapeHtml(paymentProviderLabel(payload.payment?.provider)))}`;
+  const body = `${orderBodyBlock(
+    payload,
+    `שלום ${escapeHtml(payload.order.customerName)},<br/>תודה! התשלום אושר ואנחנו מכינים את ההזמנה.`,
+    paymentRows,
+  )}<p style="text-align:center;">${emailButton(track, "מעקב אחר ההזמנה")}</p>`;
+  const ok = await sendMail({
     to: payload.order.customerEmail,
-    subject: `${SITE_NAME} — אישור הזמנה ${payload.order.orderNumber}`,
-    html: wrapEmailHtml("אישור הזמנה", body),
+    subject: `HAGOUR — ההזמנה התקבלה בהצלחה`,
+    html: wrapEmailHtml("ההזמנה התקבלה בהצלחה", body),
     type: "order_confirmation",
   });
+  if (ok) await markCustomerConfirmationEmailSent(orderId);
+  else await markOrderEmailFailed(orderId, "customer_confirmation_failed");
 }
 
 /** Customer email after demo checkout — simple Hebrew copy per product spec. */
@@ -115,7 +147,7 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
     <p style="margin:0 0 8px;"><strong>מספר הזמנה:</strong><br/>#${escapeHtml(o.orderNumber)}</p>
     <p style="margin:0 0 16px;"><strong>סכום:</strong><br/>${formatMoney(o.total, payload.currency)}</p>
     <p style="margin:0 0 16px;">תודה שבחרת ${escapeHtml(SITE_NAME)}.</p>
-    <p style="text-align:center;">${emailButton(`${getAppUrl()}/order/${orderId}`, "מעקב הזמנה")}</p>
+    <p style="text-align:center;">${emailButton(`${getAppUrl()}/track-order`, "מעקב אחר ההזמנה")}</p>
   `;
   await sendMail({
     to: o.customerEmail,
@@ -126,21 +158,31 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
 }
 
 export async function sendOrderPaidAdminEmail(orderId: string): Promise<void> {
+  if (await wasOwnerPaidEmailSent(orderId)) return;
   const to = adminReceiver();
   if (!to) return;
   const payload = await loadOrderEmailPayload(orderId);
   if (!payload) return;
-  const body = orderBodyBlock(payload, `התשלום התקבל בהצלחה.`);
-  await sendMail({
+  const extra = `${infoRow("ספק תשלום", escapeHtml(paymentProviderLabel(payload.payment?.provider)))}${infoRow(
+    "מזהה עסקה",
+    escapeHtml(payload.payment?.transactionId || "—"),
+  )}${
+    payload.payment?.confirmationNumber
+      ? infoRow("אישור", escapeHtml(payload.payment.confirmationNumber))
+      : ""
+  }`;
+  const body = orderBodyBlock(payload, `התקבלה הזמנה חדשה ושולמה.`, extra);
+  const ok = await sendMail({
     to,
-    subject: `${SITE_NAME} — תשלום התקבל ${payload.order.orderNumber}`,
-    html: wrapEmailHtml("תשלום התקבל", body),
+    subject: `התקבלה הזמנה חדשה ושולמה`,
+    html: wrapEmailHtml("הזמנה חדשה שולמה", body),
     type: "order_paid",
   });
+  if (ok) await markOwnerPaidEmailSent(orderId);
+  else await markOrderEmailFailed(orderId, "owner_paid_email_failed");
 }
 
 const FULFILLMENT_LABELS: Record<string, string> = {
-  PACKED: "ההזמנה נארזה ומוכנה למשלוח",
   SHIPPED: "ההזמנה נשלחה",
   COMPLETED: "ההזמנה נמסרה",
 };
@@ -150,7 +192,12 @@ export async function sendOrderStatusEmail(orderId: string, fulfillmentStatus: s
   if (!label) return;
   const payload = await loadOrderEmailPayload(orderId);
   if (!payload?.order.customerEmail.trim()) return;
-  const track = `${getAppUrl()}/order/${orderId}`;
+  let track = `${getAppUrl()}/track-order`;
+  try {
+    track = buildOrderTrackingUrl(orderId);
+  } catch {
+    /* fall back */
+  }
   const trackingBlock =
     payload.order.trackingNumber?.trim()
       ? `${infoRow("מספר מעקב", escapeHtml(payload.order.trackingNumber))}${
@@ -164,7 +211,7 @@ export async function sendOrderStatusEmail(orderId: string, fulfillmentStatus: s
     <p><strong>${escapeHtml(label)}</strong></p>
     ${infoRow("מספר הזמנה", escapeHtml(payload.order.orderNumber))}
     ${trackingBlock}
-    <p style="text-align:center;margin-top:20px;">${emailButton(track, "צפייה בהזמנה")}</p>
+    <p style="text-align:center;margin-top:20px;">${emailButton(track, "מעקב אחר ההזמנה")}</p>
   `;
   await sendMail({
     to: payload.order.customerEmail,

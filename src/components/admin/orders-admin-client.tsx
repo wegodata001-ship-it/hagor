@@ -396,11 +396,11 @@ export function OrdersAdminClient({
                   defaultValue={detail.fulfillmentStatus}
                   className="mt-1 block rounded border px-2 py-1 text-sm"
                 >
-                  <option value="RECEIVED">RECEIVED — התקבלה</option>
-                  <option value="PROCESSING">PROCESSING — בהכנה</option>
-                  <option value="PACKED">PACKED — נארז</option>
-                  <option value="SHIPPED">SHIPPED — נשלח</option>
-                  <option value="COMPLETED">COMPLETED — נמסר</option>
+                  <option value="RECEIVED">RECEIVED — הזמנה התקבלה</option>
+                  <option value="PROCESSING">PROCESSING — בטיפול</option>
+                  <option value="PACKED">PACKED — מוכנה למשלוח</option>
+                  <option value="SHIPPED">SHIPPED — נשלחה</option>
+                  <option value="COMPLETED">COMPLETED — נמסרה</option>
                 </select>
               </label>
               <label className="text-xs">
@@ -496,13 +496,38 @@ export function OrdersAdminClient({
 
             <div>
               <h3 className="font-semibold text-slate-800">{t("payment")}</h3>
-              <ul className="mt-1 space-y-1 font-mono text-xs">
-                {detail.payments.map((p) => (
-                  <li key={p.id}>
-                    {p.provider} · {p.status} · {p.currency} {p.amount.toFixed(2)}
-                    {p.transactionId ? ` · ${p.transactionId}` : ""}
-                  </li>
-                ))}
+              <ul className="mt-1 space-y-2 text-sm">
+                {detail.payments.length === 0 ? (
+                  <li className="text-xs text-slate-500">—</li>
+                ) : (
+                  detail.payments.map((p) => (
+                    <li key={p.id} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div>
+                        <span className="font-medium">Payment Provider:</span>{" "}
+                        {p.provider === "HYP" || p.provider === "hyp" ? "Hyp" : p.provider}
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span> {p.status}
+                      </div>
+                      <div>
+                        <span className="font-medium">Amount:</span> {p.currency} {p.amount.toFixed(2)}
+                      </div>
+                      {p.transactionId ? (
+                        <div className="font-mono text-xs">
+                          <span className="font-sans font-medium">Transaction ID:</span> {p.transactionId}
+                        </div>
+                      ) : null}
+                      {p.confirmationNumber ? (
+                        <div className="font-mono text-xs">
+                          <span className="font-sans font-medium">Auth:</span> {p.confirmationNumber}
+                        </div>
+                      ) : null}
+                      <div className="text-xs text-slate-500">
+                        Paid At: {new Date(p.createdAt).toLocaleString("he-IL")}
+                      </div>
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
 

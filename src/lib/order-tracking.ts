@@ -1,9 +1,9 @@
 import type { OrderFulfillmentStatus, OrderPaymentStatus, OrderStatus } from "@prisma/client";
 
 export const FULFILLMENT_LABELS_HE: Record<OrderFulfillmentStatus, string> = {
-  RECEIVED: "התקבלה",
-  PROCESSING: "בהכנה",
-  PACKED: "נארזה",
+  RECEIVED: "הזמנה התקבלה",
+  PROCESSING: "בטיפול",
+  PACKED: "מוכנה למשלוח",
   SHIPPED: "נשלחה",
   COMPLETED: "נמסרה",
 };
@@ -29,14 +29,15 @@ export function getCustomerOrderStatusLabel(order: {
 
   switch (order.fulfillmentStatus) {
     case "RECEIVED":
+      return "התשלום התקבל";
     case "PROCESSING":
-      return "בהכנה";
+      return "בטיפול";
     case "PACKED":
-      return "נארז";
+      return "מוכנה למשלוח";
     case "SHIPPED":
-      return "נשלח";
+      return "נשלחה";
     case "COMPLETED":
-      return "נמסר";
+      return "נמסרה";
     default:
       return "שולם";
   }
@@ -48,26 +49,28 @@ export function formatOrderDate(date: Date | string): string {
 }
 
 export const TIMELINE_STEPS_HE = [
-  { key: "paid", label: "שולם" },
-  { key: "processing", label: "בהכנה" },
-  { key: "packed", label: "נארז" },
-  { key: "shipped", label: "נשלח" },
-  { key: "delivered", label: "נמסר" },
+  { key: "received", label: "הזמנה התקבלה" },
+  { key: "paid", label: "התשלום התקבל" },
+  { key: "processing", label: "בטיפול" },
+  { key: "ready", label: "מוכנה למשלוח" },
+  { key: "shipped", label: "נשלחה" },
+  { key: "delivered", label: "נמסרה" },
 ] as const;
 
 function fulfillmentTimelineIndex(status: OrderFulfillmentStatus): number {
   switch (status) {
     case "RECEIVED":
-    case "PROCESSING":
       return 1;
-    case "PACKED":
+    case "PROCESSING":
       return 2;
-    case "SHIPPED":
+    case "PACKED":
       return 3;
-    case "COMPLETED":
+    case "SHIPPED":
       return 4;
+    case "COMPLETED":
+      return 5;
     default:
-      return 0;
+      return 1;
   }
 }
 
@@ -99,7 +102,7 @@ export function orderTimelineMeta(order: {
     };
   }
 
-  const activeStep = Math.max(0, fulfillmentTimelineIndex(order.fulfillmentStatus));
+  const activeStep = Math.max(1, fulfillmentTimelineIndex(order.fulfillmentStatus));
   const steps = TIMELINE_STEPS_HE.map((s, i) => ({
     key: s.key,
     label: s.label,
@@ -110,5 +113,5 @@ export function orderTimelineMeta(order: {
   return { cancelled, awaitingPayment, activeStep, steps };
 }
 
-/** Fulfillment statuses that trigger customer status email. */
-export const FULFILLMENT_EMAIL_STATUSES: OrderFulfillmentStatus[] = ["PACKED", "SHIPPED", "COMPLETED"];
+/** Significant fulfillment statuses that trigger customer status email. */
+export const FULFILLMENT_EMAIL_STATUSES: OrderFulfillmentStatus[] = ["SHIPPED", "COMPLETED"];
