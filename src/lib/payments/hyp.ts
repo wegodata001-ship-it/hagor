@@ -138,6 +138,7 @@ export async function createHypSession(
   }
 
   const base = productionPaymentBaseUrl();
+  // Keep SuccessUrl free of query-string — Hyp appends ?Id=&CCode=… and a second "?" breaks parsing.
   const returnUrl = `${base}/api/payments/hyp/return`;
   const failUrl = `${base}/payment/failed?orderId=${encodeURIComponent(req.orderId)}`;
 
@@ -148,6 +149,7 @@ export async function createHypSession(
   signParams.set("Sign", "True");
   signParams.set("MoreData", "True");
   signParams.set("UTF8", "True");
+  signParams.set("UTF8out", "True");
   signParams.set("Coin", "1");
   signParams.set("PageLang", "HEB");
   signParams.set("Masof", creds.masof);
@@ -162,11 +164,11 @@ export async function createHypSession(
   if (req.customerPhone?.trim()) signParams.set("cell", req.customerPhone.trim());
   // Israeli ID optional — zeros when not collected at checkout
   signParams.set("UserId", "000000000");
-  // Help portal + API prefer SuccessUrl when supported
-  signParams.set("SuccessUrl", `${returnUrl}?storeId=${encodeURIComponent(STORE_ID)}`);
+  // Browser return (must also be set as Success Address in Hyp terminal settings).
+  signParams.set("SuccessUrl", returnUrl);
   signParams.set("ErrorUrl", failUrl);
-  signParams.set("CancelUrl", `${failUrl}&cancelled=1`);
-  // Merchant free fields — store isolation metadata (visible in Hyp portal / redirects)
+  signParams.set("CancelUrl", failUrl);
+  // Merchant free fields — returned on redirect; used to resolve order if Order is missing
   signParams.set("Fild1", STORE_ID);
   signParams.set("Fild2", req.orderNumber);
   signParams.set("Fild3", req.orderId);
@@ -286,8 +288,8 @@ export async function resolveHypPaymentFromParams(
     throw new Error("STORE_MISMATCH");
   }
 
-  const orderId = pick(params, "Order", "orderId", "Fild3");
-  if (!orderId) throw new Error("Missing order reference");
+  const orderRef = pickHypOrderReference(params);
+  if (!orderRef) throw new Error("Missing order reference");
 
   const cCode = pick(params, "CCode");
   const amountRaw = pick(params, "Amount");
@@ -300,13 +302,23 @@ export async function resolveHypPaymentFromParams(
   const success = cCode === "0";
 
   return {
-    orderId,
+    orderId: orderRef,
     storeId: STORE_ID,
     amount: Math.round(amount * 100) / 100,
     currency: "ILS",
     success,
-    transactionId: pick(params, "Id", "id") || undefined,
+    transactionId: pick(params, "Id", "id", "TransId") || undefined,
     confirmationNumber: pick(params, "ACode", "aCode") || undefined,
     rawPayload: params,
   };
+}
+
+/** Prefer Hyp Order, then explicit ids, then merchant Fild3 (we set = orderId). */
+export function pickHypOrderReference(params: Record<string, string>): string {
+  return pick(params, "Order", "orderId", "order", "Fild3");
+}
+
+/** Merchant order number we send as Fild2 (e.g. HAGOR-1016). */
+export function pickHypOrderNumberHint(params: Record<string, string>): string {
+  return pick(params, "Fild2");
 }

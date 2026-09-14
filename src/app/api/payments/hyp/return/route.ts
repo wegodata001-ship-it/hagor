@@ -5,6 +5,8 @@ import { STORE_ID } from "@/lib/store";
 import { getSiteUrl, PRODUCTION_SITE_URL } from "@/lib/site-url";
 import {
   normalizeHypParams,
+  pickHypOrderNumberHint,
+  pickHypOrderReference,
   resolveHypPaymentFromParams,
 } from "@/lib/payments/hyp";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
@@ -28,22 +30,92 @@ function safeBase(): string {
   return base;
 }
 
+async function readHypCallback(req: NextRequest): Promise<{
+  params: Record<string, string>;
+  orderedPairs: Array<[string, string]>;
+}> {
+  const url = new URL(req.url);
+  const orderedPairs: Array<[string, string]> = [];
+
+  // Querystring first (typical Hyp browser redirect).
+  for (const [k, v] of url.searchParams.entries()) {
+    orderedPairs.push([k, v]);
+  }
+
+  // Hyp may POST form fields instead of (or in addition to) query params.
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+    try {
+      const form = await req.formData();
+      form.forEach((value, key) => {
+        if (typeof value === "string") orderedPairs.push([key, value]);
+      });
+    } catch {
+      // ignore empty/invalid body
+    }
+  } else if (contentType.includes("application/json") && req.method === "POST") {
+    try {
+      const json = (await req.json()) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(json)) {
+        if (v == null) continue;
+        orderedPairs.push([k, typeof v === "string" ? v : String(v)]);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    params: normalizeHypParams(Object.fromEntries(orderedPairs)),
+    orderedPairs,
+  };
+}
+
+async function resolveStoreOrderId(params: Record<string, string>): Promise<string | null> {
+  const direct = pickHypOrderReference(params);
+  if (direct) {
+    const byId = await prisma.order.findFirst({
+      where: { id: direct, storeId: STORE_ID },
+      select: { id: true },
+    });
+    if (byId) return byId.id;
+
+    const byNumber = await prisma.order.findFirst({
+      where: { orderNumber: direct, storeId: STORE_ID },
+      select: { id: true },
+    });
+    if (byNumber) return byNumber.id;
+  }
+
+  const hint = pickHypOrderNumberHint(params);
+  if (hint) {
+    const byNumber = await prisma.order.findFirst({
+      where: { orderNumber: hint, storeId: STORE_ID },
+      select: { id: true },
+    });
+    if (byNumber) return byNumber.id;
+  }
+
+  return null;
+}
+
 /**
- * Browser return from Hyp Pay.
+ * Browser return / notify from Hyp Pay.
  * Source of truth = APISign VERIFY (not the mere presence of success URL).
  */
 async function handleReturn(req: NextRequest) {
-  const url = new URL(req.url);
-  const orderedPairs = Array.from(url.searchParams.entries());
-  const params = normalizeHypParams(Object.fromEntries(orderedPairs));
+  const { params, orderedPairs } = await readHypCallback(req);
   const base = safeBase();
 
-  // Never log secrets — params should not include KEY/PassP from Hyp redirects.
+  const preliminaryOrderId =
+    pickHypOrderReference(params) || pickHypOrderNumberHint(params) || null;
+
+  // Never log secrets — sanitize before DB write.
   const log = await prisma.paymentWebhookLog.create({
     data: {
       storeId: STORE_ID,
       provider: "hyp",
-      orderId: params.Order || params.orderId || null,
+      orderId: preliminaryOrderId,
       status: PaymentWebhookLogStatus.RECEIVED,
       rawPayload: sanitizePaymentPayload(params),
       httpStatus: 200,
@@ -58,18 +130,37 @@ async function handleReturn(req: NextRequest) {
       throw new Error("STORE_MISMATCH");
     }
 
+    const mappedOrderId = (await resolveStoreOrderId(params)) ?? resolved.orderId;
+
     const order = await prisma.order.findFirst({
-      where: { id: resolved.orderId, storeId: STORE_ID },
-      select: { id: true, storeId: true, total: true },
+      where: { id: mappedOrderId, storeId: STORE_ID },
+      select: { id: true, storeId: true, total: true, orderNumber: true },
     });
     if (!order || order.storeId !== STORE_ID) {
-      console.error("HYP_STORE_MISMATCH", { orderId: resolved.orderId });
-      throw new Error("STORE_MISMATCH");
+      console.error("HYP_ORDER_NOT_FOUND", {
+        ref: resolved.orderId,
+        mappedOrderId,
+        fild2: pickHypOrderNumberHint(params),
+      });
+      throw new Error("ORDER_NOT_FOUND");
     }
+
+    console.info(
+      JSON.stringify({
+        scope: "hyp_return",
+        message: "verified_callback",
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        amount: resolved.amount,
+        success: resolved.success,
+        transactionId: resolved.transactionId ?? null,
+        cCode: params.CCode ?? null,
+      }),
+    );
 
     const result = await processPaymentWebhook({
       provider: "HYP",
-      orderId: resolved.orderId,
+      orderId: order.id,
       amount: resolved.amount,
       currency: resolved.currency,
       success: resolved.success,
@@ -81,7 +172,7 @@ async function handleReturn(req: NextRequest) {
     await prisma.paymentWebhookLog.updateMany({
       where: { id: log.id, storeId: STORE_ID },
       data: {
-        orderId: resolved.orderId,
+        orderId: order.id,
         status: result.ok
           ? result.message.includes("Duplicate")
             ? PaymentWebhookLogStatus.DUPLICATE
@@ -93,13 +184,18 @@ async function handleReturn(req: NextRequest) {
     });
 
     const dest = resolved.success
-      ? `${base}/payment/success?orderId=${encodeURIComponent(resolved.orderId)}`
-      : `${base}/payment/failed?orderId=${encodeURIComponent(resolved.orderId)}`;
+      ? `${base}/payment/success?orderId=${encodeURIComponent(order.id)}`
+      : `${base}/payment/failed?orderId=${encodeURIComponent(order.id)}`;
     return NextResponse.redirect(dest);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg === "STORE_MISMATCH") {
-      console.error("HYP_STORE_MISMATCH");
+    if (msg === "STORE_MISMATCH" || msg === "ORDER_NOT_FOUND" || msg === "HYP_VERIFY_FAILED") {
+      console.error("HYP_RETURN_ERROR", msg, {
+        keys: Object.keys(params),
+        hasOrder: Boolean(pickHypOrderReference(params)),
+        hasSign: Boolean(params.Sign || params.signature),
+        cCode: params.CCode ?? null,
+      });
     }
     await prisma.paymentWebhookLog.updateMany({
       where: { id: log.id, storeId: STORE_ID },
@@ -109,7 +205,11 @@ async function handleReturn(req: NextRequest) {
         httpStatus: 400,
       },
     });
-    const orderId = params.Order || params.orderId || "";
+    const orderId =
+      (await resolveStoreOrderId(params)) ||
+      pickHypOrderReference(params) ||
+      pickHypOrderNumberHint(params) ||
+      "";
     const dest = orderId
       ? `${base}/payment/failed?orderId=${encodeURIComponent(orderId)}`
       : `${base}/payment/failed`;
