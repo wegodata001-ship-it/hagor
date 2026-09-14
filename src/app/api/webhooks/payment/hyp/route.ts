@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import {
   normalizeHypParams,
+  pickHypOrderNumberHint,
+  pickHypOrderReference,
   resolveHypPaymentFromParams,
 } from "@/lib/payments/hyp";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
     data: {
       storeId: STORE_ID,
       provider: "hyp",
-      orderId: params.Order || params.orderId || null,
+      orderId: pickHypOrderReference(params) || pickHypOrderNumberHint(params) || null,
       status: PaymentWebhookLogStatus.RECEIVED,
       rawPayload: sanitizePaymentPayload(params),
       httpStatus: 200,
@@ -90,18 +92,27 @@ export async function POST(req: NextRequest) {
       throw new Error("STORE_MISMATCH");
     }
 
-    const order = await prisma.order.findFirst({
+    let order = await prisma.order.findFirst({
       where: { id: resolved.orderId, storeId: STORE_ID },
       select: { id: true, storeId: true },
     });
+    if (!order) {
+      const hint = pickHypOrderNumberHint(params);
+      if (hint) {
+        order = await prisma.order.findFirst({
+          where: { orderNumber: hint, storeId: STORE_ID },
+          select: { id: true, storeId: true },
+        });
+      }
+    }
     if (!order || order.storeId !== STORE_ID) {
-      console.error("HYP_STORE_MISMATCH", { orderId: resolved.orderId });
-      throw new Error("STORE_MISMATCH");
+      console.error("HYP_ORDER_NOT_FOUND", { orderId: resolved.orderId });
+      throw new Error("ORDER_NOT_FOUND");
     }
 
     const result = await processPaymentWebhook({
       provider: "HYP",
-      orderId: resolved.orderId,
+      orderId: order.id,
       amount: resolved.amount,
       currency: resolved.currency,
       success: resolved.success,
@@ -124,7 +135,7 @@ export async function POST(req: NextRequest) {
     await prisma.paymentWebhookLog.updateMany({
       where: { id: log.id, storeId: STORE_ID },
       data: {
-        orderId: resolved.orderId,
+        orderId: order.id,
         status: finalStatus,
         errorMessage,
         httpStatus,
