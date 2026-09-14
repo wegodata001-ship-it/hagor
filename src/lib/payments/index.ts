@@ -112,9 +112,8 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
 }
 
 export function parseProviderWebhook(provider: string, payload: unknown) {
-  const p = provider.toLowerCase();
-  if (p === "stripe") return parseStripeWebhookEvent(payload);
-  if (p === "cardcom") return parseCardcomWebhook(payload);
-  if (p === "tranzila") return parseTranzilaWebhook(payload);
+  if (provider === "cardcom") return parseCardcomWebhook(payload);
+  if (provider === "tranzila") return parseTranzilaWebhook(payload);
+  if (provider === "stripe") return parseStripeWebhookEvent(payload);
   return null;
 }

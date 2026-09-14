@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import {
   normalizeHypParams,
-  pickHypOrderNumberHint,
   pickHypOrderReference,
   resolveHypPaymentFromParams,
 } from "@/lib/payments/hyp";
@@ -15,8 +14,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Optional Hyp Pay server notify / repeat callback.
- * Configure in Hyp Portal → post-transaction address if available:
+ * Optional Hyp Pay server notify endpoint (token-protected).
+ *
+ * Hyp Pay APISign SIGN docs (developers.hyp.co.il/pay/reference/actions) do NOT
+ * document NotifyUrl / IPN / CallbackUrl. Those keys may be echoed if sent, but
+ * that alone is not an official server-callback contract.
+ *
+ * Do NOT wire NotifyUrl into SIGN until Hyp confirms the mechanism in writing
+ * and a live close-browser test proves the POST arrives.
+ *
+ * If Hyp Portal offers a post-transaction address, configure:
  * https://hagourbywael.com/api/webhooks/payment/hyp?token=SECRET
  *
  * Always VERIFY via Hyp APISign — never trust raw status alone.
@@ -78,7 +85,7 @@ export async function POST(req: NextRequest) {
     data: {
       storeId: STORE_ID,
       provider: "hyp",
-      orderId: pickHypOrderReference(params) || pickHypOrderNumberHint(params) || null,
+      orderId: pickHypOrderReference(params) || null,
       status: PaymentWebhookLogStatus.RECEIVED,
       rawPayload: sanitizePaymentPayload(params),
       httpStatus: 200,
@@ -92,19 +99,10 @@ export async function POST(req: NextRequest) {
       throw new Error("STORE_MISMATCH");
     }
 
-    let order = await prisma.order.findFirst({
+    const order = await prisma.order.findFirst({
       where: { id: resolved.orderId, storeId: STORE_ID },
       select: { id: true, storeId: true },
     });
-    if (!order) {
-      const hint = pickHypOrderNumberHint(params);
-      if (hint) {
-        order = await prisma.order.findFirst({
-          where: { orderNumber: hint, storeId: STORE_ID },
-          select: { id: true, storeId: true },
-        });
-      }
-    }
     if (!order || order.storeId !== STORE_ID) {
       console.error("HYP_ORDER_NOT_FOUND", { orderId: resolved.orderId });
       throw new Error("ORDER_NOT_FOUND");

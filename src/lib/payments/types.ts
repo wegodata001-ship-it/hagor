@@ -16,6 +16,9 @@ export type PaymentSessionResult = {
   provider: PaymentProviderId;
   redirectUrl: string;
   externalSessionId?: string;
+  successUrl?: string;
+  errorUrl?: string;
+  cancelUrl?: string;
 };
 
 export type ParsedProviderWebhook = {

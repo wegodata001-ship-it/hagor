@@ -2,6 +2,7 @@ import "server-only";
 
 import { STORE_ID } from "@/lib/store";
 import { getSiteUrl, PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { prisma } from "@/lib/prisma";
 import type { PaymentProviderConfig, PaymentSessionRequest, PaymentSessionResult } from "./types";
 
 /**
@@ -164,11 +165,13 @@ export async function createHypSession(
   if (req.customerPhone?.trim()) signParams.set("cell", req.customerPhone.trim());
   // Israeli ID optional — zeros when not collected at checkout
   signParams.set("UserId", "000000000");
-  // Browser return (must also be set as Success Address in Hyp terminal settings).
+  // Browser return URL — sent via APISign SIGN (Hyp Pay hosted page).
   signParams.set("SuccessUrl", returnUrl);
   signParams.set("ErrorUrl", failUrl);
   signParams.set("CancelUrl", failUrl);
-  // Merchant free fields — returned on redirect; used to resolve order if Order is missing
+  // Optional merchant free-text fields on SIGN only.
+  // LIVE PROOF: Hyp Portal success redirect may overwrite Fild1/Fild2/Fild3
+  // (customer name/email). NEVER trust them on return for ownership/auth.
   signParams.set("Fild1", STORE_ID);
   signParams.set("Fild2", req.orderNumber);
   signParams.set("Fild3", req.orderId);
@@ -200,6 +203,9 @@ export async function createHypSession(
     provider: "hyp",
     redirectUrl,
     externalSessionId: req.orderId,
+    successUrl: returnUrl,
+    errorUrl: failUrl,
+    cancelUrl: failUrl,
   };
 }
 
@@ -259,66 +265,82 @@ export async function verifyHypPayReturn(
   return map.CCode === "0" || /^CCode=0\b/i.test(text) || text === "CCode=0";
 }
 
-export type HypCallbackFields = {
-  orderId: string;
-  storeId: string;
-  amount: number;
-  currency: string;
-  success: boolean;
-  transactionId?: string;
-  confirmationNumber?: string;
-  rawPayload: Record<string, string>;
+export type {
+  HypCallbackFields,
+  HypOwnedOrder,
+} from "./hyp-resolve";
+
+export {
+  hasExplicitStoreIdMismatch,
+  pickHypOrderNumberHint,
+  pickHypOrderReference,
+} from "./hyp-resolve";
+
+import {
+  resolveHypPaymentCore,
+  type HypCallbackFields,
+  type HypOwnedOrder,
+  type HypResolveDeps as HypResolveDepsCore,
+} from "./hyp-resolve";
+
+export type HypResolveDeps = {
+  lookupOrder?: HypResolveDepsCore["lookupOrder"];
+  verifyReturn?: HypResolveDepsCore["verifyReturn"];
 };
 
-/**
- * Resolve + verify a Hyp Pay browser return / notify payload.
- * Success page alone is NEVER enough — VERIFY must pass.
- */
-export async function resolveHypPaymentFromParams(
-  params: Record<string, string>,
-  opts?: { orderedPairs?: Array<[string, string]> },
-): Promise<HypCallbackFields> {
-  const status = getHypConfigStatus();
-  if (!status.configured) {
-    throw new Error(`MISSING_ENV:${status.missing.join(",")}`);
+async function defaultLookupOrder(orderRef: string): Promise<HypOwnedOrder | null> {
+  const byId = await prisma.order.findFirst({
+    where: { id: orderRef, storeId: STORE_ID },
+    select: { id: true, storeId: true, orderNumber: true, total: true },
+  });
+  if (byId) {
+    return {
+      id: byId.id,
+      storeId: byId.storeId,
+      orderNumber: byId.orderNumber,
+      total: Number(byId.total),
+    };
   }
-
-  const queryStoreId = pick(params, "storeId", "Fild1");
-  if (queryStoreId && queryStoreId !== STORE_ID) {
-    throw new Error("STORE_MISMATCH");
-  }
-
-  const orderRef = pickHypOrderReference(params);
-  if (!orderRef) throw new Error("Missing order reference");
-
-  const cCode = pick(params, "CCode");
-  const amountRaw = pick(params, "Amount");
-  const amount = Number(amountRaw);
-  if (!Number.isFinite(amount)) throw new Error("PAYMENT_AMOUNT_MISSING");
-
-  const verified = await verifyHypPayReturn(params, opts?.orderedPairs);
-  if (!verified) throw new Error("HYP_VERIFY_FAILED");
-
-  const success = cCode === "0";
-
+  const byNumber = await prisma.order.findFirst({
+    where: { orderNumber: orderRef, storeId: STORE_ID },
+    select: { id: true, storeId: true, orderNumber: true, total: true },
+  });
+  if (!byNumber) return null;
   return {
-    orderId: orderRef,
-    storeId: STORE_ID,
-    amount: Math.round(amount * 100) / 100,
-    currency: "ILS",
-    success,
-    transactionId: pick(params, "Id", "id", "TransId") || undefined,
-    confirmationNumber: pick(params, "ACode", "aCode") || undefined,
-    rawPayload: params,
+    id: byNumber.id,
+    storeId: byNumber.storeId,
+    orderNumber: byNumber.orderNumber,
+    total: Number(byNumber.total),
   };
 }
 
-/** Prefer Hyp Order, then explicit ids, then merchant Fild3 (we set = orderId). */
-export function pickHypOrderReference(params: Record<string, string>): string {
-  return pick(params, "Order", "orderId", "order", "Fild3");
-}
-
-/** Merchant order number we send as Fild2 (e.g. HAGOR-1016). */
-export function pickHypOrderNumberHint(params: Record<string, string>): string {
-  return pick(params, "Fild2");
+/**
+ * Resolve + verify a Hyp Pay browser return / notify payload.
+ * Ownership comes from our DB Order row — never from Fild1/Fild2/Fild3.
+ * Success page / CCode alone is NEVER enough — VERIFY must pass.
+ */
+export async function resolveHypPaymentFromParams(
+  params: Record<string, string>,
+  opts?: { orderedPairs?: Array<[string, string]> } & HypResolveDeps,
+): Promise<HypCallbackFields> {
+  const status = getHypConfigStatus();
+  try {
+    return await resolveHypPaymentCore(params, {
+      storeId: STORE_ID,
+      configured: status.configured,
+      missingEnv: status.missing,
+      lookupOrder: opts?.lookupOrder ?? defaultLookupOrder,
+      verifyReturn: opts?.verifyReturn ?? verifyHypPayReturn,
+      orderedPairs: opts?.orderedPairs,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "AMOUNT_MISMATCH") {
+      console.error("[hyp] amount_reconciliation_failed", {
+        orderRef: params.Order || params.orderId || null,
+        amount: params.Amount || null,
+      });
+    }
+    throw e;
+  }
 }

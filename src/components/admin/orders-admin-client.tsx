@@ -361,6 +361,18 @@ export function OrdersAdminClient({
               </div>
             </div>
 
+            {detail.requiresPaymentReconciliation ||
+            detail.paymentAttempts.some((a) => a.needsReconciliation) ||
+            (detail.notes || "").includes("REQUIRES_RECONCILIATION") ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <p className="font-semibold">נדרש אימות תשלום</p>
+                <p className="mt-1 text-xs">
+                  ההזמנה מסומנת כ־REQUIRES_RECONCILIATION. סטטוס התשלום נשאר UNPAID עד אימות רשמי מול Hyp
+                  (TransId + VERIFY). אין לסמן PAID ידנית לפי הצהרת לקוח בלבד.
+                </p>
+              </div>
+            ) : null}
+
             <form
               className="flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-3"
               onSubmit={(e) => {
@@ -529,6 +541,48 @@ export function OrdersAdminClient({
                   ))
                 )}
               </ul>
+
+              <h4 className="mt-4 font-semibold text-slate-800">Payment attempts (Hyp)</h4>
+              <ul className="mt-1 space-y-2 text-sm">
+                {(detail.paymentAttempts ?? []).length === 0 ? (
+                  <li className="text-xs text-slate-500">אין ניסיון תשלום שמור</li>
+                ) : (
+                  (detail.paymentAttempts ?? []).map((a) => (
+                    <li key={a.id} className="rounded border border-slate-200 bg-white px-3 py-2">
+                      <div>
+                        <span className="font-medium">Attempt status:</span> {a.status}
+                        {a.needsReconciliation ? (
+                          <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                            נדרש אימות תשלום
+                          </span>
+                        ) : null}
+                      </div>
+                      <div>
+                        <span className="font-medium">Amount:</span> {a.currency} {a.amount.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Started: {new Date(a.createdAt).toLocaleString("he-IL")}
+                      </div>
+                      {a.successUrl ? (
+                        <div className="truncate font-mono text-[10px] text-slate-500" dir="ltr">
+                          successUrl: {a.successUrl}
+                        </div>
+                      ) : null}
+                      {a.transactionId || a.providerReference ? (
+                        <div className="font-mono text-xs">
+                          TransId: {a.transactionId || a.providerReference}
+                        </div>
+                      ) : null}
+                      {a.lastError ? (
+                        <div className="text-xs text-slate-600">lastError: {a.lastError}</div>
+                      ) : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+              <p className="mt-2 text-[11px] text-slate-500">
+                אין כפתור &quot;סמן כשולם&quot; שעוקף אימות Hyp. לאחר קבלת TransId אמין — יש לאמת רשמית לפני PAID.
+              </p>
             </div>
 
             <div className="border-t border-slate-200 pt-3 text-base font-bold">

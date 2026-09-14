@@ -74,6 +74,23 @@ export type AdminOrderDetailDTO = {
     confirmationNumber: string | null;
     createdAt: string;
   }[];
+  paymentAttempts: {
+    id: string;
+    provider: string;
+    amount: number;
+    currency: string;
+    status: string;
+    successUrl: string | null;
+    transactionId: string | null;
+    providerReference: string | null;
+    verifiedAt: string | null;
+    paidAt: string | null;
+    failedAt: string | null;
+    lastError: string | null;
+    createdAt: string;
+    needsReconciliation: boolean;
+  }[];
+  requiresPaymentReconciliation: boolean;
   customerProfile: {
     pointsBalance: number;
     userName: string | null;
@@ -84,6 +101,7 @@ export type AdminOrderDetailDTO = {
 export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDetailDTO | null> {
   await requireAdminSession();
   const storeId = STORE_ID;
+
   const order = await prisma.order.findFirst({
     where: { id: orderId, storeId },
     include: {
@@ -95,6 +113,11 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     },
   });
   if (!order) return null;
+
+  const notesFlag = (order.notes || "").includes("REQUIRES_RECONCILIATION");
+  const paymentAttempts: AdminOrderDetailDTO["paymentAttempts"] = [];
+  const requiresPaymentReconciliation = notesFlag;
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -137,6 +160,8 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
       confirmationNumber: p.confirmationNumber,
       createdAt: p.createdAt.toISOString(),
     })),
+    paymentAttempts,
+    requiresPaymentReconciliation,
     customerProfile: order.customerProfile
       ? {
           pointsBalance: order.customerProfile.pointsBalance,
@@ -1605,8 +1630,24 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
         paymentStatus: true,
         inventoryReducedAt: true,
         fulfillmentStatus: true,
+        notes: true,
       },
     });
+
+    const wantsPaid =
+      paymentStatus === "PAID" ||
+      paymentStatus === "TEST_PAID" ||
+      paymentStatus === "DEMO_PAID";
+    const wasUnpaid =
+      prev?.paymentStatus === "UNPAID" ||
+      prev?.paymentStatus === "FAILED" ||
+      !prev?.paymentStatus;
+    if (wantsPaid && wasUnpaid && (prev?.notes || "").includes("REQUIRES_RECONCILIATION")) {
+      return err(
+        "הזמנה זו מסומנת REQUIRES_RECONCILIATION. אין לסמן PAID ידנית ללא אימות Hyp רשמי (TransId + VERIFY).",
+      );
+    }
+
     const nextStatus = status as never;
     const nextPayment = paymentStatus as never;
 
