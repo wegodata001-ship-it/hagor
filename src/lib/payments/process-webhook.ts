@@ -12,6 +12,7 @@ import {
   notifyOrderConfirmationToCustomer,
   notifyOrderPaidToOwner,
 } from "@/lib/notifications";
+import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
 
 export type WebhookInput = {
   provider: string;
@@ -95,7 +96,7 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
         status: "FAILED",
         transactionId: input.transactionId ?? undefined,
         confirmationNumber: input.confirmationNumber ?? undefined,
-        rawPayload: input.rawPayload === undefined ? Prisma.JsonNull : (input.rawPayload as Prisma.InputJsonValue),
+        rawPayload: sanitizePaymentPayload(input.rawPayload),
       },
     });
     return { ok: true, message: "Payment failed recorded" };
@@ -182,7 +183,7 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
         status: paymentRecordStatus,
         transactionId: input.transactionId ?? undefined,
         confirmationNumber: input.confirmationNumber ?? undefined,
-        rawPayload: input.rawPayload === undefined ? Prisma.JsonNull : (input.rawPayload as Prisma.InputJsonValue),
+        rawPayload: sanitizePaymentPayload(input.rawPayload),
       },
     });
   });

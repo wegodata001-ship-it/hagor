@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentWebhookLogStatus, Prisma } from "@prisma/client";
+import { PaymentWebhookLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getPaymentProviderConfig } from "@/lib/payments/config";
 import { parseStripeWebhookEvent } from "@/lib/payments/stripe";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
+import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
         storeId: STORE_ID,
         provider,
         status: PaymentWebhookLogStatus.IGNORED,
-        rawPayload: json as Prisma.InputJsonValue,
+        rawPayload: sanitizePaymentPayload(json),
         httpStatus: 200,
         errorMessage: "Unhandled event type",
       },
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       provider,
       orderId: parsed.orderId,
       status: PaymentWebhookLogStatus.RECEIVED,
-      rawPayload: json as Prisma.InputJsonValue,
+      rawPayload: sanitizePaymentPayload(json),
       httpStatus: 200,
     },
   });

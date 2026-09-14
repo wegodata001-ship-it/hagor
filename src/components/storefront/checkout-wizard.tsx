@@ -33,7 +33,7 @@ function FieldError({ message }: { message?: string }) {
 
 export function CheckoutWizard() {
   const router = useRouter();
-  const { items, clear } = useCart();
+  const { items } = useCart();
   const { t, dir, lang } = useStoreI18n();
   const [step, setStep] = useState<Step>("cart");
   const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
@@ -248,11 +248,9 @@ export function CheckoutWizard() {
         return;
       }
       if (payData.redirectUrl) {
-        clear();
         window.location.href = payData.redirectUrl as string;
         return;
       }
-      clear();
       router.push(`/checkout/payment/${orderId}`);
     } finally {
       setLoading(false);
@@ -282,7 +280,6 @@ export function CheckoutWizard() {
         setError(typeof demoData.error === "string" ? demoData.error : t("checkoutGenericError"));
         return;
       }
-      clear();
       router.push(`/payment/success?orderId=${encodeURIComponent(orderId)}`);
     } finally {
       setDemoLoading(false);

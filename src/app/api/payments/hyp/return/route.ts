@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentWebhookLogStatus, Prisma } from "@prisma/client";
+import { PaymentWebhookLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getSiteUrl, PRODUCTION_SITE_URL } from "@/lib/site-url";
@@ -8,6 +8,7 @@ import {
   resolveHypPaymentFromParams,
 } from "@/lib/payments/hyp";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
+import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ async function handleReturn(req: NextRequest) {
       provider: "hyp",
       orderId: params.Order || params.orderId || null,
       status: PaymentWebhookLogStatus.RECEIVED,
-      rawPayload: params as unknown as Prisma.InputJsonValue,
+      rawPayload: sanitizePaymentPayload(params),
       httpStatus: 200,
     },
   });

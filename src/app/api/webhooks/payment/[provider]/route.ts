@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentWebhookLogStatus, Prisma } from "@prisma/client";
+import { PaymentWebhookLogStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { parseProviderWebhook } from "@/lib/payments";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
+import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
 
 const BodySchema = z.object({
   token: z.string().optional(),
@@ -39,7 +40,7 @@ export async function POST(
         provider,
         status: PaymentWebhookLogStatus.ERROR,
         errorMessage: "Invalid webhook body schema",
-        rawPayload: json === undefined ? Prisma.JsonNull : (json as Prisma.InputJsonValue),
+        rawPayload: sanitizePaymentPayload(json),
         httpStatus: 400,
       },
     });
@@ -84,7 +85,7 @@ export async function POST(
       provider,
       orderId,
       status: PaymentWebhookLogStatus.RECEIVED,
-      rawPayload: json === undefined ? Prisma.JsonNull : (json as Prisma.InputJsonValue),
+      rawPayload: sanitizePaymentPayload(json),
       httpStatus: 200,
     },
   });
