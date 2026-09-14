@@ -30,9 +30,9 @@ export function ProductCard({ product }: { product: StoreProductCardData }) {
   const kind = product.categoryKey ?? "default";
 
   return (
-    <article className="group flex h-full min-h-[380px] flex-col overflow-hidden rounded-[18px] border border-zinc-800/90 bg-[#111111] transition duration-300 hover:border-hagor-gold/35 hover:shadow-[0_0_32px_-8px_rgba(200,146,17,0.35)]">
+    <article className="group flex h-full min-h-[300px] flex-col overflow-hidden rounded-[18px] border border-zinc-800/90 bg-[#111111] transition duration-300 hover:border-hagor-gold/35 hover:shadow-[0_0_32px_-8px_rgba(200,146,17,0.35)] sm:min-h-[360px]">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative h-[240px] overflow-hidden bg-[#151515]">
+        <div className="relative aspect-[4/5] max-h-[240px] overflow-hidden bg-[#151515] sm:h-[240px] sm:max-h-none sm:aspect-auto">
           <AssetImg
             path={product.image}
             alt={title}

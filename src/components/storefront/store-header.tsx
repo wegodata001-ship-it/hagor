@@ -24,7 +24,7 @@ export function StoreHeader({
   whatsappHref: string;
 }) {
   return (
-    <header>
+    <header className="sticky top-0 z-50">
       <TopInfoBar isLoggedIn={isLoggedIn} storePhone={storePhone} telHref={telHref} whatsappHref={whatsappHref} />
       <MainNavbar categories={categories} isLoggedIn={isLoggedIn} role={role} />
     </header>

@@ -6,6 +6,7 @@ import { useCart } from "@/components/cart-context";
 import { pickLocalized } from "@/lib/localized";
 import { HagourCheckIcon, HagourNavIcon } from "@/components/storefront/hagour-icon";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
+import type { ProductSelectedOptions } from "@/lib/hagour-product-options";
 
 type RelatedProduct = {
   id: string;
@@ -26,7 +27,14 @@ export function RelatedProductsModal({
 }: {
   open: boolean;
   onClose: () => void;
-  main: { productId: string; qty: number; optionIds: string[]; title: string };
+  main: {
+    productId: string;
+    qty: number;
+    optionIds: string[];
+    selectedOptions?: ProductSelectedOptions | null;
+    title: string;
+    alreadyAdded?: boolean;
+  };
   mainDisplay?: { image: string | null; price: number };
   related: RelatedProduct[];
 }) {
@@ -40,8 +48,13 @@ export function RelatedProductsModal({
 
   const toggle = (id: string) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
 
+  const addMainIfNeeded = () => {
+    if (main.alreadyAdded) return;
+    addItem(main.productId, main.qty, main.optionIds, main.selectedOptions ?? null);
+  };
+
   const addAll = () => {
-    addItem(main.productId, main.qty, main.optionIds);
+    addMainIfNeeded();
     for (const p of items) {
       if (selected[p.id]) addItem(p.id, 1, []);
     }
@@ -128,7 +141,7 @@ export function RelatedProductsModal({
           <button
             type="button"
             onClick={() => {
-              addItem(main.productId, main.qty, main.optionIds);
+              addMainIfNeeded();
               onClose();
             }}
             className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-200 hover:border-zinc-700"

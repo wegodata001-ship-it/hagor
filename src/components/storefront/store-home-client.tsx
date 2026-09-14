@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense } from "react";
 import { HeroSlider } from "@/components/storefront/hero-slider";
 import { BenefitsRow } from "@/components/storefront/benefits-row";
@@ -9,10 +8,10 @@ import {
   CustomerReviewsSection,
   type CustomerReviewItem,
 } from "@/components/storefront/customer-reviews-section";
-import { ProductGrid } from "@/components/storefront/product-grid";
+import { HomeProductsSection } from "@/components/storefront/home-products-section";
 import { AboutSection } from "@/components/storefront/about-section";
 import { useStoreI18n } from "@/components/storefront/store-i18n";
-import type { StoreProductCardData } from "@/components/storefront/product-card";
+import type { HomeProductCard } from "@/lib/home-product-filters";
 
 type Banner = {
   id: string;
@@ -44,7 +43,7 @@ export function StoreHomeClient({
   heroCopy,
   banners,
   categories,
-  featured,
+  products,
   reviews,
 }: {
   heroImageUrl: string | null;
@@ -55,10 +54,10 @@ export function StoreHomeClient({
   } | null;
   banners: Banner[];
   categories: Category[];
-  featured: StoreProductCardData[];
+  products: HomeProductCard[];
   reviews: CustomerReviewItem[];
 }) {
-  const { t, dir } = useStoreI18n();
+  const { dir } = useStoreI18n();
 
   return (
     <div dir={dir} className="overflow-x-hidden">
@@ -68,10 +67,10 @@ export function StoreHomeClient({
         <Suspense fallback={<div className="min-h-[200px] animate-pulse rounded-[18px] bg-zinc-900/40" aria-hidden />}>
           <FeaturedCategories categories={categories} />
         </Suspense>
+        <Suspense fallback={<div className="min-h-[320px] animate-pulse rounded-[18px] bg-zinc-900/40" aria-hidden />}>
+          <HomeProductsSection products={products} categories={categories} />
+        </Suspense>
         <CustomerReviewsSection reviews={reviews} />
-        {featured.length > 0 ? (
-          <ProductGrid title={t("featuredProducts")} products={featured} viewAllHref="/products" />
-        ) : null}
         <AboutSection imageUrl={heroImageUrl} />
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Hand,
   Headset,
+  Heart,
   Home,
   LockKeyhole,
   Menu,
@@ -56,6 +57,7 @@ const NAV_ICONS = {
   user: User,
   menu: Menu,
   close: X,
+  heart: Heart,
 } as const;
 
 export type NavIconName = keyof typeof NAV_ICONS;

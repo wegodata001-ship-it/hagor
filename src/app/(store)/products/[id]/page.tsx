@@ -6,6 +6,7 @@ import { SITE_NAME } from "@/lib/store";
 import { ProductJsonLd } from "@/components/storefront/product-json-ld";
 import { StoreProductDetailClient } from "@/components/storefront/store-product-detail-client";
 import { resolveCategoryOptionProfile } from "@/lib/hagour-product-options";
+import { loadApprovedReviews } from "@/lib/load-reviews";
 
 export async function generateMetadata({
   params,
@@ -58,6 +59,8 @@ export default async function ProductPage({
   });
   if (!product) notFound();
 
+  const reviews = await loadApprovedReviews(storeId);
+
   const settings = await prisma.storeSettings.findUnique({
     where: { storeId },
     select: { currency: true },
@@ -75,8 +78,10 @@ export default async function ProductPage({
         inStock={product.stock > 0}
       />
       <StoreProductDetailClient
+      reviews={reviews}
       product={{
         id: product.id,
+        sku: product.sku,
         name_he: product.name_he,
         name_ar: product.name_ar,
         name_en: product.name_en,
@@ -88,6 +93,7 @@ export default async function ProductPage({
         discountPercent: product.discountPercent ?? null,
         stock: product.stock,
         category: {
+          id: product.category.id,
           name_he: product.category.name_he,
           name_ar: product.category.name_ar,
           name_en: product.category.name_en,

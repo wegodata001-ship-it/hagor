@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { useCart } from "@/components/cart-context";
@@ -9,10 +9,9 @@ import { useStoreI18n } from "@/components/storefront/store-i18n";
 import { LanguageSwitcher } from "@/components/storefront/language-switcher";
 import { CartDrawer } from "@/components/storefront/cart-drawer";
 import { MobileMenu } from "@/components/storefront/mobile-menu";
-import { LogoutButton } from "@/components/logout-button";
+import { CategoriesNav } from "@/components/storefront/categories-nav";
 import { BRAND_DISPLAY } from "@/lib/hero";
 import { filterHagourCategories } from "@/lib/hagour-catalog";
-import { pickLocalized } from "@/lib/localized";
 import { HagourNavIcon } from "@/components/storefront/hagour-icon";
 
 type Category = { id: string; parentId: string | null; name_he: string; name_ar: string; name_en: string };
@@ -28,29 +27,19 @@ export function MainNavbar({
 }) {
   const router = useRouter();
   const { items, lastAddedAt } = useCart();
-  const { t, dir, lang } = useStoreI18n();
+  const { t, dir } = useStoreI18n();
   const hagourCategories = useMemo(() => filterHagourCategories(categories), [categories]);
-  const navLinks = useMemo(
-    () => [
-      { href: "/", label: t("navHome") },
-      ...hagourCategories.map((c) => ({
-        href: `/products?cat=${encodeURIComponent(c.id)}`,
-        label: pickLocalized(c, "name", lang),
-      })),
-      { href: "/#about", label: t("navAbout") },
-      { href: "/#contact", label: t("heroContact") },
-    ],
-    [hagourCategories, lang, t],
-  );
+
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [cartBounce, setCartBounce] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const count = items.reduce((n, i) => n + i.quantity, 0);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -74,122 +63,143 @@ export function MainNavbar({
     };
   }, []);
 
-  const shellClass =
-    "sticky top-0 z-40 border-b border-zinc-800/90 bg-zinc-950 transition-all duration-300 " +
-    (scrolled ? "shadow-lg shadow-black/25 backdrop-blur-md" : "");
+  function submitSearch(e?: { preventDefault?: () => void }) {
+    e?.preventDefault?.();
+    const q = search.trim();
+    setMobileSearchOpen(false);
+    router.push(q ? `/products?q=${encodeURIComponent(q)}` : "/products");
+  }
+
+  const shellClass = scrolled
+    ? "border-b border-hagor-gold/25 bg-[#060606] shadow-lg shadow-black/40"
+    : "border-b border-hagor-gold/25 bg-[#060606]";
+
+  const rowClass = scrolled
+    ? "mx-auto flex h-[70px] max-w-[1440px] items-center gap-3 px-4 md:gap-5 md:px-8 xl:px-10"
+    : "mx-auto flex h-[78px] max-w-[1440px] items-center gap-3 px-4 md:h-[84px] md:gap-5 md:px-8 xl:px-10";
+
+  const cartBtnClass = cartBounce
+    ? "relative inline-flex h-10 animate-bounce items-center justify-center gap-2 rounded-lg border border-hagor-gold/25 bg-[#0d0d0d] px-2.5 text-sm font-medium text-zinc-100 transition-colors duration-150 hover:border-hagor-gold/50 hover:text-hagor-gold"
+    : "relative inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-hagor-gold/25 bg-[#0d0d0d] px-2.5 text-sm font-medium text-zinc-100 transition-colors duration-150 hover:border-hagor-gold/50 hover:text-hagor-gold";
 
   return (
     <>
       <div className={shellClass}>
-        <div className="mx-auto max-w-[1280px] px-4" dir={dir}>
-          <div className="flex h-14 items-center gap-3 md:h-[58px] md:gap-4">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 text-lg text-zinc-100 md:hidden"
-              aria-label="open-menu"
-            >
-              <HagourNavIcon name="menu" />
-            </button>
+        <div dir={dir} className={rowClass}>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-hagor-gold/25 text-zinc-100 transition-colors duration-150 hover:text-hagor-gold lg:hidden"
+            aria-label="open-menu"
+          >
+            <HagourNavIcon name="menu" />
+          </button>
 
-            <Link href="/" className="flex shrink-0 items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-hagor-gold to-amber-800 text-xs font-black text-black">
-                H
+          <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-hagor-gold to-amber-800 text-sm font-black text-black md:h-11 md:w-11 md:text-base">
+              H
+            </span>
+            <span className="hidden min-w-0 flex-col leading-tight sm:flex">
+              <span className="truncate text-base font-black tracking-wide text-white md:text-lg">
+                {BRAND_DISPLAY}
               </span>
-              <span className="hidden text-sm font-black tracking-wide text-white sm:inline md:text-base">{BRAND_DISPLAY}</span>
-            </Link>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-hagor-gold">
+                Tactical
+              </span>
+            </span>
+          </Link>
 
-            <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800/60 hover:text-hagor-gold"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const q = search.trim();
-                router.push(q ? `/products?q=${encodeURIComponent(q)}` : "/products");
-              }}
-              className="hidden max-w-xs flex-1 lg:block xl:max-w-sm"
-            >
+          <form onSubmit={submitSearch} className="mx-auto hidden w-full max-w-md flex-1 md:block xl:max-w-lg">
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-zinc-500">
+                <HagourNavIcon name="search" />
+              </span>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("searchPlaceholder")}
-                className="h-9 w-full rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-hagor-gold/50 focus:ring-1 focus:ring-hagor-gold/30"
+                className="h-11 w-full rounded-xl border border-hagor-gold/45 bg-[#0d0d0d] pe-3 ps-10 text-sm text-white outline-none transition-colors duration-150 placeholder:text-zinc-500 focus:border-hagor-gold"
               />
-            </form>
-
-            <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
-              <div className="hidden sm:block">
-                <LanguageSwitcher />
-              </div>
-              {!isLoggedIn ? (
-                <Link
-                  href="/login"
-                  className="hidden rounded-lg border border-zinc-700/80 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-hagor-gold/40 hover:text-hagor-gold md:inline-block"
-                >
-                  {t("loginRegister")}
-                </Link>
-              ) : (
-                <details className="relative hidden md:block">
-                  <summary className="cursor-pointer list-none rounded-lg border border-zinc-700/80 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:text-hagor-gold">
-                    {t("myAccount")}
-                  </summary>
-                  <div className="absolute end-0 mt-2 w-44 rounded-xl border border-zinc-800 bg-zinc-900 p-2 shadow-xl">
-                    <Link href="/account/orders" className="block rounded px-2 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
-                      {t("myOrders")}
-                    </Link>
-                    <Link href="/account/loyalty" className="block rounded px-2 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
-                      {t("myPoints")}
-                    </Link>
-                    <div className="mt-1 rounded px-2 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
-                      <LogoutButton label={t("logout")} />
-                    </div>
-                  </div>
-                </details>
-              )}
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className={`relative inline-flex h-9 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/50 px-2.5 text-sm text-zinc-100 hover:border-hagor-gold/40 hover:text-hagor-gold ${cartBounce ? "animate-bounce" : ""}`}
-                aria-label="open-cart"
-              >
-                <HagourNavIcon name="cart" />
-                {count > 0 && (
-                  <span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-hagor-gold px-1 text-[9px] font-bold text-black">
-                    {count}
-                  </span>
-                )}
-              </button>
             </div>
-          </div>
+          </form>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = search.trim();
-              router.push(q ? `/products?q=${encodeURIComponent(q)}` : "/products");
-            }}
-            className="pb-2 lg:hidden"
-          >
+          <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <div className="hidden lg:block">
+              <LanguageSwitcher />
+            </div>
+
+            <Link
+              href={isLoggedIn ? "/account" : "/login"}
+              className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 hover:text-hagor-gold md:inline-flex"
+            >
+              <HagourNavIcon name="heart" />
+              <span className="hidden whitespace-nowrap xl:inline">{t("favorites")}</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-hagor-gold/25 text-zinc-100 transition-colors duration-150 hover:text-hagor-gold md:hidden"
+              aria-label="search"
+            >
+              <HagourNavIcon name="search" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className={cartBtnClass}
+              aria-label={t("cartLabel")}
+            >
+              <HagourNavIcon name="cart" />
+              <span className="hidden whitespace-nowrap md:inline">{t("cartLabel")}</span>
+              {count > 0 ? (
+                <span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-hagor-gold px-1 text-[9px] font-bold text-black">
+                  {count}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>
+
+        <Suspense fallback={<div className="hidden h-14 border-y border-hagor-gold/15 bg-[#090909] lg:block" />}>
+          <CategoriesNav categories={categories} />
+        </Suspense>
+
+        <MobileMenu
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          categories={hagourCategories}
+          isLoggedIn={isLoggedIn}
+          role={role}
+        />
+      </div>
+
+      {mobileSearchOpen ? (
+        <div className="fixed inset-0 z-[60] bg-black/80 p-4 md:hidden" dir={dir}>
+          <form onSubmit={submitSearch} className="mx-auto mt-16 flex max-w-lg gap-2">
             <input
+              autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("searchPlaceholder")}
-              className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-hagor-gold/40"
+              className="h-12 flex-1 rounded-xl border border-hagor-gold/45 bg-[#0d0d0d] px-4 text-base text-white outline-none placeholder:text-zinc-500"
             />
+            <button type="submit" className="hagor-btn px-4">
+              <HagourNavIcon name="search" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen(false)}
+              className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700 text-white"
+              aria-label="close"
+            >
+              <HagourNavIcon name="close" />
+            </button>
           </form>
         </div>
-        <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} categories={hagourCategories} isLoggedIn={isLoggedIn} role={role} />
-      </div>
+      ) : null}
+
       <CartDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
   );

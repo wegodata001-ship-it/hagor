@@ -168,17 +168,11 @@ body {
   }
 
   .product-grid {
-    @apply grid w-full gap-6;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
+    @apply grid w-full gap-3 sm:gap-5 md:gap-6;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (min-width: 640px) {
-    .product-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (min-width: 1024px) {
+  @media (min-width: 768px) {
     .product-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }

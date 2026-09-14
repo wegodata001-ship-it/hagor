@@ -126,17 +126,11 @@ export function validateSelectedOptionsForProfile(
 ): string | null {
   if (!profile) return null;
   if (!options) {
-    return profile === "BELT"
-      ? fixedBuckleType
-        ? "נא לבחור מידה לפני הוספה לעגלה"
-        : "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה"
-      : "נא לבחור צד לפני הוספה לעגלה";
+    return profile === "BELT" ? "נא לבחור מידה" : "נא לבחור צד";
   }
   if (profile === "BELT") {
     if (options.type !== "BELT") {
-      return fixedBuckleType
-        ? "נא לבחור מידה לפני הוספה לעגלה"
-        : "נא לבחור מידה וסוג סגירה לפני הוספה לעגלה";
+      return "נא לבחור מידה";
     }
     const ok = BELT_SIZE_TABLE.some(
       (r) =>
@@ -151,7 +145,7 @@ export function validateSelectedOptionsForProfile(
     }
     return null;
   }
-  if (options.type !== "HOLSTER" || !options.handSide) return "נא לבחור צד לפני הוספה לעגלה";
+  if (options.type !== "HOLSTER" || !options.handSide) return "נא לבחור צד";
   return null;
 }
 

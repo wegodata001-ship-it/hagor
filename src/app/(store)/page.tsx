@@ -6,13 +6,14 @@ import { safeQuery } from "@/lib/server/safe-query";
 import { categoryKeyFromId } from "@/lib/tactical-placeholders";
 import { resolveCategoryOptionProfile } from "@/lib/hagour-product-options";
 import { filterHagourCategories, hagourCategoryIds, isHagourCategoryId } from "@/lib/hagour-catalog";
+import { OrderPaymentStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 async function loadHomeData(storeId: string) {
   const allowedCategoryIds = hagourCategoryIds(storeId);
 
-  const [banners, categories, products, settings] = await Promise.all([
+  const [banners, categories, products, settings, salesRows] = await Promise.all([
     prisma.banner.findMany({
       where: { storeId, active: true, isHero: true },
       orderBy: [{ sortOrder: "asc" }],
@@ -29,9 +30,10 @@ async function loadHomeData(storeId: string) {
         active: true,
         categoryId: { in: allowedCategoryIds },
       },
-      take: 24,
       include: {
-        category: { select: { id: true } },
+        category: {
+          select: { id: true, name_he: true, name_ar: true, name_en: true },
+        },
         images: { orderBy: { sortOrder: "asc" }, take: 1 },
       },
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
@@ -45,7 +47,27 @@ async function loadHomeData(storeId: string) {
         heroSubtitle_en: true,
       },
     }),
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+      where: {
+        storeId,
+        productId: { not: null },
+        order: {
+          storeId,
+          paymentStatus: {
+            in: [OrderPaymentStatus.PAID, OrderPaymentStatus.TEST_PAID, OrderPaymentStatus.DEMO_PAID],
+          },
+        },
+      },
+      _sum: { quantity: true },
+    }),
   ]);
+
+  const salesByProduct = new Map<string, number>();
+  for (const row of salesRows) {
+    if (!row.productId) continue;
+    salesByProduct.set(row.productId, Number(row._sum.quantity ?? 0));
+  }
 
   const reviews = await loadApprovedReviews(storeId);
 
@@ -55,6 +77,7 @@ async function loadHomeData(storeId: string) {
     products: products.filter((p) => isHagourCategoryId(p.categoryId)),
     settings,
     reviews,
+    salesByProduct,
   };
 }
 
@@ -62,10 +85,18 @@ type HomeLoaded = Awaited<ReturnType<typeof loadHomeData>>;
 
 export default async function HomePage() {
   const storeId = getStoreId();
-  const { banners, categories, products, settings } = await safeQuery(
+  const emptySales = new Map<string, number>();
+  const { banners, categories, products, settings, salesByProduct } = await safeQuery(
     "store.home",
     () => loadHomeData(storeId),
-    { banners: [], categories: [], products: [], settings: null, reviews: [] } as HomeLoaded,
+    {
+      banners: [],
+      categories: [],
+      products: [],
+      settings: null,
+      reviews: [],
+      salesByProduct: emptySales,
+    } as HomeLoaded,
     { timeoutMs: 25_000 },
   );
 
@@ -75,9 +106,6 @@ export default async function HomePage() {
     [],
     { timeoutMs: 8_000 },
   );
-
-  const featured = products.filter((p) => p.featured).slice(0, 8);
-  const displayFeatured = featured.length > 0 ? featured : products.slice(0, 8);
 
   const toCard = (p: (typeof products)[number]) => ({
     id: p.id,
@@ -94,6 +122,14 @@ export default async function HomePage() {
     image: p.images[0]?.url ?? null,
     categoryKey: categoryKeyFromId(p.categoryId),
     requiresOptions: !!resolveCategoryOptionProfile(undefined, p.categoryId),
+    categoryId: p.categoryId,
+    sku: p.sku,
+    createdAt: p.createdAt.toISOString(),
+    featured: p.featured,
+    salesCount: salesByProduct.get(p.id) ?? 0,
+    categoryName_he: p.category.name_he,
+    categoryName_ar: p.category.name_ar,
+    categoryName_en: p.category.name_en,
   });
 
   return (
@@ -110,7 +146,7 @@ export default async function HomePage() {
       }
       banners={banners}
       categories={categories}
-      featured={displayFeatured.map(toCard)}
+      products={products.map(toCard)}
       reviews={reviews.map((r) => ({
         id: r.id,
         name: r.name,

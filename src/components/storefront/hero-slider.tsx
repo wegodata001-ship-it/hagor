@@ -49,7 +49,7 @@ export function HeroSlider({
       />
 
       <div
-        className="relative z-10 mx-auto flex min-h-[620px] max-w-[1280px] flex-col justify-center px-4 py-12 sm:px-6 md:min-h-[720px] md:py-16 lg:min-h-[calc(100vh-110px)]"
+        className="relative z-10 mx-auto flex min-h-[560px] max-w-[1440px] flex-col justify-center px-4 py-10 sm:px-6 md:min-h-[680px] md:px-8 md:py-14 lg:min-h-[calc(100vh-160px)] xl:px-10"
         dir={dir}
       >
         <div
