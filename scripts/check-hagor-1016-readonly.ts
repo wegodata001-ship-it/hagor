@@ -47,14 +47,6 @@ async function main() {
   const webhookLogs = await prisma.paymentWebhookLog.count({
     where: { storeId: "hagor", orderId: o.id },
   });
-  let paymentAttempts: number | string = 0;
-  try {
-    paymentAttempts = await prisma.paymentAttempt.count({
-      where: { storeId: "hagor", orderId: o.id },
-    });
-  } catch {
-    paymentAttempts = "TABLE_MISSING";
-  }
   console.log(
     JSON.stringify(
       {
@@ -62,7 +54,7 @@ async function main() {
         order: o,
         payments,
         webhookLogs,
-        paymentAttempts,
+        paymentAttempts: "N/A - PaymentAttempt model not installed",
         changed: false,
       },
       null,
