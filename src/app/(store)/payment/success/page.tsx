@@ -276,6 +276,19 @@ export default async function PaymentSuccessPage({
         <Link href={trackHref} className="hagor-btn">
           מעקב אחר ההזמנה
         </Link>
+        <a
+          href={`/api/orders/confirmation-pdf?t=${encodeURIComponent(token)}&lang=he`}
+          className="hagor-btn-outline inline-flex items-center justify-center gap-2"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12l4.5 4.5L16.5 12M12 3v13.5"
+            />
+          </svg>
+          הורדת אישור הזמנה
+        </a>
         <Link href="/products" className="hagor-btn-outline">
           המשך בקנייה
         </Link>

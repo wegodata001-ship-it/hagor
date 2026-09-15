@@ -1,16 +1,31 @@
 "use server";
 
+import { headers } from "next/headers";
 import {
   findOrderByNumberAndContact,
   findOrderByTrackingToken,
   type PublicTrackOrderView,
 } from "@/lib/order-tracking-access";
+import { rateLimit } from "@/lib/rate-limit";
 
 export type TrackOrderActionResult =
   | { ok: true; order: PublicTrackOrderView }
   | { ok: false; error: string };
 
+const GENERIC_MISS = "לא נמצאה הזמנה התואמת לפרטים שהוזנו";
+const RATE_LIMITED = "יותר מדי ניסיונות. נסו שוב בעוד דקה.";
+
 export async function lookupTrackOrderAction(formData: FormData): Promise<TrackOrderActionResult> {
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip")?.trim() ||
+    "unknown";
+
+  if (!rateLimit(`track-lookup:${ip}`, 20, 60_000)) {
+    return { ok: false, error: RATE_LIMITED };
+  }
+
   const token = String(formData.get("token") ?? "").trim();
   if (token) {
     const order = await findOrderByTrackingToken(token);
@@ -26,7 +41,7 @@ export async function lookupTrackOrderAction(formData: FormData): Promise<TrackO
 
   const order = await findOrderByNumberAndContact({ orderNumber, phoneOrEmail });
   if (!order) {
-    return { ok: false, error: "לא נמצאה הזמנה התואמת לפרטים שהוזנו." };
+    return { ok: false, error: GENERIC_MISS };
   }
   return { ok: true, order };
 }

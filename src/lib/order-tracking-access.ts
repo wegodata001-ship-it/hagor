@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getAppUrl } from "@/lib/app-url";
+import { formatSelectedOptionsLines, parseSelectedOptions } from "@/lib/hagour-product-options";
 
 function trackingSecret(): string {
   return (
@@ -62,6 +63,10 @@ export function buildPaymentSuccessPath(orderId: string): string {
   return `/payment/success?t=${encodeURIComponent(token)}`;
 }
 
+export function buildOrderPdfPath(token: string): string {
+  return `/api/orders/confirmation-pdf?t=${encodeURIComponent(token)}`;
+}
+
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
@@ -69,6 +74,14 @@ function normalizePhone(phone: string): string {
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
+
+export type PublicTrackOrderItem = {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  variationLines: string[];
+};
 
 export type PublicTrackOrderView = {
   id: string;
@@ -80,31 +93,48 @@ export type PublicTrackOrderView = {
   customerName: string;
   address: string | null;
   deliveryOptionName: string;
+  deliveryOptionType: string;
   deliveryPrice: number;
   subtotal: number;
+  discountAmount: number;
+  pointsDiscountAmount: number;
   total: number;
   trackingNumber: string | null;
   courierName: string | null;
-  items: { productName: string; quantity: number; unitPrice: number; totalPrice: number }[];
+  items: PublicTrackOrderItem[];
+  /** Signed token for PDF / deep-link; only set when caller authenticated access. */
+  accessToken?: string;
 };
 
-function toView(order: {
-  id: string;
-  orderNumber: string;
-  createdAt: Date;
-  status: string;
-  paymentStatus: string;
-  fulfillmentStatus: string;
-  customerName: string;
-  address: string | null;
-  deliveryOptionName: string;
-  deliveryPrice: { toString(): string } | number;
-  subtotal: { toString(): string } | number;
-  total: { toString(): string } | number;
-  trackingNumber: string | null;
-  courierName: string | null;
-  items: { productName: string; quantity: number; unitPrice: { toString(): string } | number; totalPrice: { toString(): string } | number }[];
-}): PublicTrackOrderView {
+function toView(
+  order: {
+    id: string;
+    orderNumber: string;
+    createdAt: Date;
+    status: string;
+    paymentStatus: string;
+    fulfillmentStatus: string;
+    customerName: string;
+    address: string | null;
+    deliveryOptionName: string;
+    deliveryOptionType: string;
+    deliveryPrice: { toString(): string } | number;
+    subtotal: { toString(): string } | number;
+    discountAmount: { toString(): string } | number;
+    pointsDiscountAmount: { toString(): string } | number;
+    total: { toString(): string } | number;
+    trackingNumber: string | null;
+    courierName: string | null;
+    items: {
+      productName: string;
+      quantity: number;
+      unitPrice: { toString(): string } | number;
+      totalPrice: { toString(): string } | number;
+      selectedOptions: unknown;
+    }[];
+  },
+  accessToken?: string,
+): PublicTrackOrderView {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -115,17 +145,25 @@ function toView(order: {
     customerName: order.customerName,
     address: order.address,
     deliveryOptionName: order.deliveryOptionName,
+    deliveryOptionType: order.deliveryOptionType,
     deliveryPrice: Number(order.deliveryPrice),
     subtotal: Number(order.subtotal),
+    discountAmount: Number(order.discountAmount),
+    pointsDiscountAmount: Number(order.pointsDiscountAmount),
     total: Number(order.total),
     trackingNumber: order.trackingNumber,
     courierName: order.courierName,
-    items: order.items.map((i) => ({
-      productName: i.productName,
-      quantity: i.quantity,
-      unitPrice: Number(i.unitPrice),
-      totalPrice: Number(i.totalPrice),
-    })),
+    items: order.items.map((i) => {
+      const opts = parseSelectedOptions(i.selectedOptions);
+      return {
+        productName: i.productName,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        totalPrice: Number(i.totalPrice),
+        variationLines: formatSelectedOptionsLines(opts, "he"),
+      };
+    }),
+    accessToken,
   };
 }
 
@@ -139,8 +177,11 @@ const publicSelect = {
   customerName: true,
   address: true,
   deliveryOptionName: true,
+  deliveryOptionType: true,
   deliveryPrice: true,
   subtotal: true,
+  discountAmount: true,
+  pointsDiscountAmount: true,
   total: true,
   trackingNumber: true,
   courierName: true,
@@ -150,6 +191,7 @@ const publicSelect = {
       quantity: true,
       unitPrice: true,
       totalPrice: true,
+      selectedOptions: true,
     },
   },
 } as const;
@@ -161,7 +203,7 @@ export async function findOrderByTrackingToken(token: string): Promise<PublicTra
     where: { id: verified.orderId, storeId: STORE_ID },
     select: publicSelect,
   });
-  return order ? toView(order) : null;
+  return order ? toView(order, token) : null;
 }
 
 /** Secure guest lookup: order number + phone OR email (never order number alone). */
@@ -185,10 +227,40 @@ export async function findOrderByNumberAndContact(input: {
 
   const contactDigits = normalizePhone(contact);
   const contactEmail = normalizeEmail(contact);
-  const phoneOk = contactDigits.length >= 7 && normalizePhone(order.customerPhone).endsWith(contactDigits.slice(-7));
+  const phoneOk =
+    contactDigits.length >= 7 && normalizePhone(order.customerPhone).endsWith(contactDigits.slice(-7));
   const emailOk = contact.includes("@") && normalizeEmail(order.customerEmail) === contactEmail;
   if (!phoneOk && !emailOk) return null;
 
   const { customerEmail: _e, customerPhone: _p, ...rest } = order;
-  return toView(rest);
+  let accessToken: string | undefined;
+  try {
+    accessToken = createOrderTrackingToken(order.id);
+  } catch {
+    accessToken = undefined;
+  }
+  return toView(rest, accessToken);
+}
+
+/** Full order payload for PDF — only after token verification. */
+export async function loadOrderForConfirmationPdf(token: string) {
+  const verified = verifyOrderTrackingToken(token);
+  if (!verified) return null;
+
+  const order = await prisma.order.findFirst({
+    where: { id: verified.orderId, storeId: STORE_ID },
+    select: {
+      ...publicSelect,
+      customerEmail: true,
+      customerPhone: true,
+    },
+  });
+  if (!order) return null;
+
+  const settings = await prisma.storeSettings.findUnique({
+    where: { storeId: STORE_ID },
+    select: { storePhone: true },
+  });
+
+  return { order, settings };
 }

@@ -82,7 +82,10 @@ export function TopInfoBar({
           <span className="text-zinc-700" aria-hidden>
             |
           </span>
-          <Link href="/track-order" className="whitespace-nowrap transition-colors duration-150 hover:text-[#d6a316]">
+          <Link
+            href="/track-order"
+            className="whitespace-nowrap font-semibold text-[#e8c35a] transition-colors duration-150 hover:text-[#d6a316]"
+          >
             {t("orderTracking")}
           </Link>
           <span className="text-zinc-700" aria-hidden>

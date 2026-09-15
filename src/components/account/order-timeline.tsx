@@ -7,25 +7,44 @@ export function OrderTimeline({
   status,
   paymentStatus,
   fulfillmentStatus,
+  deliveryOptionType,
+  lang = "he",
 }: {
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
   fulfillmentStatus: OrderFulfillmentStatus;
+  deliveryOptionType?: string | null;
+  lang?: "he" | "ar" | "en";
 }) {
-  const { cancelled, awaitingPayment, steps } = orderTimelineMeta({
-    status,
-    paymentStatus,
-    fulfillmentStatus,
-  });
+  const { cancelled, awaitingPayment, steps } = orderTimelineMeta(
+    {
+      status,
+      paymentStatus,
+      fulfillmentStatus,
+      deliveryOptionType,
+    },
+    lang,
+  );
 
   if (awaitingPayment) {
+    const msg =
+      lang === "en"
+        ? { title: "Awaiting payment", body: "The shipping timeline appears after payment is confirmed." }
+        : lang === "ar"
+          ? { title: "بانتظار الدفع", body: "سيظهر مسار الطلب بعد تأكيد الدفع." }
+          : { title: "ממתין לתשלום", body: "לאחר אישור התשלום יופיע מסלול ההזמנה." };
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-        <p className="text-sm font-medium text-amber-100">ממתין לתשלום</p>
-        <p className="mt-1 text-xs text-amber-200/80">לאחר אישור התשלום יופיע מסלול המשלוח.</p>
+        <p className="text-sm font-medium text-amber-100">{msg.title}</p>
+        <p className="mt-1 text-xs text-amber-200/80">{msg.body}</p>
       </div>
     );
   }
+
+  const currentLabel =
+    lang === "en" ? "Current step" : lang === "ar" ? "المرحلة الحالية" : "שלב נוכחי";
+  const cancelledLabel =
+    lang === "en" ? "Order cancelled" : lang === "ar" ? "تم إلغاء الطلب" : "ההזמנה בוטלה";
 
   return (
     <div>
@@ -43,7 +62,7 @@ export function OrderTimeline({
           const labelClass = cancelled
             ? "text-red-300"
             : s.current
-              ? "text-hagor-gold font-bold"
+              ? "font-bold text-hagor-gold"
               : s.done
                 ? "text-zinc-300"
                 : "text-zinc-500";
@@ -57,17 +76,17 @@ export function OrderTimeline({
               </span>
               <p className={`text-sm leading-snug ${labelClass}`}>{s.label}</p>
               {!isLast && s.current ? (
-                <span className="mt-1 block text-xs text-hagor-gold/80">שלב נוכחי</span>
+                <span className="mt-1 block text-xs text-hagor-gold/80">{currentLabel}</span>
               ) : null}
             </li>
           );
         })}
       </ol>
-      {cancelled && (
+      {cancelled ? (
         <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-          ההזמנה בוטלה
+          {cancelledLabel}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

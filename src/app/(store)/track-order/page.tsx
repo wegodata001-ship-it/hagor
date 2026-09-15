@@ -19,17 +19,21 @@ export default async function TrackOrderPage({
   const initialOrder = token ? await findOrderByTrackingToken(token) : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 md:py-16">
+    <main className="mx-auto max-w-3xl overflow-x-hidden px-4 py-12 md:py-16">
       <div className="text-center">
         <p className="text-xs font-bold uppercase tracking-[0.35em] text-hagor-gold">{SITE_NAME}</p>
-        <h1 className="mt-3 text-3xl font-black text-white md:text-4xl">מעקב הזמנה</h1>
+        <h1 className="mt-3 text-3xl font-black text-white md:text-4xl">מעקב אחר ההזמנה</h1>
         <p className="mx-auto mt-3 max-w-lg text-sm text-zinc-400">
-          הזינו מספר הזמנה יחד עם הטלפון או האימייל שצוינו בקופה. לא ניתן לצפות בהזמנה לפי מספר בלבד.
+          הזינו את פרטי ההזמנה כדי לצפות בסטטוס העדכני שלה
         </p>
       </div>
 
       <div className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5 shadow-[0_0_40px_rgba(200,146,17,0.06)] md:p-8">
-        <TrackOrderClient initialOrder={initialOrder} tokenError={Boolean(token && !initialOrder)} />
+        <TrackOrderClient
+          initialOrder={initialOrder}
+          initialToken={token || undefined}
+          tokenError={Boolean(token && !initialOrder)}
+        />
       </div>
     </main>
   );

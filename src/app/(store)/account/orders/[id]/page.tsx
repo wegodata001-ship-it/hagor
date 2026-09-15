@@ -119,6 +119,7 @@ export default async function AccountOrderDetailPage({ params }: { params: Promi
                 status={order.status}
                 paymentStatus={order.paymentStatus}
                 fulfillmentStatus={order.fulfillmentStatus}
+                deliveryOptionType={order.deliveryOptionType}
               />
             </div>
           </section>

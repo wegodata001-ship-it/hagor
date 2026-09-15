@@ -7,6 +7,7 @@ import { LanguageSwitcher } from "@/components/storefront/language-switcher";
 import type { UserRole } from "@prisma/client";
 import { pickLocalized } from "@/lib/localized";
 import { BRAND_DISPLAY } from "@/lib/hero";
+import { PRODUCTION_PORTAL_URL } from "@/lib/host";
 import { HagourNavIcon } from "@/components/storefront/hagour-icon";
 
 type Category = { id: string; parentId: string | null; name_he: string; name_ar: string; name_en: string };
@@ -26,7 +27,7 @@ export function MobileMenu({
 }) {
   const { t, lang, dir } = useStoreI18n();
 
-  const links = [
+  const links: { href: string; label: string; emphasize?: boolean }[] = [
     { href: "/", label: t("navHome") },
     ...categories.map((c) => ({
       href: `/products?cat=${encodeURIComponent(c.id)}`,
@@ -34,7 +35,7 @@ export function MobileMenu({
     })),
     { href: "/#about", label: t("navAbout") },
     { href: "/#contact", label: t("heroContact") },
-    { href: "/track-order", label: t("orderTracking") },
+    { href: "/track-order", label: t("orderTracking"), emphasize: true },
   ];
 
   const asideMotion = dir === "rtl" ? "100%" : "-100%";
@@ -78,10 +79,14 @@ export function MobileMenu({
             <nav className="mt-5 flex-1 space-y-1 overflow-y-auto">
               {links.map((link) => (
                 <Link
-                  key={link.href}
+                  key={link.href + link.label}
                   href={link.href}
                   onClick={onClose}
-                  className="block whitespace-nowrap rounded-xl border border-zinc-800/80 bg-[#0d0d0d] px-3 py-3 text-sm font-medium text-zinc-100 transition-colors duration-150 hover:border-hagor-gold/40 hover:text-hagor-gold"
+                  className={
+                    link.emphasize
+                      ? "block whitespace-nowrap rounded-xl border border-hagor-gold/35 bg-[#0d0d0d] px-3 py-3 text-sm font-semibold text-hagor-gold"
+                      : "block whitespace-nowrap rounded-xl border border-zinc-800/80 bg-[#0d0d0d] px-3 py-3 text-sm font-medium text-zinc-100 transition-colors duration-150 hover:border-hagor-gold/40 hover:text-hagor-gold"
+                  }
                 >
                   {link.label}
                 </Link>
@@ -106,7 +111,7 @@ export function MobileMenu({
                   </Link>
                   {role === "STORE_OWNER" || role === "SUPER_ADMIN" ? (
                     <Link
-                      href="/admin"
+                      href={`${PRODUCTION_PORTAL_URL}/admin`}
                       onClick={onClose}
                       className="block whitespace-nowrap rounded-xl bg-gradient-to-r from-hagor-gold to-amber-700 px-3 py-3 text-center text-sm font-semibold text-black"
                     >
