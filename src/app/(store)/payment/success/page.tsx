@@ -95,6 +95,7 @@ export default async function PaymentSuccessPage({
       deliveryPrice: true,
       discountAmount: true,
       pointsDiscountAmount: true,
+      couponCode: true,
       paymentStatus: true,
       fulfillmentStatus: true,
       customerName: true,
@@ -118,6 +119,12 @@ export default async function PaymentSuccessPage({
     },
   });
   if (!order) notFound();
+  const coupon = order.couponCode
+    ? await prisma.coupon.findFirst({
+        where: { storeId: STORE_ID, code: order.couponCode },
+        select: { type: true, value: true },
+      })
+    : null;
 
   const paid =
     order.paymentStatus === "PAID" ||
@@ -221,19 +228,32 @@ export default async function PaymentSuccessPage({
 
           <dl className="mt-5 space-y-2 text-sm">
             <div className="flex justify-between gap-3 text-zinc-400">
-              <dt>Subtotal</dt>
+              <dt>סכום מוצרים</dt>
               <dd>{money(Number(order.subtotal))}</dd>
             </div>
-            <div className="flex justify-between gap-3 text-zinc-400">
-              <dt>משלוח{order.deliveryOptionName ? ` (${order.deliveryOptionName})` : ""}</dt>
-              <dd>{money(Number(order.deliveryPrice))}</dd>
-            </div>
-            {discount > 0 ? (
+            {order.couponCode && Number(order.discountAmount) > 0 ? (
               <div className="flex justify-between gap-3 text-emerald-400/90">
-                <dt>הנחה</dt>
-                <dd>−{money(discount)}</dd>
+                <dt>
+                  קופון {order.couponCode}
+                  {coupon ? (
+                    <span className="text-zinc-500">
+                      {" "}({coupon.type === "PERCENT" ? `${Number(coupon.value)}%` : money(Number(coupon.value))})
+                    </span>
+                  ) : null}
+                </dt>
+                <dd>−{money(Number(order.discountAmount))}</dd>
               </div>
             ) : null}
+            {Number(order.pointsDiscountAmount) > 0 ? (
+              <div className="flex justify-between gap-3 text-sky-300/90">
+                <dt>מימוש נקודות</dt>
+                <dd>−{money(Number(order.pointsDiscountAmount))}</dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-3 text-zinc-400">
+              <dt>משלוח{order.deliveryOptionName ? ` (${order.deliveryOptionName})` : ""}</dt>
+              <dd>{Number(order.deliveryPrice) === 0 ? "חינם" : money(Number(order.deliveryPrice))}</dd>
+            </div>
             <div className="flex justify-between gap-3 border-t border-zinc-800 pt-3 text-base font-bold text-white">
               <dt>סה״כ ששולם</dt>
               <dd className="text-hagor-gold">{money(paidAmount)}</dd>

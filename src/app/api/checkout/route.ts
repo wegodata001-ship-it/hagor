@@ -5,12 +5,8 @@ import { STORE_ID } from "@/lib/store";
 import { notifyNewOrderToOwner } from "@/lib/notifications";
 import { decodeSessionToken } from "@/lib/auth/session";
 import { cookies } from "next/headers";
-import {
-  computeCouponDiscount,
-  computePointsDiscount,
-  computeTotal,
-  snapshotDeliveryName,
-} from "@/lib/checkout/compute-order";
+import type { CouponValidationStatus } from "@/lib/checkout/compute-order";
+import { buildCheckoutQuote } from "@/lib/checkout/quote";
 import { INVALID_CUSTOMER_DETAILS } from "@/lib/checkout/customer-validation";
 import {
   checkoutBodySchema,
@@ -18,12 +14,6 @@ import {
   formatShippingAddress,
   validateCheckoutCustomerDetails,
 } from "@/lib/checkout/validation";
-import {
-  parseSelectedOptions,
-  resolveCategoryOptionProfile,
-  resolveFixedBuckleType,
-  validateSelectedOptionsForProfile,
-} from "@/lib/hagour-product-options";
 
 export const runtime = "nodejs";
 
@@ -31,6 +21,35 @@ function resolveLocale(req: Request): "he" | "ar" | "en" {
   const h = req.headers.get("x-locale")?.trim().toLowerCase();
   if (h === "ar" || h === "en") return h;
   return "he";
+}
+
+function couponErrorMessage(
+  status: CouponValidationStatus,
+  locale: "he" | "ar" | "en",
+  minOrderAmount?: number | null,
+): string {
+  if (status === "expired") {
+    return locale === "ar" ? "انتهت صلاحية القسيمة." : locale === "en" ? "Coupon has expired." : "תוקף הקופון הסתיים.";
+  }
+  if (status === "usage_limit") {
+    return locale === "ar"
+      ? "تم الوصول إلى حد استخدام القسيمة."
+      : locale === "en"
+        ? "Coupon usage limit has been reached."
+        : "מכסת השימוש בקופון נוצלה.";
+  }
+  if (status === "min_order") {
+    const amount = Number(minOrderAmount ?? 0).toFixed(2);
+    return locale === "ar"
+      ? `القسيمة صالحة للطلبات فوق ₪${amount}.`
+      : locale === "en"
+        ? `Coupon is valid for orders above ₪${amount}.`
+        : `הקופון תקף להזמנות מעל ₪${amount}.`;
+  }
+  if (status === "inactive") {
+    return locale === "ar" ? "القسيمة غير مفعّلة حالياً." : locale === "en" ? "Coupon is not active." : "הקופון אינו פעיל כרגע.";
+  }
+  return locale === "ar" ? "رمز القسيمة غير صالح." : locale === "en" ? "Invalid coupon code." : "הקופון שהוזן אינו תקין.";
 }
 
 export async function POST(req: Request) {
@@ -52,7 +71,6 @@ export async function POST(req: Request) {
   }
 
   const body = parsed.data;
-
   const customerCheck = validateCheckoutCustomerDetails(body, locale);
   if (!customerCheck.ok) {
     return NextResponse.json(
@@ -73,86 +91,48 @@ export async function POST(req: Request) {
       deliveryOptionId: body.deliveryOptionId,
       hasCity: Boolean(body.city?.trim()),
       hasAddress: Boolean(body.address?.trim()),
+      hasCouponCode: Boolean(body.couponCode?.trim()),
     });
   }
+
   const jar = await cookies();
   const session = await decodeSessionToken(jar.get("session")?.value ?? "");
 
-  const products = await prisma.product.findMany({
-    where: {
+  let quote;
+  try {
+    quote = await buildCheckoutQuote({
       storeId,
-      id: { in: body.items.map((i) => i.productId) },
-      active: true,
-    },
-    include: {
-      category: { select: { id: true } },
-    },
-  });
-
-  if (products.length !== body.items.length) {
-    return NextResponse.json({ error: "Some products are unavailable" }, { status: 400 });
-  }
-
-  const byId = new Map(products.map((p) => [p.id, p]));
-  type Line = {
-    product: (typeof products)[number];
-    quantity: number;
-    optionIds: string[];
-    selectedOptions: ReturnType<typeof parseSelectedOptions>;
-  };
-  const lines: Line[] = body.items.map((i) => {
-    const product = byId.get(i.productId);
-    if (!product) throw new Error("missing product");
-    return {
-      product,
-      quantity: i.quantity,
-      optionIds: i.optionIds ?? [],
-      selectedOptions: parseSelectedOptions(i.selectedOptions),
-    };
-  });
-
-  for (const line of lines) {
-    const profile = resolveCategoryOptionProfile(undefined, line.product.category.id);
-    const fixedBuckle = resolveFixedBuckleType(line.product.id);
-    const err = validateSelectedOptionsForProfile(profile, line.selectedOptions, fixedBuckle);
-    if (err) {
-      return NextResponse.json({ error: err }, { status: 400 });
-    }
-  }
-
-  // Stock validation is enforced again inside the DB transaction (race-safe).
-  for (const { product, quantity } of lines) {
-    if (quantity <= 0) {
-      return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
-    }
-    if (product.stock < quantity) {
-      // Fast path for simple products; variant products are handled later.
-      // This is best-effort UX validation, not authoritative.
-      // Backend will re-check before decrement.
-      continue;
-    }
-  }
-
-  const delivery = await prisma.deliveryOption.findFirst({
-    where: { id: body.deliveryOptionId, storeId, active: true },
-  });
-  if (!delivery) {
+      locale,
+      deliveryOptionId: body.deliveryOptionId,
+      couponCode: body.couponCode,
+      redeemPoints: body.redeemPoints,
+      items: body.items,
+      customerUserId: session?.role === "CUSTOMER" && session.storeId === storeId ? session.userId : null,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: locale === "ar" ? "طريقة الشحن غير صالحة." : "אופן המשלוח שנבחר אינו זמין." },
+      { error: error instanceof Error ? error.message : "שגיאה בחישוב ההזמנה" },
       { status: 400 },
     );
   }
 
-  if (delivery.type === DeliveryType.SHIPPING) {
+  if (quote.delivery.type === DeliveryType.SHIPPING) {
     if (!body.city?.trim()) {
       return NextResponse.json(
-        { error: locale === "ar" ? "يرجى إدخال المدينة." : "יש למלא עיר." },
+        { error: locale === "ar" ? "يرجى إدخال المدينة." : locale === "en" ? "City is required." : "יש למלא עיר." },
         { status: 400 },
       );
     }
     if (!body.address?.trim()) {
       return NextResponse.json(
-        { error: locale === "ar" ? "يرجى إدخال عنوان الشحن." : "יש למלא כתובת למשלוח." },
+        {
+          error:
+            locale === "ar"
+              ? "يرجى إدخال عنوان الشحن."
+              : locale === "en"
+                ? "Shipping address is required."
+                : "יש למלא כתובת למשלוח.",
+        },
         { status: 400 },
       );
     }
@@ -160,23 +140,15 @@ export async function POST(req: Request) {
 
   const storeSettings = await prisma.storeSettings.findUnique({ where: { storeId } });
   if (
-    delivery.type === DeliveryType.PICKUP &&
-    storeSettings &&
-    !storeSettings.pickupEnabled
-  ) {
-    return NextResponse.json({ error: "Pickup is not available" }, { status: 400 });
-  }
-
-  if (
     session?.role === "CUSTOMER" &&
     session.storeId === storeId &&
     (storeSettings?.requireEmailVerificationForCheckout ?? true)
   ) {
-    const u = await prisma.user.findFirst({
+    const user = await prisma.user.findFirst({
       where: { id: session.userId, storeId },
       select: { emailVerified: true },
     });
-    if (u && !u.emailVerified) {
+    if (user && !user.emailVerified) {
       return NextResponse.json(
         { error: "יש לאמת את כתובת האימייל לפני ביצוע הזמנה." },
         { status: 403 },
@@ -184,59 +156,32 @@ export async function POST(req: Request) {
     }
   }
 
-  let coupon = null as Awaited<ReturnType<typeof prisma.coupon.findFirst>>;
-  if (body.couponCode?.trim()) {
-    coupon = await prisma.coupon.findFirst({
-      where: { storeId, code: body.couponCode.trim(), active: true },
-    });
+  if (body.couponCode?.trim() && quote.coupon.status !== "applied") {
+    return NextResponse.json(
+      { error: couponErrorMessage(quote.coupon.status, locale, quote.coupon.minOrderAmount) },
+      { status: 400 },
+    );
   }
 
-  const subtotal = await computeSubtotalWithVariants(storeId, lines);
-  const { discount: couponDiscount, code: appliedCoupon } = computeCouponDiscount(
-    coupon,
-    subtotal,
-  );
-
-  const deliveryPrice = Number(delivery.price);
-  const remainingAfterCoupon = Math.round((subtotal + deliveryPrice - couponDiscount) * 100) / 100;
-
-  let customerProfileId: string | null = null;
-  let pointsBalance = 0;
-  if (session?.role === "CUSTOMER" && session.storeId === storeId) {
-    const user = await prisma.user.findFirst({
-      where: { id: session.userId, storeId },
-      include: { customerProfile: true },
-    });
-    if (user?.customerProfile) {
-      customerProfileId = user.customerProfile.id;
-      pointsBalance = user.customerProfile.pointsBalance;
-    }
+  if ((body.redeemPoints ?? 0) > 0 && quote.pointsUsed === 0) {
+    return NextResponse.json(
+      {
+        error:
+          locale === "ar"
+            ? "تعذر تطبيق نقاط الولاء."
+            : locale === "en"
+              ? "Could not apply loyalty points."
+              : "לא ניתן היה להחיל את נקודות המועדון.",
+      },
+      { status: 400 },
+    );
   }
-
-  const loyalty = await prisma.loyaltySettings.findUnique({ where: { storeId } });
-  const redeemReq = body.redeemPoints ?? 0;
-  const { discount: pointsDiscount, pointsUsed } = computePointsDiscount(
-    loyalty,
-    redeemReq,
-    pointsBalance,
-    remainingAfterCoupon,
-  );
-
-  const total = computeTotal({
-    subtotal,
-    deliveryPrice,
-    couponDiscount,
-    pointsDiscount,
-  });
-
-  const deliveryName = snapshotDeliveryName(delivery, "he");
 
   const { orderId, orderNumber } = await prisma.$transaction(
     async (tx) => {
       const settings = await tx.storeSettings.findUnique({ where: { storeId } });
-      if (!settings) {
-        throw new Error("Store settings missing");
-      }
+      if (!settings) throw new Error("Store settings missing");
+
       const orderNumber = `${settings.orderNumberPrefix}-${settings.nextOrderNumber}`;
       await tx.storeSettings.update({
         where: { storeId },
@@ -247,62 +192,57 @@ export async function POST(req: Request) {
         data: {
           storeId,
           orderNumber,
-          customerId: customerProfileId,
+          customerId: quote.customerProfileId,
           customerName: body.customerName,
           customerEmail,
           customerPhone: body.customerPhone,
           status: OrderStatus.PENDING,
           paymentStatus: OrderPaymentStatus.UNPAID,
-          subtotal: new Prisma.Decimal(subtotal),
-          deliveryPrice: new Prisma.Decimal(deliveryPrice),
-          discountAmount: new Prisma.Decimal(couponDiscount),
-          pointsDiscountAmount: new Prisma.Decimal(pointsDiscount),
-          total: new Prisma.Decimal(total),
-          deliveryOptionName: deliveryName,
-          deliveryOptionType: delivery.type as DeliveryType,
-          deliveryOptionPrice: new Prisma.Decimal(deliveryPrice),
+          subtotal: new Prisma.Decimal(quote.subtotal),
+          deliveryPrice: new Prisma.Decimal(quote.deliveryPrice),
+          discountAmount: new Prisma.Decimal(quote.coupon.discount),
+          pointsDiscountAmount: new Prisma.Decimal(quote.pointsDiscount),
+          total: new Prisma.Decimal(quote.total),
+          deliveryOptionName: quote.deliveryName,
+          deliveryOptionType: quote.delivery.type as DeliveryType,
+          deliveryOptionPrice: new Prisma.Decimal(quote.deliveryPrice),
           address: shippingAddress || null,
           notes: body.notes ?? null,
-          couponCode: appliedCoupon,
-          loyaltyPointsRedeemed: pointsUsed,
+          couponCode: quote.coupon.appliedCode,
+          loyaltyPointsRedeemed: quote.pointsUsed,
         },
       });
 
-    for (const line of lines) {
-      const unit = await computeUnitPriceWithVariants(tx, storeId, line.product.id, line.optionIds);
-      const lineTotal = Math.round(unit * line.quantity * 100) / 100;
-      const mainImg = await tx.productImage.findFirst({
-        where: { productId: line.product.id, storeId, isMain: true },
-      });
-      const anyImg = mainImg
-        ? mainImg
-        : await tx.productImage.findFirst({
-            where: { productId: line.product.id, storeId },
-            orderBy: { sortOrder: "asc" },
-          });
-      await tx.orderItem.create({
-        data: {
-          storeId,
-          orderId: order.id,
-          productId: line.product.id,
-          productName: line.product.name_he,
-          productImage: anyImg?.url ?? null,
-          variantOptionIds: Array.from(new Set((line.optionIds ?? []).map(String))).filter(Boolean),
-          selectedOptions: line.selectedOptions ?? undefined,
-          quantity: line.quantity,
-          unitPrice: new Prisma.Decimal(unit),
-          totalPrice: new Prisma.Decimal(lineTotal),
-        },
-      });
-    }
+      for (const line of quote.lines) {
+        const mainImg = await tx.productImage.findFirst({
+          where: { productId: line.product.id, storeId, isMain: true },
+        });
+        const anyImg = mainImg
+          ? mainImg
+          : await tx.productImage.findFirst({
+              where: { productId: line.product.id, storeId },
+              orderBy: { sortOrder: "asc" },
+            });
+        await tx.orderItem.create({
+          data: {
+            storeId,
+            orderId: order.id,
+            productId: line.product.id,
+            productName: line.product.name_he,
+            productImage: anyImg?.url ?? null,
+            variantOptionIds: Array.from(new Set((line.optionIds ?? []).map(String))).filter(Boolean),
+            selectedOptions: line.selectedOptions ?? undefined,
+            quantity: line.quantity,
+            unitPrice: new Prisma.Decimal(line.unitPrice),
+            totalPrice: new Prisma.Decimal(line.lineTotal),
+          },
+        });
+      }
 
       return { orderId: order.id, orderNumber: order.orderNumber };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
-
-  const currency =
-    (await prisma.storeSettings.findUnique({ where: { storeId } }))?.currency ?? "ILS";
 
   if (process.env.NODE_ENV === "development") {
     console.log("[checkout] created order", orderId);
@@ -314,45 +254,14 @@ export async function POST(req: Request) {
     customerEmail,
     customerName: body.customerName,
     customerPhone: body.customerPhone,
-    total,
-    currency,
+    total: quote.total,
+    currency: quote.currency,
   }).catch(() => {});
 
   return NextResponse.json({
     orderId,
     orderNumber,
-    total,
-    currency,
+    total: quote.total,
+    currency: quote.currency,
   });
-}
-
-async function computeUnitPriceWithVariants(
-  tx: Prisma.TransactionClient,
-  storeId: string,
-  productId: string,
-  optionIds: string[],
-): Promise<number> {
-  const base = await tx.product.findFirst({ where: { id: productId, storeId }, select: { price: true } });
-  const basePrice = base ? Number(base.price) : 0;
-  const uniq = Array.from(new Set((optionIds ?? []).map(String)));
-  if (uniq.length === 0) return basePrice;
-
-  const opts = await tx.productVariantOption.findMany({
-    where: {
-      id: { in: uniq },
-      group: { productId },
-    },
-    select: { priceAdd: true },
-  });
-  const add = opts.reduce((s, o) => s + Number(o.priceAdd), 0);
-  return Math.round((basePrice + add) * 100) / 100;
-}
-
-async function computeSubtotalWithVariants(storeId: string, lines: Array<{ product: { id: string }; quantity: number; optionIds: string[] }>): Promise<number> {
-  let s = 0;
-  for (const line of lines) {
-    const unit = await computeUnitPriceWithVariants(prisma, storeId, line.product.id, line.optionIds);
-    s += unit * line.quantity;
-  }
-  return Math.round(s * 100) / 100;
 }

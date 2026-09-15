@@ -12,6 +12,16 @@ export { INVALID_CUSTOMER_DETAILS, isValidEmail, isValidIsraeliPhone, validateCu
 export type { CustomerFieldErrors };
 
 const selectedOptionsSchema = z.unknown().optional().nullable();
+const checkoutItemsSchema = z
+  .array(
+    z.object({
+      productId: z.string().trim().min(1),
+      quantity: z.coerce.number().int().positive(),
+      optionIds: z.array(z.string()).optional(),
+      selectedOptions: selectedOptionsSchema,
+    }),
+  )
+  .min(1, "העגלה ריקה");
 
 export const checkoutBodySchema = z.object({
   customerName: z.string().trim().min(1, "שם מלא חובה"),
@@ -24,19 +34,16 @@ export const checkoutBodySchema = z.object({
   couponCode: z.string().trim().optional(),
   redeemPoints: z.coerce.number().int().min(0).optional(),
   acceptedTerms: z.literal(true, { message: "יש לאשר את תקנון האתר" }),
-  items: z
-    .array(
-      z.object({
-        productId: z.string().trim().min(1),
-        quantity: z.coerce.number().int().positive(),
-        optionIds: z.array(z.string()).optional(),
-        selectedOptions: selectedOptionsSchema,
-      }),
-    )
-    .min(1, "העגלה ריקה"),
+  items: checkoutItemsSchema,
 });
 
 export type CheckoutBody = z.infer<typeof checkoutBodySchema>;
+export const checkoutQuoteSchema = z.object({
+  deliveryOptionId: z.string().trim().min(1, "יש לבחור אופן משלוח"),
+  couponCode: z.string().trim().optional(),
+  redeemPoints: z.coerce.number().int().min(0).optional(),
+  items: checkoutItemsSchema,
+});
 
 const FIELD_MESSAGES_HE: Record<string, string> = {
   customerName: "יש למלא שם מלא.",

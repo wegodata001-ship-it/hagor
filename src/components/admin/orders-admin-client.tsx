@@ -829,8 +829,14 @@ export function OrdersAdminClient({
               <div>
                 {t("orderSubtotal")}: ₪{detail.subtotal.toFixed(2)}
               </div>
+              {detail.couponCode ? (
+                <div>
+                  {t("couponCodeLabel")}: <span className="font-mono">{detail.couponCode}</span>
+                  {detail.coupon?.typeLabel ? <span> ({detail.coupon.typeLabel})</span> : null}
+                </div>
+              ) : null}
               <div>
-                {t("orderCouponDiscount")}: ₪{detail.discountAmount.toFixed(2)}
+                {t("orderCouponDiscount")}: {detail.discountAmount > 0 ? "−" : ""}₪{detail.discountAmount.toFixed(2)}
               </div>
               <div>
                 {t("orderPointsDiscount")}: ₪{detail.pointsDiscountAmount.toFixed(2)}

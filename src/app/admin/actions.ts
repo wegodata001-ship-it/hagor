@@ -54,6 +54,12 @@ export type AdminOrderDetailDTO = {
   address: string | null;
   notes: string | null;
   couponCode: string | null;
+  coupon: {
+    code: string;
+    type: "PERCENT" | "FIXED";
+    value: number;
+    typeLabel: string;
+  } | null;
   createdAt: string;
   items: {
     id: string;
@@ -113,6 +119,12 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     },
   });
   if (!order) return null;
+  const couponMeta = order.couponCode
+    ? await prisma.coupon.findFirst({
+        where: { storeId, code: order.couponCode },
+        select: { code: true, type: true, value: true },
+      })
+    : null;
 
   const notesFlag = (order.notes || "").includes("REQUIRES_RECONCILIATION");
   const paymentAttempts: AdminOrderDetailDTO["paymentAttempts"] = [];
@@ -140,6 +152,14 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     address: order.address,
     notes: order.notes,
     couponCode: order.couponCode,
+    coupon: couponMeta
+      ? {
+          code: couponMeta.code,
+          type: couponMeta.type,
+          value: Number(couponMeta.value),
+          typeLabel: couponMeta.type === "PERCENT" ? `${Number(couponMeta.value)}%` : `₪${Number(couponMeta.value).toFixed(2)}`,
+        }
+      : null,
     createdAt: order.createdAt.toISOString(),
     items: order.items.map((i) => ({
       id: i.id,

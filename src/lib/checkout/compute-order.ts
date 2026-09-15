@@ -2,6 +2,24 @@ import type { Coupon, DeliveryOption, LoyaltySettings, Product } from "@prisma/c
 import { CouponType } from "@prisma/client";
 
 export type CartLine = { product: Product; quantity: number };
+export type CouponValidationStatus =
+  | "none"
+  | "not_found"
+  | "inactive"
+  | "expired"
+  | "usage_limit"
+  | "min_order"
+  | "applied";
+
+export type CouponComputation = {
+  requestedCode: string | null;
+  appliedCode: string | null;
+  status: CouponValidationStatus;
+  type: CouponType | null;
+  value: number | null;
+  minOrderAmount: number | null;
+  discount: number;
+};
 
 export function computeSubtotal(lines: CartLine[]): number {
   let s = 0;
@@ -31,6 +49,68 @@ export function computeCouponDiscount(
   }
   discount = Math.min(discount, subtotal);
   return { discount: Math.round(discount * 100) / 100, code: coupon.code };
+}
+
+export function evaluateCoupon(
+  coupon: Coupon | null,
+  requestedCode: string | null | undefined,
+  subtotal: number,
+): CouponComputation {
+  const code = requestedCode?.trim() || null;
+  if (!code) {
+    return {
+      requestedCode: null,
+      appliedCode: null,
+      status: "none",
+      type: null,
+      value: null,
+      minOrderAmount: null,
+      discount: 0,
+    };
+  }
+
+  if (!coupon) {
+    return {
+      requestedCode: code,
+      appliedCode: null,
+      status: "not_found",
+      type: null,
+      value: null,
+      minOrderAmount: null,
+      discount: 0,
+    };
+  }
+
+  const minOrderAmount = coupon.minOrderAmount != null ? Number(coupon.minOrderAmount) : null;
+  const base = {
+    requestedCode: code,
+    appliedCode: null,
+    type: coupon.type,
+    value: Number(coupon.value),
+    minOrderAmount,
+    discount: 0,
+  } satisfies Omit<CouponComputation, "status">;
+
+  if (!coupon.active) {
+    return { ...base, status: "inactive" };
+  }
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+    return { ...base, status: "expired" };
+  }
+  if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) {
+    return { ...base, status: "usage_limit" };
+  }
+  if (subtotal < (minOrderAmount ?? 0)) {
+    return { ...base, status: "min_order" };
+  }
+
+  const { discount, code: appliedCode } = computeCouponDiscount(coupon, subtotal);
+  return {
+    ...base,
+    appliedCode,
+    status: "applied",
+    discount,
+  };
 }
 
 /**
