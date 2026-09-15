@@ -48,7 +48,6 @@ export function CheckoutWizard() {
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verifyHint, setVerifyHint] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -80,11 +79,8 @@ export function CheckoutWizard() {
     return Boolean(city.trim() && address.trim());
   }, [needsAddress, city, address]);
 
-  const busy = loading || demoLoading;
+  const busy = loading;
   const canPay = detailsValid && shippingValid && termsAccepted && !busy;
-  const [demoCheckoutEnabled, setDemoCheckoutEnabled] = useState(
-    () => process.env.NEXT_PUBLIC_ALLOW_DEMO_PAYMENT === "true",
-  );
 
   useEffect(() => {
     fetch("/api/delivery-options")
@@ -96,11 +92,8 @@ export function CheckoutWizard() {
     Promise.all([fetch("/api/auth/me").then((r) => r.json()), fetch("/api/store/public").then((r) => r.json())]).then(
       ([me, pub]: [
         { user: { name?: string; email?: string; pointsBalance?: number | null; emailVerified?: boolean } | null },
-        { requireEmailVerificationForCheckout?: boolean; allowDemoPayment?: boolean },
+        { requireEmailVerificationForCheckout?: boolean },
       ]) => {
-        if (pub.allowDemoPayment === true) {
-          setDemoCheckoutEnabled(true);
-        }
         if (me.user) {
           setCustomerName(me.user.name ?? "");
           setCustomerEmail(me.user.email ?? "");
@@ -239,11 +232,6 @@ export function CheckoutWizard() {
       });
       const payData = await payRes.json();
       if (!payRes.ok) {
-        if (demoCheckoutEnabled) {
-          setError(null);
-          router.push(`/checkout/payment/${orderId}`);
-          return;
-        }
         setError(typeof payData.error === "string" ? payData.error : t("checkoutPaymentError"));
         return;
       }
@@ -254,35 +242,6 @@ export function CheckoutWizard() {
       router.push(`/checkout/payment/${orderId}`);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function payWithDemo() {
-    if (busy) return;
-    if (!demoCheckoutEnabled) {
-      setError("תשלום דמו אינו פעיל במערכת.");
-      return;
-    }
-    if (!validateBeforeCheckout()) return;
-
-    setDemoLoading(true);
-    try {
-      const orderId = await createOrderId();
-      if (!orderId) return;
-
-      const demoRes = await fetch("/api/payments/demo-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      const demoData = await demoRes.json();
-      if (!demoRes.ok) {
-        setError(typeof demoData.error === "string" ? demoData.error : t("checkoutGenericError"));
-        return;
-      }
-      router.push(`/payment/success?orderId=${encodeURIComponent(orderId)}`);
-    } finally {
-      setDemoLoading(false);
     }
   }
 
@@ -467,9 +426,6 @@ export function CheckoutWizard() {
         {step === "payment" ? (
           <div className="space-y-4">
             <p className="text-sm text-zinc-300">תשלום מאובטח בכרטיס אשראי. המלאי יירד רק לאחר אישור התשלום.</p>
-            {demoCheckoutEnabled ? (
-              <p className="text-xs text-amber-200/90">{t("demoPaymentHint")}</p>
-            ) : null}
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-700/80 bg-zinc-950/50 px-3 py-3 text-sm text-zinc-200">
               <input
                 type="checkbox"
@@ -488,27 +444,15 @@ export function CheckoutWizard() {
             <button type="button" onClick={() => setStep("shipping")} className="hagor-btn-outline w-full">
               חזרה
             </button>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                disabled={!canPay}
-                onClick={() => void payWithCard()}
-                className="hagor-btn flex-1 disabled:opacity-50"
-              >
-                {loading ? t("checkoutPayLoading") : t("checkoutPayButton")}
-              </button>
-              {demoCheckoutEnabled ? (
-                <button
-                  type="button"
-                  disabled={!canPay}
-                  onClick={() => void payWithDemo()}
-                  className="hagor-btn-demo flex-1 disabled:opacity-50"
-                >
-                  <span aria-hidden>✓</span>
-                  {demoLoading ? t("demoPaymentLoading") : t("demoPaymentButton")}
-                </button>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              disabled={!canPay}
+              onClick={() => void payWithCard()}
+              className="hagor-btn w-full disabled:opacity-50"
+            >
+              {loading ? t("checkoutPayLoading") : t("checkoutPayButton")}
+            </button>
+            <p className="text-center text-xs text-zinc-500">{t("checkoutPaySecureHint")}</p>
           </div>
         ) : null}
       </div>

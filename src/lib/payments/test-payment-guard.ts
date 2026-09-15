@@ -1,11 +1,11 @@
-/** Internal test checkout — never enable in public production without explicit env. */
+/**
+ * Internal test checkout bypass — permanently disabled.
+ * Online PAID requires real Hyp VERIFY (or equivalent real provider webhook).
+ */
 export function isTestPaymentAllowed(): boolean {
-  return process.env.ALLOW_TEST_PAYMENT === "true";
+  return false;
 }
 
-/** Client-visible test payment (both server + public flags required). */
 export function isPublicTestPaymentAllowed(): boolean {
-  return (
-    process.env.NEXT_PUBLIC_ALLOW_TEST_PAYMENT === "true" && isTestPaymentAllowed()
-  );
+  return false;
 }

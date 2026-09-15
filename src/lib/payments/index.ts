@@ -14,7 +14,6 @@ import { createMeshulamSession } from "./meshulam";
 import { createStripeCheckoutSession } from "./stripe";
 import { createTranzilaSession } from "./tranzila";
 import type { PaymentSessionRequest, PaymentSessionResult } from "./types";
-import { isDemoPaymentAllowed } from "./demo-guard";
 import { parseCardcomWebhook } from "./cardcom";
 import { parseTranzilaWebhook } from "./tranzila";
 import { parseStripeWebhookEvent } from "./stripe";
@@ -99,13 +98,7 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
     case "meshulam":
       return createMeshulamSession(config, req);
     case "demo":
-      if (!isDemoPaymentAllowed()) {
-        throw new Error(paymentNotConfiguredMessage());
-      }
-      return {
-        provider: "demo",
-        redirectUrl: `${base}/checkout/payment/${order.id}`,
-      };
+      throw new Error("Demo payment is permanently disabled. Use Hyp card payment.");
     default:
       throw new Error(paymentNotConfiguredMessage());
   }

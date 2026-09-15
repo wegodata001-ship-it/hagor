@@ -1634,10 +1634,11 @@ export async function updateOrderStatus(formData: FormData): Promise<AdminAction
       },
     });
 
-    const wantsPaid =
-      paymentStatus === "PAID" ||
-      paymentStatus === "TEST_PAID" ||
-      paymentStatus === "DEMO_PAID";
+    if (paymentStatus === "DEMO_PAID" || paymentStatus === "TEST_PAID") {
+      return err("לא ניתן לסמן תשלום DEMO/TEST חדש. תשלום אונליין רק דרך HYP.");
+    }
+
+    const wantsPaid = paymentStatus === "PAID";
     const wasUnpaid =
       prev?.paymentStatus === "UNPAID" ||
       prev?.paymentStatus === "FAILED" ||

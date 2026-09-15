@@ -395,8 +395,6 @@ export function OrdersAdminClient({
                 <select name="paymentStatus" defaultValue={detail.paymentStatus} className="mt-1 block rounded border px-2 py-1 text-sm">
                   <option value="UNPAID">UNPAID</option>
                   <option value="PAID">PAID</option>
-                  <option value="TEST_PAID">TEST_PAID</option>
-                  <option value="DEMO_PAID">DEMO_PAID</option>
                   <option value="REFUNDED">REFUNDED</option>
                   <option value="FAILED">FAILED</option>
                 </select>
