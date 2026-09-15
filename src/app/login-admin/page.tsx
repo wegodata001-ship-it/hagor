@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AdminI18nProvider, isRtl, useAdminI18n } from "@/lib/admin-i18n";
+import { PRODUCTION_SITE_URL } from "@/lib/host";
 
 export default function LoginAdminPage() {
   return (
@@ -172,7 +173,7 @@ function LoginAdminInner() {
             <span className="text-[11px] uppercase tracking-wider text-[#C4C4C4]">·</span>
             <div className="h-px flex-1 bg-[#E8E8E8]" />
           </div>
-          <Link href="/" className="font-medium text-[#111827] transition hover:text-[#c89211]">
+          <Link href={PRODUCTION_SITE_URL} className="font-medium text-[#111827] transition hover:text-[#c89211]">
             {t("backToSite")}
           </Link>
         </div>

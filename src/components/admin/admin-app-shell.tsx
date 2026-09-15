@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
 import { AdminI18nProvider, isRtl, useAdminI18n } from "@/lib/admin-i18n";
+import { PRODUCTION_SITE_URL } from "@/lib/host";
 
 const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { href: "/admin", label: "dashboard", Icon: IconDashboard },
@@ -145,7 +146,7 @@ function AdminAppShellInner({
         </nav>
         <div className="space-y-1 border-t border-white/10 p-3">
           <Link
-            href="/"
+            href={PRODUCTION_SITE_URL}
             className="block rounded-lg px-3 py-2 text-[12px] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
           >
             {t("backToSite")}

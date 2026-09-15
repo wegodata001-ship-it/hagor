@@ -1,9 +1,10 @@
 import "server-only";
 
 import { BRAND_LEGAL_NAME } from "@/lib/brand";
+import { PRODUCTION_SITE_URL as SITE_ORIGIN } from "@/lib/host";
 
 /** Official production origin — never localhost / vercel in prod emails or SEO. */
-export const PRODUCTION_SITE_URL = "https://hagourbywael.com";
+export const PRODUCTION_SITE_URL = SITE_ORIGIN;
 
 export const SITE_SEO_TITLE = BRAND_LEGAL_NAME;
 export const SITE_SEO_DESCRIPTION =

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCachedSession } from "@/lib/auth/cached-session";
 import { assertAdmin } from "@/lib/auth/scope";
 import { isAuthDebugLogsEnabled } from "@/lib/auth/cookie-constants";
+import { PRODUCTION_PORTAL_URL } from "@/lib/host";
 
 export async function requireAdminSession() {
   const session = await getCachedSession();
@@ -31,6 +32,7 @@ export async function requireAdminSession() {
         }),
       );
     }
-    redirect("/login-admin");
+    // Absolute portal login — works even if a request somehow hits the store host.
+    redirect(`${PRODUCTION_PORTAL_URL}/login-admin`);
   }
 }

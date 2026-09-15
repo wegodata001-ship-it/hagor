@@ -5,6 +5,8 @@ import type { UserRole } from "@prisma/client";
 import { isAuthDebugLogsEnabled, SESSION_COOKIE_NAME } from "@/lib/auth/cookie-constants";
 
 function sessionCookieAttributes(maxAgeSec: number) {
+  // Host-only cookie (no Domain): portal sessions stay on portal.*; store sessions on apex.
+  // Do not set Domain=.hagourbywael.com — keeps admin/customer cookies isolated by host.
   return {
     httpOnly: true as const,
     sameSite: "lax" as const,
@@ -118,9 +120,9 @@ export function applySessionCookieToResponse(res: NextResponse, token: string, o
 
 export async function clearSessionCookie() {
   const jar = await cookies();
-  jar.set(SESSION_COOKIE_NAME, "", { httpOnly: true, path: "/", maxAge: 0 });
+  jar.set(SESSION_COOKIE_NAME, "", { ...sessionCookieAttributes(0), maxAge: 0 });
 }
 
 export function clearSessionCookieOnResponse(res: NextResponse) {
-  res.cookies.set(SESSION_COOKIE_NAME, "", { httpOnly: true, path: "/", maxAge: 0 });
+  res.cookies.set(SESSION_COOKIE_NAME, "", { ...sessionCookieAttributes(0), maxAge: 0 });
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PrivacyPolicyLink } from "@/components/storefront/privacy-policy-link";
+import { PRODUCTION_PORTAL_URL } from "@/lib/host";
 
 function mapLoginError(raw: string | undefined): string {
   if (!raw) return "משהו השתבש. נסו שוב.";
@@ -52,10 +53,10 @@ export function LoginPageClient() {
         return;
       }
       if (data.role === "STORE_OWNER" || data.role === "SUPER_ADMIN") {
-        router.push("/admin");
-      } else {
-        router.push("/account");
+        window.location.assign(`${PRODUCTION_PORTAL_URL}/admin`);
+        return;
       }
+      router.push("/account");
       router.refresh();
     } finally {
       setLoading(false);
@@ -68,7 +69,7 @@ export function LoginPageClient() {
         <h1 className="text-center text-2xl font-bold tracking-tight text-slate-50">כניסת לקוחות</h1>
         <p className="mt-2 text-center text-sm text-slate-400">
           חשבון לקוח. ניהול חנות —{" "}
-          <Link href="/login-admin" className="text-blue-400 hover:text-blue-300 hover:underline">
+          <Link href={`${PRODUCTION_PORTAL_URL}/login-admin`} className="text-blue-400 hover:text-blue-300 hover:underline">
             כניסת מנהל
           </Link>
         </p>
