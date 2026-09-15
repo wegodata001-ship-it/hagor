@@ -86,104 +86,116 @@ function AdminAppShellInner({
   const logoSrc = logoPath ? resolvePublicAssetSrc(logoPath) : undefined;
   const rtl = isRtl(lang);
 
+  const langBtn = (code: "he" | "ar" | "en", label: string) => (
+    <button
+      type="button"
+      onClick={() => setLang(code)}
+      className={`min-w-[2.25rem] px-2 py-1 text-[11px] font-semibold tracking-wide transition ${
+        lang === code ? "bg-[#111827] text-[#c89211]" : "text-[#6B7280] hover:text-[#111827]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div dir={rtl ? "rtl" : "ltr"} lang={lang} className="min-h-screen bg-slate-100 text-slate-900 antialiased">
-      {/* Fixed sidebar */}
+    <div dir={rtl ? "rtl" : "ltr"} lang={lang} className="min-h-screen bg-[#F7F8FA] text-[#111827] antialiased">
       <aside
-        className={`fixed inset-y-0 z-50 flex w-[240px] flex-col bg-[#0a0f1a] text-slate-100 shadow-xl ${
+        className={`fixed inset-y-0 z-50 flex w-[240px] flex-col bg-[#080E18] text-slate-100 ${
           rtl ? "right-0" : "left-0"
         }`}
       >
-        <div className="flex h-16 items-center gap-2 border-b border-white/10 px-4">
+        <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
           {logoSrc ? (
-            <Image
-              src={logoSrc}
-              alt=""
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-lg object-cover"
-            />
+            <Image src={logoSrc} alt="" width={36} height={36} className="h-9 w-9 rounded-lg object-cover" />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-sm font-bold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c89211]/15 text-sm font-bold text-[#c89211]">
               {storeName.slice(0, 1).toUpperCase()}
             </div>
           )}
-          <span className="truncate text-sm font-semibold tracking-tight">{storeName}</span>
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-semibold tracking-tight text-white">{storeName}</div>
+            <div className="truncate text-[10px] uppercase tracking-[0.18em] text-[#c89211]/80">Admin</div>
+          </div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-4">
           {NAV.map(({ href, label, Icon }) => {
             const active = navActive(href, pathname);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
                   active
-                    ? "bg-white/15 text-white shadow-inner ring-1 ring-white/20"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-white/10 text-white"
+                    : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
-                <Icon className="h-5 w-5 shrink-0 opacity-90" />
+                {active ? (
+                  <span
+                    className={`absolute inset-y-1.5 w-0.5 rounded-full bg-[#c89211] ${rtl ? "right-0" : "left-0"}`}
+                    aria-hidden
+                  />
+                ) : null}
+                <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-[#c89211]" : "opacity-80"}`} />
                 <span>{t(label as never)}</span>
               </Link>
             );
           })}
         </nav>
-        <Link
-          href="/"
-          className="border-t border-white/10 px-4 py-3 text-xs text-slate-500 hover:text-white"
-        >
-          {rtl ? `← ${t("backToSite")}` : `${t("backToSite")} →`}
-        </Link>
+        <div className="space-y-1 border-t border-white/10 p-3">
+          <Link
+            href="/"
+            className="block rounded-lg px-3 py-2 text-[12px] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+          >
+            {t("backToSite")}
+          </Link>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            disabled={loggingOut}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium text-slate-300 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-60"
+          >
+            {loggingOut ? (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <LogoutIcon className="h-4 w-4 opacity-80" />
+            )}
+            {t("logout")}
+          </button>
+        </div>
       </aside>
 
-      {/* Main column */}
       <div className={`${rtl ? "mr-[240px]" : "ml-[240px]"} flex min-h-screen flex-col`}>
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 shadow-sm">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-[#E8E8E8] bg-white/95 px-5 backdrop-blur sm:px-6">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">{storeName}</div>
-            <div className="truncate text-xs text-slate-500">{t("adminPanel")}</div>
+            <div className="truncate text-[13px] font-bold tracking-[0.12em] text-[#111827]">HAGOUR BY WAEL</div>
+            <div className="truncate text-[12px] text-[#6B7280]">{t("storeOwnerLabel")}</div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="inline-flex overflow-hidden rounded-md border border-slate-200 text-xs font-medium text-slate-700">
-              <button
-                type="button"
-                onClick={() => setLang("en")}
-                className={`px-2 py-1 hover:bg-slate-50 ${lang === "en" ? "bg-slate-100" : ""}`}
-              >
-                {t("english")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setLang("he")}
-                className={`px-2 py-1 hover:bg-slate-50 ${lang === "he" ? "bg-slate-100" : ""}`}
-              >
-                {t("hebrew")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setLang("ar")}
-                className={`px-2 py-1 hover:bg-slate-50 ${lang === "ar" ? "bg-slate-100" : ""}`}
-              >
-                {t("arabic")}
-              </button>
+            <div className="inline-flex overflow-hidden rounded-lg border border-[#E8E8E8] bg-[#FAFAFA]">
+              {langBtn("he", "HE")}
+              {langBtn("ar", "AR")}
+              {langBtn("en", "EN")}
             </div>
-            <span className="hidden text-sm text-slate-700 sm:inline">{userName}</span>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              disabled={loggingOut}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-            >
-              {loggingOut && <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
-              {t("logout")}
-            </button>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E8E8] bg-[#F7F8FA] text-[11px] font-bold text-[#111827]">
+              {(userName || "A").slice(0, 1).toUpperCase()}
+            </div>
+            <span className="hidden max-w-[140px] truncate text-[13px] text-[#374151] sm:inline">{userName}</span>
           </div>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H3" />
+    </svg>
   );
 }
 

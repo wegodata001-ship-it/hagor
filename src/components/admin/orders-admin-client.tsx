@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
@@ -42,26 +42,171 @@ export type OrderFilters = {
 
 const ORDER_STATUS_OPTIONS = ["ALL", "PENDING", "PAID", "CANCELLED", "FAILED"];
 const PAYMENT_STATUS_OPTIONS = ["ALL", "UNPAID", "PAID", "TEST_PAID", "DEMO_PAID", "REFUNDED", "FAILED"];
+const DELIVERY_TYPE_OPTIONS = ["ALL", "PICKUP", "SHIPPING"];
+
+const fieldClass =
+  "h-10 w-full rounded-lg border border-[#E8E8E8] bg-[#FAFAFA] px-3 text-[13px] text-[#111827] outline-none transition focus:border-[#c89211] focus:bg-white focus:ring-2 focus:ring-[#c89211]/15";
 
 function PaymentStatusBadge({ status }: { status: string }) {
   const { t } = useAdminI18n();
   if (status === "TEST_PAID") {
     return (
-      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+      <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
         {t("testPaymentBadge")}
       </span>
     );
   }
   if (status === "DEMO_PAID") {
     return (
-      <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
+      <span className="inline-flex rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-800">
         {t("demoPaymentBadge")}
       </span>
     );
   }
-  return <>{status}</>;
+  if (status === "PAID") {
+    return (
+      <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+        {t("badgePaid")}
+      </span>
+    );
+  }
+  if (status === "UNPAID") {
+    return (
+      <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+        {t("badgeUnpaid")}
+      </span>
+    );
+  }
+  if (status === "REFUNDED") {
+    return (
+      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+        {t("badgeRefunded")}
+      </span>
+    );
+  }
+  if (status === "FAILED") {
+    return (
+      <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+        {t("badgeFailed")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-900">
+      {t("badgePending")}
+    </span>
+  );
 }
-const DELIVERY_TYPE_OPTIONS = ["ALL", "PICKUP", "SHIPPING"];
+
+function OrderStatusBadge({ status }: { status: string }) {
+  const { t } = useAdminI18n();
+  if (status === "PAID") {
+    return (
+      <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+        {t("badgePaid")}
+      </span>
+    );
+  }
+  if (status === "CANCELLED") {
+    return (
+      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+        {t("badgeCancelled")}
+      </span>
+    );
+  }
+  if (status === "FAILED") {
+    return (
+      <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+        {t("badgeFailed")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full bg-[#FFF8E8] px-2.5 py-0.5 text-[11px] font-semibold text-[#8A6A12]">
+      {t("badgePending")}
+    </span>
+  );
+}
+
+function DeliveryCell({ o }: { o: OrderRowDTO }) {
+  const { t } = useAdminI18n();
+  if (o.deliveryOptionType === "PICKUP") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[13px] text-[#374151]">
+        <PickupIcon />
+        {t("pickupSelf")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13px] text-[#374151]">
+      <TruckIcon />
+      <span className="truncate">
+        {o.deliveryOptionName || t("shippingLabel")}
+        {o.deliveryPrice > 0 ? ` · ₪${o.deliveryPrice.toFixed(2)}` : ""}
+      </span>
+    </span>
+  );
+}
+
+function PickupIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    </svg>
+  );
+}
+
+function TruckIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125h3.75m0 0V6.375c0-.621.504-1.125 1.125-1.125h9.75c.621 0 1.125.504 1.125 1.125v6.75m-12 0h12" />
+    </svg>
+  );
+}
+
+function RowActions({ onOpen }: { onOpen: () => void }) {
+  const { t } = useAdminI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-label={t("actions")}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
+      >
+        <span className="text-lg leading-none">⋯</span>
+      </button>
+      {open ? (
+        <div className="absolute end-0 z-20 mt-1 min-w-[140px] rounded-xl border border-[#E8E8E8] bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            className="block w-full px-3 py-2 text-start text-[13px] text-[#111827] hover:bg-[#F7F8FA]"
+            onClick={() => {
+              setOpen(false);
+              onOpen();
+            }}
+          >
+            {t("viewOrderDetails")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function OrdersAdminClient({
   orders,
@@ -81,7 +226,19 @@ export function OrdersAdminClient({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<OrderFilters>(initialFilters);
-  const { t } = useAdminI18n();
+  const { t, lang } = useAdminI18n();
+
+  const summary = useMemo(() => {
+    const total = orders.length;
+    const paid = orders.filter((o) =>
+      ["PAID", "TEST_PAID", "DEMO_PAID"].includes(o.paymentStatus),
+    ).length;
+    const cancelled = orders.filter((o) => o.status === "CANCELLED").length;
+    const pendingCount = orders.filter(
+      (o) => o.status === "PENDING" || o.paymentStatus === "UNPAID",
+    ).length;
+    return { total, paid, pending: pendingCount, cancelled };
+  }, [orders]);
 
   const refresh = () => startTransition(() => router.refresh());
 
@@ -167,16 +324,13 @@ export function OrdersAdminClient({
     startTransition(() => router.replace(pathname));
   }
 
-  const deliveryLabel = (o: OrderRowDTO) =>
-    o.deliveryOptionType === "PICKUP"
-      ? "איסוף עצמי"
-      : `${o.deliveryOptionName} - ₪${o.deliveryPrice.toFixed(2)}`;
+  const dateLocale = lang === "en" ? "en-GB" : lang === "ar" ? "ar" : "he-IL";
 
   return (
-    <div>
+    <div className="space-y-5">
       {toast && (
         <div
-          className={`mb-4 rounded-lg border px-4 py-2 text-sm ${
+          className={`rounded-xl border px-4 py-2.5 text-sm ${
             toast.error
               ? "border-red-200 bg-red-50 text-red-800"
               : "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -185,156 +339,237 @@ export function OrdersAdminClient({
           {toast.message}
         </div>
       )}
-      <h1 className="text-xl font-semibold text-slate-900">{t("orders")}</h1>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+      <div>
+        <h1 className="text-[26px] font-bold tracking-tight text-[#111827] sm:text-[28px]">{t("orders")}</h1>
+        <p className="mt-1 text-[13px] text-[#6B7280]">{t("ordersSubtitle")}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: t("ordersSummaryTotal"), value: summary.total },
+          { label: t("ordersSummaryPaid"), value: summary.paid },
+          { label: t("ordersSummaryPending"), value: summary.pending },
+          { label: t("ordersSummaryCancelled"), value: summary.cancelled },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="rounded-2xl border border-[#E8E8E8] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(17,24,39,0.04)]"
+          >
+            <p className="text-[12px] font-medium text-[#6B7280]">{card.label}</p>
+            <p className="mt-1 text-[22px] font-bold tabular-nums text-[#111827]">{card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-[#E8E8E8] bg-white p-3 shadow-[0_1px_2px_rgba(17,24,39,0.04)] sm:p-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <input
             value={filters.q}
             onChange={(e) => setFilter("q", e.target.value)}
-            placeholder="חיפוש: מספר הזמנה / שם / טלפון / אימייל"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder={t("searchOrdersPlaceholder")}
+            className={`${fieldClass} lg:col-span-1`}
           />
-
-          <select
-            value={filters.status}
-            onChange={(e) => setFilter("status", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={fieldClass}>
             {ORDER_STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
-                {s === "ALL" ? "All order statuses" : s}
+                {s === "ALL" ? t("allOrderStatuses") : s}
               </option>
             ))}
           </select>
-
           <select
             value={filters.paymentStatus}
             onChange={(e) => setFilter("paymentStatus", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className={fieldClass}
           >
             {PAYMENT_STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
-                {s === "ALL" ? "All payment statuses" : s}
+                {s === "ALL" ? t("allPaymentStatuses") : s}
               </option>
             ))}
           </select>
-
           <select
             value={filters.deliveryType}
             onChange={(e) => setFilter("deliveryType", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className={fieldClass}
           >
             {DELIVERY_TYPE_OPTIONS.map((v) => (
               <option key={v} value={v}>
-                {v === "ALL" ? "All delivery types" : v === "PICKUP" ? "Pickup from store" : "Shipping"}
+                {v === "ALL" ? t("allDeliveryTypes") : v === "PICKUP" ? t("pickupSelf") : t("shippingLabel")}
               </option>
             ))}
           </select>
-
           <select
             value={filters.shippingArea}
             onChange={(e) => setFilter("shippingArea", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className={fieldClass}
           >
-            <option value="ALL">All areas</option>
+            <option value="ALL">{t("allAreas")}</option>
             {shippingAreas.map((area) => (
               <option key={area} value={area}>
                 {area}
               </option>
             ))}
           </select>
+        </div>
 
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <input
             type="date"
             value={filters.from}
             onChange={(e) => setFilter("from", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className={fieldClass}
+            aria-label={t("fromDate")}
           />
           <input
             type="date"
             value={filters.to}
             onChange={(e) => setFilter("to", e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className={fieldClass}
+            aria-label={t("toDate")}
           />
           <input
             type="number"
             value={filters.minTotal}
             onChange={(e) => setFilter("minTotal", e.target.value)}
-            placeholder="Min total"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder={t("minTotal")}
+            className={fieldClass}
           />
           <input
             type="number"
             value={filters.maxTotal}
             onChange={(e) => setFilter("maxTotal", e.target.value)}
-            placeholder="Max total"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder={t("maxTotal")}
+            className={fieldClass}
           />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={applyFilters}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-            >
-              Filter
-            </button>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Clear filters
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={applyFilters}
+            className="h-10 rounded-lg bg-[#111827] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1f2937]"
+          >
+            {t("filterApply")}
+          </button>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="h-10 rounded-lg border border-[#E8E8E8] bg-white px-4 text-[13px] font-medium text-[#374151] transition hover:bg-[#F7F8FA]"
+          >
+            {t("clearFilters")}
+          </button>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-              <th className="px-4 py-3">{t("orderNumber")}</th>
-              <th className="px-4 py-3">{t("customer")}</th>
-              <th className="px-4 py-3">{t("deliveryTitle")}</th>
-              <th className="px-4 py-3">{t("total")}</th>
-              <th className="px-4 py-3">{t("status")}</th>
-              <th className="px-4 py-3">{t("payment")}</th>
-              <th className="px-4 py-3">{t("date")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr
-                key={o.id}
-                className="cursor-pointer border-b border-slate-100 hover:bg-slate-50"
-                onClick={() => void openDetail(o.id)}
-              >
-                <td className="px-4 py-2 font-mono font-semibold">{o.orderNumber}</td>
-                <td className="px-4 py-2">{o.customerName}</td>
-                <td className="px-4 py-2">{deliveryLabel(o)}</td>
-                <td className="px-4 py-2 tabular-nums">₪{o.total.toFixed(2)}</td>
-                <td className="px-4 py-2">{o.status}</td>
-                <td className="px-4 py-2">
-                  <PaymentStatusBadge status={o.paymentStatus} />
-                </td>
-                <td className="px-4 py-2 text-xs">{new Date(o.createdAt).toLocaleString("he-IL")}</td>
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04)] md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-start text-[13px]">
+            <thead>
+              <tr className="border-b border-[#E8E8E8] bg-[#F8F7F4] text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">
+                <th className="px-4 py-3 font-semibold">{t("orderNumber")}</th>
+                <th className="px-4 py-3 font-semibold">{t("customer")}</th>
+                <th className="px-4 py-3 font-semibold">{t("deliveryTitle")}</th>
+                <th className="px-4 py-3 font-semibold">{t("total")}</th>
+                <th className="px-4 py-3 font-semibold">{t("status")}</th>
+                <th className="px-4 py-3 font-semibold">{t("payment")}</th>
+                <th className="px-4 py-3 font-semibold">{t("date")}</th>
+                <th className="px-3 py-3 font-semibold">{t("actions")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-[#6B7280]">
+                    {t("noOrders")}
+                  </td>
+                </tr>
+              ) : (
+                orders.map((o) => (
+                  <tr
+                    key={o.id}
+                    className="cursor-pointer border-b border-[#F1F1F1] transition hover:bg-[#FAFAFA]"
+                    onClick={() => void openDetail(o.id)}
+                  >
+                    <td className="h-[54px] px-4 font-bold text-[#111827]">{o.orderNumber}</td>
+                    <td className="px-4 font-medium text-[#374151]">{o.customerName}</td>
+                    <td className="max-w-[180px] px-4">
+                      <DeliveryCell o={o} />
+                    </td>
+                    <td className="px-4 font-bold tabular-nums text-[#111827]">₪{o.total.toFixed(2)}</td>
+                    <td className="px-4">
+                      <OrderStatusBadge status={o.status} />
+                    </td>
+                    <td className="px-4">
+                      <PaymentStatusBadge status={o.paymentStatus} />
+                    </td>
+                    <td className="px-4 whitespace-nowrap text-[12px] text-[#6B7280]">
+                      {new Date(o.createdAt).toLocaleString(dateLocale)}
+                    </td>
+                    <td className="px-3">
+                      <RowActions onOpen={() => void openDetail(o.id)} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-[#E8E8E8] px-4 py-3 text-[12px] text-[#6B7280]">
+          <span>{t("showingOrders").replace("{count}", String(orders.length))}</span>
+        </div>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {orders.length === 0 ? (
+          <div className="rounded-2xl border border-[#E8E8E8] bg-white px-4 py-10 text-center text-[13px] text-[#6B7280]">
+            {t("noOrders")}
+          </div>
+        ) : (
+          orders.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => void openDetail(o.id)}
+              className="block w-full rounded-2xl border border-[#E8E8E8] bg-white p-4 text-start shadow-[0_1px_2px_rgba(17,24,39,0.04)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-[#111827]">{o.orderNumber}</p>
+                  <p className="mt-0.5 text-[13px] font-medium text-[#374151]">{o.customerName}</p>
+                </div>
+                <p className="font-bold tabular-nums text-[#111827]">₪{o.total.toFixed(2)}</p>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <OrderStatusBadge status={o.status} />
+                <PaymentStatusBadge status={o.paymentStatus} />
+              </div>
+              <p className="mt-2 text-[12px] text-[#6B7280]">{new Date(o.createdAt).toLocaleString(dateLocale)}</p>
+            </button>
+          ))
+        )}
+        <p className="px-1 text-[12px] text-[#6B7280]">
+          {t("showingOrders").replace("{count}", String(orders.length))}
+        </p>
       </div>
 
       {pending && (
-        <div className="fixed bottom-6 left-6 z-[90] rounded-lg bg-slate-900 px-3 py-2 text-white">
+        <div className="fixed bottom-6 start-6 z-[90] rounded-lg bg-[#111827] px-3 py-2 text-white">
           <AdminSpinner className="h-4 w-4 border-t-white" />
         </div>
       )}
 
-      <AdminModal open={!!detailId} onClose={() => { setDetailId(null); setDetail(null); }} title={t("orderDetail")} size="xl">
+      <AdminModal
+        open={!!detailId}
+        onClose={() => {
+          setDetailId(null);
+          setDetail(null);
+        }}
+        title={t("orderDetail")}
+        size="xl"
+      >
         {loadingDetail && (
           <div className="flex justify-center py-8">
-            <AdminSpinner className="h-8 w-8 border-t-blue-600" />
+            <AdminSpinner className="h-8 w-8 border-t-[#c89211]" />
           </div>
         )}
         {!loadingDetail && detail && (
@@ -357,7 +592,7 @@ export function OrdersAdminClient({
               </div>
               <div>
                 <span className="text-slate-500">{t("date")}:</span>{" "}
-                {new Date(detail.createdAt).toLocaleString("he-IL")}
+                {new Date(detail.createdAt).toLocaleString(dateLocale)}
               </div>
             </div>
 
@@ -392,7 +627,11 @@ export function OrdersAdminClient({
               </label>
               <label className="text-xs">
                 {t("payment")}
-                <select name="paymentStatus" defaultValue={detail.paymentStatus} className="mt-1 block rounded border px-2 py-1 text-sm">
+                <select
+                  name="paymentStatus"
+                  defaultValue={detail.paymentStatus}
+                  className="mt-1 block rounded border px-2 py-1 text-sm"
+                >
                   <option value="UNPAID">UNPAID</option>
                   <option value="PAID">PAID</option>
                   <option value="REFUNDED">REFUNDED</option>
@@ -430,7 +669,7 @@ export function OrdersAdminClient({
                   className="mt-1 block w-32 rounded border px-2 py-1 text-sm"
                 />
               </label>
-              <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-xs text-white">
+              <button type="submit" className="rounded bg-[#111827] px-3 py-1.5 text-xs text-white">
                 {t("update")}
               </button>
             </form>
@@ -441,7 +680,9 @@ export function OrdersAdminClient({
               <p className="font-mono text-xs">{detail.customerEmail}</p>
               <p>{detail.customerPhone}</p>
               {detail.customerProfile && (
-                <p className="text-xs text-slate-600">{t("points")}: {detail.customerProfile.pointsBalance}</p>
+                <p className="text-xs text-slate-600">
+                  {t("points")}: {detail.customerProfile.pointsBalance}
+                </p>
               )}
             </div>
 
@@ -488,9 +729,11 @@ export function OrdersAdminClient({
                             {parseSelectedOptions(i.selectedOptions)?.type ? (
                               <div className="mt-1 text-[11px] text-slate-500">
                                 <div className="font-medium">אפשרויות שנבחרו:</div>
-                                {formatSelectedOptionsLines(parseSelectedOptions(i.selectedOptions), "he").map((line) => (
-                                  <div key={line}>{line}</div>
-                                ))}
+                                {formatSelectedOptionsLines(parseSelectedOptions(i.selectedOptions), "he").map(
+                                  (line) => (
+                                    <div key={line}>{line}</div>
+                                  ),
+                                )}
                               </div>
                             ) : null}
                           </div>
@@ -533,7 +776,7 @@ export function OrdersAdminClient({
                         </div>
                       ) : null}
                       <div className="text-xs text-slate-500">
-                        Paid At: {new Date(p.createdAt).toLocaleString("he-IL")}
+                        Paid At: {new Date(p.createdAt).toLocaleString(dateLocale)}
                       </div>
                     </li>
                   ))
@@ -559,7 +802,7 @@ export function OrdersAdminClient({
                         <span className="font-medium">Amount:</span> {a.currency} {a.amount.toFixed(2)}
                       </div>
                       <div className="text-xs text-slate-500">
-                        Started: {new Date(a.createdAt).toLocaleString("he-IL")}
+                        Started: {new Date(a.createdAt).toLocaleString(dateLocale)}
                       </div>
                       {a.successUrl ? (
                         <div className="truncate font-mono text-[10px] text-slate-500" dir="ltr">
@@ -567,13 +810,9 @@ export function OrdersAdminClient({
                         </div>
                       ) : null}
                       {a.transactionId || a.providerReference ? (
-                        <div className="font-mono text-xs">
-                          TransId: {a.transactionId || a.providerReference}
-                        </div>
+                        <div className="font-mono text-xs">TransId: {a.transactionId || a.providerReference}</div>
                       ) : null}
-                      {a.lastError ? (
-                        <div className="text-xs text-slate-600">lastError: {a.lastError}</div>
-                      ) : null}
+                      {a.lastError ? <div className="text-xs text-slate-600">lastError: {a.lastError}</div> : null}
                     </li>
                   ))
                 )}
@@ -587,16 +826,28 @@ export function OrdersAdminClient({
               {t("total")}: ₪{detail.total.toFixed(2)}
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div>{t("orderSubtotal")}: ₪{detail.subtotal.toFixed(2)}</div>
-              <div>{t("orderCouponDiscount")}: ₪{detail.discountAmount.toFixed(2)}</div>
-              <div>{t("orderPointsDiscount")}: ₪{detail.pointsDiscountAmount.toFixed(2)}</div>
-              <div>{t("orderDeliveryMethod")}: {detail.deliveryOptionName} ({detail.deliveryOptionType})</div>
-              <div>{t("orderDeliveryPrice")}: ₪{detail.deliveryPrice.toFixed(2)}</div>
+              <div>
+                {t("orderSubtotal")}: ₪{detail.subtotal.toFixed(2)}
+              </div>
+              <div>
+                {t("orderCouponDiscount")}: ₪{detail.discountAmount.toFixed(2)}
+              </div>
+              <div>
+                {t("orderPointsDiscount")}: ₪{detail.pointsDiscountAmount.toFixed(2)}
+              </div>
+              <div>
+                {t("orderDeliveryMethod")}: {detail.deliveryOptionName} ({detail.deliveryOptionType})
+              </div>
+              <div>
+                {t("orderDeliveryPrice")}: ₪{detail.deliveryPrice.toFixed(2)}
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span>{t("orderPaymentStatus")}:</span>
                 <PaymentStatusBadge status={detail.paymentStatus} />
               </div>
-              <div className="font-semibold">{t("orderFinalTotal")}: ₪{detail.total.toFixed(2)}</div>
+              <div className="font-semibold">
+                {t("orderFinalTotal")}: ₪{detail.total.toFixed(2)}
+              </div>
             </div>
           </div>
         )}
