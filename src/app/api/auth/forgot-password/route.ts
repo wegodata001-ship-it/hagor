@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { getAppUrl } from "@/lib/app-url";
@@ -29,7 +28,7 @@ export async function POST(req: Request) {
   const storeId = STORE_ID;
   const email = parsed.data.email.toLowerCase();
   const user = await prisma.user.findFirst({
-    where: { storeId, email, role: UserRole.CUSTOMER },
+    where: { storeId, email },
     select: { id: true, name: true, email: true },
   });
 
@@ -51,7 +50,7 @@ export async function POST(req: Request) {
   const resetUrl = `${getAppUrl()}/reset-password?token=${encodeURIComponent(token)}`;
   queueEmail(() =>
     sendPasswordResetEmail({
-      name: user.name ?? "לקוח",
+      name: user.name ?? "משתמש",
       email: user.email,
       resetUrl,
     }),

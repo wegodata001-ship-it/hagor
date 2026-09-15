@@ -46,6 +46,8 @@ export function portalOrigin(): string {
 /** Paths allowed on the portal host (admin surface + auth/upload helpers). */
 export function isPortalAllowedPath(pathname: string): boolean {
   if (pathname === "/login-admin" || pathname.startsWith("/login-admin/")) return true;
+  if (pathname === "/forgot-password" || pathname.startsWith("/forgot-password/")) return true;
+  if (pathname === "/reset-password" || pathname.startsWith("/reset-password/")) return true;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/api/upload")) return true;
