@@ -10,6 +10,7 @@ import {
 } from "@/lib/payments/hyp";
 import { processPaymentWebhook } from "@/lib/payments/process-webhook";
 import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
+import { buildPaymentSuccessUrl, createOrderTrackingToken } from "@/lib/order-tracking-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -181,9 +182,20 @@ async function handleReturn(req: NextRequest) {
       },
     });
 
-    const dest = resolved.success
-      ? `${base}/payment/success?orderId=${encodeURIComponent(order.id)}`
-      : `${base}/payment/failed?orderId=${encodeURIComponent(order.id)}`;
+    let dest = `${base}/payment/failed?orderId=${encodeURIComponent(order.id)}`;
+    if (resolved.success) {
+      try {
+        dest = buildPaymentSuccessUrl(order.id);
+      } catch {
+        try {
+          const token = createOrderTrackingToken(order.id);
+          dest = `${base}/payment/success?t=${encodeURIComponent(token)}`;
+        } catch {
+          console.error("[hyp/return] SUCCESS_TOKEN_MISSING", order.id);
+          dest = `${base}/track-order`;
+        }
+      }
+    }
     return NextResponse.redirect(dest);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

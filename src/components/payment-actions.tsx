@@ -8,10 +8,13 @@ export function PaymentActions({
   orderId,
   isPaid,
   paymentReady = true,
+  successHref,
 }: {
   orderId: string;
   isPaid: boolean;
   paymentReady?: boolean;
+  /** Signed success URL when already paid — never bare orderId for PII. */
+  successHref?: string;
 }) {
   const { t } = useStoreI18n();
   const [msg, setMsg] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function PaymentActions({
     return (
       <div className="space-y-3">
         <p className="font-medium text-emerald-400">{t("paymentSuccessTitle")}</p>
-        <Link href={`/payment/success?orderId=${orderId}`} className="hagor-btn inline-block">
+        <Link href={successHref || "/track-order"} className="hagor-btn inline-block">
           {t("paymentSuccessView")}
         </Link>
       </div>

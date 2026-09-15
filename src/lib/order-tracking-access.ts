@@ -50,6 +50,18 @@ export function buildOrderTrackingUrl(orderId: string): string {
   return `${getAppUrl()}/track-order?t=${encodeURIComponent(token)}`;
 }
 
+/** Signed success-page URL — never expose order details via bare orderId alone. */
+export function buildPaymentSuccessUrl(orderId: string): string {
+  const token = createOrderTrackingToken(orderId);
+  return `${getAppUrl()}/payment/success?t=${encodeURIComponent(token)}`;
+}
+
+/** Relative success path for in-app links. */
+export function buildPaymentSuccessPath(orderId: string): string {
+  const token = createOrderTrackingToken(orderId);
+  return `/payment/success?t=${encodeURIComponent(token)}`;
+}
+
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }

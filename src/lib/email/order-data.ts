@@ -1,10 +1,12 @@
 import "server-only";
 
+import { formatSelectedOptionsLines, parseSelectedOptions } from "@/lib/hagour-product-options";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 
 export type OrderEmailLine = {
   name: string;
+  variation: string | null;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -86,12 +88,17 @@ export async function loadOrderEmailPayload(orderId: string): Promise<OrderEmail
       trackingNumber: order.trackingNumber,
       courierName: order.courierName,
     },
-    items: order.items.map((i) => ({
-      name: i.productName,
-      quantity: i.quantity,
-      unitPrice: Number(i.unitPrice),
-      lineTotal: Number(i.totalPrice),
-    })),
+    items: order.items.map((i) => {
+      const opts = parseSelectedOptions(i.selectedOptions);
+      const lines = formatSelectedOptionsLines(opts, "he");
+      return {
+        name: i.productName,
+        variation: lines.length ? lines.join(" · ") : null,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        lineTotal: Number(i.totalPrice),
+      };
+    }),
     currency: settings?.currency ?? "ILS",
     payment: payment
       ? {
@@ -111,21 +118,57 @@ export function formatMoney(amount: number, currency = "ILS"): string {
 
 export function renderOrderItemsHtml(items: OrderEmailLine[], currency: string): string {
   const rows = items
-    .map(
-      (i) =>
-        `<tr>
-      <td style="padding:10px 8px;border-bottom:1px solid #27272a;color:#f8fafc;">${escapeHtmlInline(i.name)}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #27272a;text-align:center;">×${i.quantity}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #27272a;text-align:left;color:#c89211;font-weight:700;">${formatMoney(i.lineTotal, currency)}</td>
-    </tr>`,
-    )
+    .map((i) => {
+      const variation = i.variation
+        ? `<div style="margin-top:4px;font-size:12px;color:#94a3b8;font-weight:400;">${escapeHtmlInline(i.variation)}</div>`
+        : "";
+      return `<tr>
+      <td style="padding:12px 8px;border-bottom:1px solid #27272a;color:#f8fafc;vertical-align:top;">
+        <div style="font-weight:700;">${escapeHtmlInline(i.name)}</div>${variation}
+      </td>
+      <td style="padding:12px 8px;border-bottom:1px solid #27272a;text-align:center;vertical-align:top;">×${i.quantity}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid #27272a;text-align:left;color:#c89211;font-weight:700;vertical-align:top;">${formatMoney(i.lineTotal, currency)}</td>
+    </tr>`;
+    })
     .join("");
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #27272a;border-radius:12px;margin:16px 0;">
     <thead><tr style="background:#0f0f0f;">
       <th style="padding:8px;font-size:11px;color:#94a3b8;text-align:right;">מוצר</th>
       <th style="padding:8px;font-size:11px;color:#94a3b8;">כמות</th>
-      <th style="padding:8px;font-size:11px;color:#94a3b8;text-align:left;">סה״כ</th>
+      <th style="padding:8px;font-size:11px;color:#94a3b8;text-align:left;">מחיר</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+export function renderOrderTotalsHtml(
+  order: Pick<
+    OrderEmailPayload["order"],
+    "subtotal" | "deliveryPrice" | "discountAmount" | "pointsDiscountAmount" | "total"
+  >,
+  currency: string,
+): string {
+  const discount = order.discountAmount + order.pointsDiscountAmount;
+  const discountRow =
+    discount > 0
+      ? `<tr>
+      <td style="padding:6px 0;color:#94a3b8;font-size:13px;">הנחה</td>
+      <td style="padding:6px 0;text-align:left;color:#86efac;font-size:13px;">−${formatMoney(discount, currency)}</td>
+    </tr>`
+      : "";
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">
+    <tr>
+      <td style="padding:6px 0;color:#94a3b8;font-size:13px;">Subtotal</td>
+      <td style="padding:6px 0;text-align:left;color:#e2e8f0;font-size:13px;">${formatMoney(order.subtotal, currency)}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 0;color:#94a3b8;font-size:13px;">משלוח</td>
+      <td style="padding:6px 0;text-align:left;color:#e2e8f0;font-size:13px;">${formatMoney(order.deliveryPrice, currency)}</td>
+    </tr>
+    ${discountRow}
+    <tr>
+      <td style="padding:12px 0 0;border-top:1px solid #27272a;color:#f8fafc;font-size:16px;font-weight:800;">סה״כ ששולם</td>
+      <td style="padding:12px 0 0;border-top:1px solid #27272a;text-align:left;color:#c89211;font-size:18px;font-weight:800;">${formatMoney(order.total, currency)}</td>
+    </tr>
+  </table>`;
 }
 
 function escapeHtmlInline(s: string): string {

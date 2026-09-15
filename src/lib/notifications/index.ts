@@ -39,19 +39,36 @@ export async function notifyNewOrderToOwner(payload: OrderNotificationPayload): 
   }
 }
 
-/** After payment success — customer confirmation email. */
-export async function notifyOrderConfirmationToCustomer(payload: OrderNotificationPayload): Promise<void> {
-  queueEmail(() => sendOrderConfirmationEmail(payload.orderId));
+/**
+ * After verified payment — customer confirmation.
+ * Awaited on the payment settlement path so Vercel does not freeze before SMTP completes.
+ */
+export async function notifyOrderConfirmationToCustomer(
+  payload: OrderNotificationPayload,
+): Promise<boolean> {
+  try {
+    return await sendOrderConfirmationEmail(payload.orderId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[email] EMAIL_FAILED customer_confirmation", payload.orderId, message.slice(0, 400));
+    return false;
+  }
 }
 
-/** After payment — owner paid notification. */
-export async function notifyOrderPaidToOwner(payload: OrderNotificationPayload): Promise<void> {
-  queueEmail(() => sendOrderPaidAdminEmail(payload.orderId));
-
-  const settings = await storeContacts();
-  const msg = `תשלום התקבל ✅\n${payload.orderNumber}\n${payload.customerName}\n₪${payload.total.toFixed(2)}`;
-  if (settings?.whatsappPhone) {
-    buildWhatsAppUrl(settings.whatsappPhone, msg);
+/** After payment — owner paid notification (awaited; never throws to caller). */
+export async function notifyOrderPaidToOwner(payload: OrderNotificationPayload): Promise<boolean> {
+  try {
+    const ok = await sendOrderPaidAdminEmail(payload.orderId);
+    const settings = await storeContacts();
+    const msg = `תשלום התקבל ✅\n${payload.orderNumber}\n${payload.customerName}\n₪${payload.total.toFixed(2)}`;
+    if (settings?.whatsappPhone) {
+      buildWhatsAppUrl(settings.whatsappPhone, msg);
+    }
+    return ok;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[email] EMAIL_FAILED owner_paid", payload.orderId, message.slice(0, 400));
+    return false;
   }
 }
 

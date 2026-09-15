@@ -17,6 +17,7 @@ import type { PaymentSessionRequest, PaymentSessionResult } from "./types";
 import { parseCardcomWebhook } from "./cardcom";
 import { parseTranzilaWebhook } from "./tranzila";
 import { parseStripeWebhookEvent } from "./stripe";
+import { buildPaymentSuccessUrl, createOrderTrackingToken } from "@/lib/order-tracking-access";
 
 export type { PaymentProviderId, PaymentSessionResult } from "./types";
 export { getPaymentProviderConfig, getSiteBaseUrl } from "./config";
@@ -59,6 +60,18 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
   const currency = settings?.currency ?? "ILS";
   const base = getSiteBaseUrl();
 
+  let successUrl = `${base}/track-order`;
+  try {
+    successUrl = buildPaymentSuccessUrl(order.id);
+  } catch {
+    try {
+      const token = createOrderTrackingToken(order.id);
+      successUrl = `${base}/payment/success?t=${encodeURIComponent(token)}`;
+    } catch {
+      successUrl = `${base}/track-order`;
+    }
+  }
+
   const req: PaymentSessionRequest = {
     orderId: order.id,
     orderNumber: order.orderNumber,
@@ -67,7 +80,7 @@ export async function createPaymentSession(orderId: string): Promise<PaymentSess
     customerEmail: order.customerEmail,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
-    successUrl: `${base}/payment/success?orderId=${encodeURIComponent(order.id)}`,
+    successUrl,
     cancelUrl: `${base}/payment/failed?orderId=${encodeURIComponent(order.id)}`,
   };
 

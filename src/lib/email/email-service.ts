@@ -14,12 +14,15 @@ import {
   formatMoney,
   loadOrderEmailPayload,
   renderOrderItemsHtml,
+  renderOrderTotalsHtml,
   type OrderEmailPayload,
 } from "@/lib/email/order-data";
 import { sendMail } from "@/lib/email/send";
 import { buildOrderTrackingUrl } from "@/lib/order-tracking-access";
-import { formatOrderDate } from "@/lib/order-tracking";
+import { formatOrderDate, isOrderPaymentSettled } from "@/lib/order-tracking";
+import { BRAND_LEGAL_NAME } from "@/lib/brand";
 import { SITE_NAME } from "@/lib/store";
+import type { OrderPaymentStatus, OrderStatus } from "@prisma/client";
 
 function adminReceiver(): string | null {
   const cfg = getEmailConfig();
@@ -28,10 +31,11 @@ function adminReceiver(): string | null {
 
 function paymentProviderLabel(provider: string | null | undefined): string {
   const p = (provider || "").toLowerCase();
-  if (p === "hyp" || p === "hypay") return "Hyp";
-  if (p === "demo") return "Demo";
-  if (p === "stripe") return "Stripe";
-  return provider || "—";
+  if (p === "hyp" || p === "hypay") return "כרטיס אשראי";
+  if (p === "stripe") return "כרטיס אשראי";
+  if (p === "cardcom" || p === "tranzila" || p === "meshulam") return "כרטיס אשראי";
+  if (p === "demo") return "תשלום";
+  return "כרטיס אשראי";
 }
 
 function orderBodyBlock(payload: OrderEmailPayload, intro: string, extraRows = ""): string {
@@ -48,8 +52,9 @@ function orderBodyBlock(payload: OrderEmailPayload, intro: string, extraRows = "
       ${infoRow("כתובת", o.address ? escapeHtml(o.address) : "—")}
       ${extraRows}
     </table>
+    <p style="margin:20px 0 8px;font-size:14px;font-weight:800;color:#c89211;letter-spacing:0.06em;">פרטי ההזמנה</p>
     ${renderOrderItemsHtml(payload.items, payload.currency)}
-    <p style="margin:16px 0 0;font-size:18px;font-weight:800;color:#c89211;">סה״כ: ${formatMoney(o.total, payload.currency)}</p>
+    ${renderOrderTotalsHtml(o, payload.currency)}
   `;
 }
 
@@ -110,30 +115,74 @@ export async function sendOrderCreatedEmail(orderId: string): Promise<void> {
   });
 }
 
-export async function sendOrderConfirmationEmail(orderId: string): Promise<void> {
-  if (await wasCustomerConfirmationEmailSent(orderId)) return;
+export async function sendOrderConfirmationEmail(orderId: string): Promise<boolean> {
+  if (await wasCustomerConfirmationEmailSent(orderId)) return true;
   const payload = await loadOrderEmailPayload(orderId);
-  if (!payload?.order.customerEmail.trim()) return;
+  if (!payload) {
+    await markOrderEmailFailed(orderId, "customer_confirmation_order_missing");
+    return false;
+  }
+  if (
+    !isOrderPaymentSettled(
+      payload.order.paymentStatus as OrderPaymentStatus,
+      payload.order.status as OrderStatus,
+    )
+  ) {
+    console.warn("[email] skipped order_confirmation reason=order_not_paid", orderId);
+    return false;
+  }
+  const to = payload.order.customerEmail.trim();
+  if (!to) {
+    await markOrderEmailFailed(orderId, "customer_confirmation_missing_email");
+    return false;
+  }
+
   let track = `${getAppUrl()}/track-order`;
   try {
     track = buildOrderTrackingUrl(orderId);
   } catch {
     /* fall back to public track page */
   }
-  const paymentRows = `${infoRow("סטטוס תשלום", "שולם")}${infoRow("ספק תשלום", escapeHtml(paymentProviderLabel(payload.payment?.provider)))}`;
-  const body = `${orderBodyBlock(
-    payload,
-    `שלום ${escapeHtml(payload.order.customerName)},<br/>תודה! התשלום אושר ואנחנו מכינים את ההזמנה.`,
-    paymentRows,
-  )}<p style="text-align:center;">${emailButton(track, "מעקב אחר ההזמנה")}</p>`;
+
+  const o = payload.order;
+  const deliveryBlock =
+    o.deliveryOptionName || o.address
+      ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+          ${o.deliveryOptionName ? infoRow("שיטת משלוח", escapeHtml(o.deliveryOptionName)) : ""}
+          ${o.address ? infoRow("כתובת", escapeHtml(o.address)) : ""}
+        </table>`
+      : "";
+
+  const body = `
+    <p style="margin:0 0 8px;font-size:13px;letter-spacing:0.18em;color:#c89211;font-weight:800;">${escapeHtml(BRAND_LEGAL_NAME)}</p>
+    <p style="margin:0 0 18px;font-size:20px;font-weight:800;color:#fff;">תודה על ההזמנה</p>
+    <p style="margin:0 0 16px;">שלום ${escapeHtml(o.customerName)},</p>
+    <p style="margin:0 0 18px;">התשלום התקבל בהצלחה וההזמנה שלך נקלטה במערכת.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;">
+      ${infoRow("מספר הזמנה", escapeHtml(o.orderNumber))}
+      ${infoRow("סכום ששולם", formatMoney(o.total, payload.currency))}
+    </table>
+    <p style="margin:20px 0 8px;font-size:14px;font-weight:800;color:#c89211;letter-spacing:0.06em;">פרטי ההזמנה</p>
+    ${renderOrderItemsHtml(payload.items, payload.currency)}
+    ${renderOrderTotalsHtml(o, payload.currency)}
+    ${deliveryBlock}
+    <p style="margin:20px 0 8px;">נעדכן אותך בהמשך לגבי סטטוס ההזמנה.</p>
+    <p style="text-align:center;margin-top:8px;">${emailButton(track, "מעקב אחר ההזמנה")}</p>
+    <p style="margin:24px 0 0;text-align:center;font-size:12px;letter-spacing:0.16em;color:#c89211;font-weight:800;">${escapeHtml(BRAND_LEGAL_NAME)}</p>
+  `;
+
   const ok = await sendMail({
-    to: payload.order.customerEmail,
-    subject: `HAGOUR — ההזמנה התקבלה בהצלחה`,
-    html: wrapEmailHtml("ההזמנה התקבלה בהצלחה", body),
+    to,
+    subject: `הזמנה ${o.orderNumber} התקבלה בהצלחה | ${BRAND_LEGAL_NAME}`,
+    html: wrapEmailHtml("תודה על ההזמנה", body, `הזמנה ${o.orderNumber} התקבלה בהצלחה`),
     type: "order_confirmation",
   });
-  if (ok) await markCustomerConfirmationEmailSent(orderId);
-  else await markOrderEmailFailed(orderId, "customer_confirmation_failed");
+  if (ok) {
+    await markCustomerConfirmationEmailSent(orderId);
+    return true;
+  }
+  await markOrderEmailFailed(orderId, "customer_confirmation_failed");
+  return false;
 }
 
 /** Customer email after demo checkout — simple Hebrew copy per product spec. */
@@ -157,13 +206,16 @@ export async function sendDemoOrderConfirmationEmail(orderId: string): Promise<v
   });
 }
 
-export async function sendOrderPaidAdminEmail(orderId: string): Promise<void> {
-  if (await wasOwnerPaidEmailSent(orderId)) return;
+export async function sendOrderPaidAdminEmail(orderId: string): Promise<boolean> {
+  if (await wasOwnerPaidEmailSent(orderId)) return true;
   const to = adminReceiver();
-  if (!to) return;
+  if (!to) {
+    console.warn("[email] skipped order_paid reason=missing_receiver", orderId);
+    return false;
+  }
   const payload = await loadOrderEmailPayload(orderId);
-  if (!payload) return;
-  const extra = `${infoRow("ספק תשלום", escapeHtml(paymentProviderLabel(payload.payment?.provider)))}${infoRow(
+  if (!payload) return false;
+  const extra = `${infoRow("אמצעי תשלום", escapeHtml(paymentProviderLabel(payload.payment?.provider)))}${infoRow(
     "מזהה עסקה",
     escapeHtml(payload.payment?.transactionId || "—"),
   )}${
@@ -178,8 +230,12 @@ export async function sendOrderPaidAdminEmail(orderId: string): Promise<void> {
     html: wrapEmailHtml("הזמנה חדשה שולמה", body),
     type: "order_paid",
   });
-  if (ok) await markOwnerPaidEmailSent(orderId);
-  else await markOrderEmailFailed(orderId, "owner_paid_email_failed");
+  if (ok) {
+    await markOwnerPaidEmailSent(orderId);
+    return true;
+  }
+  await markOrderEmailFailed(orderId, "owner_paid_email_failed");
+  return false;
 }
 
 const FULFILLMENT_LABELS: Record<string, string> = {

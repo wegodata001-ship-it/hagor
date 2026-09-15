@@ -7,10 +7,12 @@ import {
 import { prisma } from "../prisma";
 import { STORE_ID } from "@/lib/store";
 import { reduceInventoryAfterPayment } from "@/lib/inventory/updateInventory";
-import { queueEmail, sendDemoOrderConfirmationEmail } from "@/lib/email/email-service";
+import { sendDemoOrderConfirmationEmail } from "@/lib/email/email-service";
+import { markOrderEmailFailed } from "@/lib/email/email-idempotency";
 import {
   notifyOrderConfirmationToCustomer,
   notifyOrderPaidToOwner,
+  type OrderNotificationPayload,
 } from "@/lib/notifications";
 import { sanitizePaymentPayload } from "@/lib/payments/sanitize-payload";
 
@@ -33,6 +35,57 @@ function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+async function buildPaidEmailPayload(orderId: string): Promise<OrderNotificationPayload | null> {
+  const paidSummary = await prisma.order.findFirst({
+    where: { id: orderId, storeId: STORE_ID },
+    select: {
+      customerEmail: true,
+      customerName: true,
+      orderNumber: true,
+      total: true,
+    },
+  });
+  if (!paidSummary) return null;
+  const cur = await prisma.storeSettings.findUnique({
+    where: { storeId: STORE_ID },
+    select: { currency: true },
+  });
+  return {
+    orderId,
+    orderNumber: paidSummary.orderNumber,
+    customerEmail: paidSummary.customerEmail,
+    customerName: paidSummary.customerName,
+    total: Number(paidSummary.total),
+    currency: cur?.currency ?? "ILS",
+  };
+}
+
+/**
+ * Send post-payment emails AFTER settlement is committed.
+ * Failures are logged only — never reverses PAID / Payment rows.
+ * Must be awaited on serverless so the runtime does not freeze mid-send.
+ */
+async function sendPostPaymentEmails(orderId: string, provider: string): Promise<void> {
+  const payload = await buildPaidEmailPayload(orderId);
+  if (!payload) return;
+  try {
+    if (provider === "DEMO") {
+      await sendDemoOrderConfirmationEmail(orderId);
+    } else {
+      await notifyOrderConfirmationToCustomer(payload);
+    }
+    await notifyOrderPaidToOwner(payload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[email] EMAIL_FAILED post_payment", orderId, message.slice(0, 400));
+    try {
+      await markOrderEmailFailed(orderId, `post_payment:${message.slice(0, 200)}`);
+    } catch {
+      /* ignore secondary log failure */
+    }
+  }
+}
+
 export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: boolean; message: string }> {
   const storeId = STORE_ID;
 
@@ -51,6 +104,10 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
       where: { storeId, transactionId: input.transactionId },
     });
     if (existing) {
+      // Settlement already done — still ensure confirmation email if first attempt never finished (serverless freeze).
+      if (input.success) {
+        await sendPostPaymentEmails(order.id, input.provider);
+      }
       return { ok: true, message: "Duplicate transaction ignored" };
     }
   }
@@ -73,6 +130,9 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
       order.paymentStatus === OrderPaymentStatus.TEST_PAID ||
       order.paymentStatus === OrderPaymentStatus.DEMO_PAID);
   if (settled) {
+    if (input.success) {
+      await sendPostPaymentEmails(order.id, input.provider);
+    }
     return { ok: true, message: "Order already paid" };
   }
 
@@ -196,33 +256,7 @@ export async function processPaymentWebhook(input: WebhookInput): Promise<{ ok: 
     console.error("[payments] inventory_error_after_paid", order.id, inv.message);
   }
 
-  const paidSummary = await prisma.order.findFirst({
-    where: { id: order.id, storeId },
-    select: {
-      customerEmail: true,
-      customerName: true,
-      orderNumber: true,
-      total: true,
-    },
-  });
-  const cur = await prisma.storeSettings.findUnique({ where: { storeId } });
-  const curCurrency = cur?.currency ?? "ILS";
-  if (paidSummary) {
-    const payload = {
-      orderId: order.id,
-      orderNumber: paidSummary.orderNumber,
-      customerEmail: paidSummary.customerEmail,
-      customerName: paidSummary.customerName,
-      total: Number(paidSummary.total),
-      currency: curCurrency,
-    };
-    if (input.provider === "DEMO") {
-      queueEmail(() => sendDemoOrderConfirmationEmail(order.id));
-    } else {
-      void notifyOrderConfirmationToCustomer(payload).catch(() => {});
-    }
-    void notifyOrderPaidToOwner(payload).catch(() => {});
-  }
+  await sendPostPaymentEmails(order.id, input.provider);
 
   return inv.ok
     ? { ok: true, message: "Payment recorded" }

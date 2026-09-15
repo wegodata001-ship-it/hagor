@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getPaymentProviderConfig, isPaymentConfigured } from "@/lib/payments/config";
 import { STORE_ID } from "@/lib/store";
 import { PaymentActions } from "@/components/payment-actions";
+import { buildPaymentSuccessPath } from "@/lib/order-tracking-access";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,15 @@ export default async function PaymentPage({
     order.paymentStatus === "TEST_PAID" ||
     order.paymentStatus === "DEMO_PAID";
 
+  let successHref = "/track-order";
+  if (isPaid) {
+    try {
+      successHref = buildPaymentSuccessPath(order.id);
+    } catch {
+      successHref = "/track-order";
+    }
+  }
+
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
       <h1 className="text-center text-2xl font-black text-white">תשלום מאובטח</h1>
@@ -49,7 +59,12 @@ export default async function PaymentPage({
       </p>
       <p className="mt-2 text-center text-xs text-zinc-500">המלאי יירד רק לאחר אישור תשלום מאובטח</p>
       <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6">
-        <PaymentActions orderId={order.id} isPaid={isPaid} paymentReady={paymentReady} />
+        <PaymentActions
+          orderId={order.id}
+          isPaid={isPaid}
+          paymentReady={paymentReady}
+          successHref={successHref}
+        />
       </div>
       <Link href="/account/orders" className="mt-6 block text-center text-sm text-hagor-gold hover:underline">
         ההזמנות שלי
