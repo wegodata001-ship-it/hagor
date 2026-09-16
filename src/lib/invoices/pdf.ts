@@ -7,6 +7,7 @@ import {
   type PdfLang,
 } from "@/lib/pdf/order-confirmation-pdf";
 import { INVOICE_PAYMENT_STATUSES, invoiceDocumentNumber } from "@/lib/invoices/data";
+import { attachLocalizedProductNames } from "@/lib/pdf/product-name-loader";
 
 /**
  * Invoice PDF renderer.
@@ -60,6 +61,7 @@ export async function loadInvoicePdf(params: {
       notes: true,
       items: {
         select: {
+          productId: true,
           productName: true,
           quantity: true,
           unitPrice: true,
@@ -100,8 +102,9 @@ export async function loadInvoicePdf(params: {
   });
 
   const payment = order.payments[0] ?? null;
+  const items = await attachLocalizedProductNames(params.storeId, order.items);
   const bytes = await buildOrderConfirmationPdf({
-    order,
+    order: { ...order, items },
     lang: params.lang ?? "he",
     storePhone: settings?.storePhone,
     business: {

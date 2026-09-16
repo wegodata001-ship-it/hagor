@@ -25,6 +25,28 @@ async function storeContacts() {
   });
 }
 
+/**
+ * Read the store's default language (`he`, `ar`, or `en`) — this is the
+ * language the customer's order-confirmation email + PDF are rendered in.
+ *
+ * The Order model itself does NOT carry a per-checkout language, so the
+ * store default is our source of truth. Falls back to `he` on any read
+ * failure so notifications never break.
+ */
+async function orderConfirmationLang(): Promise<"he" | "ar" | "en"> {
+  try {
+    const s = await prisma.storeSettings.findUnique({
+      where: { storeId: STORE_ID },
+      select: { languageDefault: true },
+    });
+    const v = (s?.languageDefault ?? "he").toLowerCase();
+    if (v === "ar" || v === "en") return v;
+    return "he";
+  } catch {
+    return "he";
+  }
+}
+
 /** After checkout — notify store owner (email + WhatsApp). */
 export async function notifyNewOrderToOwner(payload: OrderNotificationPayload): Promise<void> {
   queueEmail(() => sendOrderCreatedEmail(payload.orderId));
@@ -47,7 +69,8 @@ export async function notifyOrderConfirmationToCustomer(
   payload: OrderNotificationPayload,
 ): Promise<boolean> {
   try {
-    return await sendOrderConfirmationEmail(payload.orderId);
+    const lang = await orderConfirmationLang();
+    return await sendOrderConfirmationEmail(payload.orderId, { lang });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[email] EMAIL_FAILED customer_confirmation", payload.orderId, message.slice(0, 400));

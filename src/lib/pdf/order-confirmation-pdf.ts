@@ -34,7 +34,16 @@ export type PdfOrder = {
   /** Optional customer note attached to the order (Order.notes). */
   notes?: string | null;
   items: {
+    /** Snapshot name at order time (legacy — used as final fallback). */
     productName: string;
+    /**
+     * Optional per-language names. When present the renderer picks the
+     * variant matching the PDF `lang`, falling back to `productName`.
+     * Populated by the loaders that JOIN OrderItem.productId → Product.
+     */
+    productNameHe?: string | null;
+    productNameAr?: string | null;
+    productNameEn?: string | null;
     quantity: number;
     unitPrice: { toString(): string } | number;
     totalPrice: { toString(): string } | number;
@@ -112,14 +121,15 @@ function getLabels(lang: PdfLang) {
     return {
       dir: "ltr" as const,
       tactical: "TACTICAL",
-      titlePaid: "Order & Payment Confirmation",
-      titleUnpaid: "Order Confirmation",
+      // We always ship an ORDER CONFIRMATION (not a tax invoice), regardless
+      // of payment state — the payment status is shown on its own row.
+      title: "Order Confirmation",
       docNumber: "Document no.",
       orderNumber: "Order no.",
       date: "Date",
       time: "Time",
       status: "Status",
-      paymentStatus: "Payment",
+      paymentStatus: "Payment status",
       paymentMethod: "Payment method",
       paid: "Paid",
       unpaid: "Unpaid",
@@ -132,7 +142,7 @@ function getLabels(lang: PdfLang) {
       email: "Email",
       address: "Address",
       website: "Website",
-      customerDetails: "Customer",
+      customerDetails: "Customer details",
       customerName: "Name",
       products: "Order items",
       colIndex: "#",
@@ -143,46 +153,47 @@ function getLabels(lang: PdfLang) {
       colTotal: "Total",
       subtotal: "Subtotal",
       discount: "Discount",
-      delivery: "Delivery",
+      delivery: "Shipping",
       grandTotal: "Total",
-      grandTotalPaid: "Total paid",
+      grandTotalPaid: "Amount paid",
       paymentDetails: "Payment details",
       confirmationNumber: "Confirmation no.",
       amountPaid: "Amount paid",
       paidAt: "Payment date",
-      fulfillmentDetails: "Fulfillment details",
+      fulfillmentDetails: "Pickup / Shipping details",
       pickup: "Store pickup",
-      shipping: "Delivery",
+      shipping: "Shipping",
       recipient: "Recipient",
       method: "Method",
       notes: "Order notes",
       thankYou: "Thank you for choosing HAGOUR BY WAEL",
       pageOf: (a: number, b: number) => `Page ${a} of ${b}`,
-      fmt: "en-GB",
+      // Locale used ONLY for date formatting. All languages produce Western
+      // Arabic digits (0–9) so BiDi never has to reorder digit-glyphs.
+      dateLocale: "en-GB",
     };
   }
   if (lang === "ar") {
     return {
       dir: "rtl" as const,
       tactical: "TACTICAL",
-      titlePaid: "تأكيد الطلب والدفع",
-      titleUnpaid: "تأكيد الطلب",
+      title: "تأكيد الطلب",
       docNumber: "رقم المستند",
       orderNumber: "رقم الطلب",
       date: "التاريخ",
       time: "الوقت",
       status: "الحالة",
       paymentStatus: "حالة الدفع",
-      paymentMethod: "وسيلة الدفع",
+      paymentMethod: "طريقة الدفع",
       paid: "مدفوع",
       unpaid: "غير مدفوع",
       pending: "قيد المعالجة",
-      businessDetails: "بيانات النشاط",
-      businessName: "الاسم التجاري",
+      businessDetails: "بيانات المتجر",
+      businessName: "اسم المتجر",
       legalName: "الاسم القانوني",
       taxId: "الرقم الضريبي",
       phone: "الهاتف",
-      email: "البريد",
+      email: "البريد الإلكتروني",
       address: "العنوان",
       website: "الموقع",
       customerDetails: "بيانات العميل",
@@ -192,18 +203,18 @@ function getLabels(lang: PdfLang) {
       colProduct: "المنتج",
       colQty: "الكمية",
       colUnit: "سعر الوحدة",
-      colDiscount: "خصم",
+      colDiscount: "الخصم",
       colTotal: "الإجمالي",
       subtotal: "المجموع الفرعي",
-      discount: "خصم",
-      delivery: "التوصيل",
+      discount: "الخصم",
+      delivery: "الشحن",
       grandTotal: "الإجمالي",
       grandTotalPaid: "المبلغ المدفوع",
-      paymentDetails: "تفاصيل الدفع",
+      paymentDetails: "بيانات الدفع",
       confirmationNumber: "رقم التأكيد",
       amountPaid: "المبلغ المدفوع",
       paidAt: "تاريخ الدفع",
-      fulfillmentDetails: "تفاصيل الاستلام",
+      fulfillmentDetails: "بيانات الاستلام / التوصيل",
       pickup: "استلام ذاتي",
       shipping: "توصيل",
       recipient: "المستلم",
@@ -211,15 +222,15 @@ function getLabels(lang: PdfLang) {
       notes: "ملاحظات",
       thankYou: "شكراً لاختياركم HAGOUR BY WAEL",
       pageOf: (a: number, b: number) => `صفحة ${a} من ${b}`,
-      fmt: "ar",
+      // Western digits (0–9) via en-GB — avoids Arabic-Indic digit reordering.
+      dateLocale: "en-GB",
     };
   }
   // he (default)
   return {
     dir: "rtl" as const,
     tactical: "TACTICAL",
-    titlePaid: "אישור תשלום",
-    titleUnpaid: "אישור הזמנה",
+    title: "אישור הזמנה",
     docNumber: "מספר מסמך",
     orderNumber: "מספר הזמנה",
     date: "תאריך",
@@ -233,30 +244,30 @@ function getLabels(lang: PdfLang) {
     businessDetails: "פרטי העסק",
     businessName: "שם העסק",
     legalName: "שם משפטי",
-    taxId: "ח.פ.",
+    taxId: 'ח"פ',
     phone: "טלפון",
-    email: "אימייל",
+    email: 'דוא"ל',
     address: "כתובת",
     website: "אתר",
-    customerDetails: "פרטי לקוח",
+    customerDetails: "פרטי הלקוח",
     customerName: "שם",
-    products: "פרטי הזמנה",
+    products: "פרטי ההזמנה",
     colIndex: "#",
     colProduct: "מוצר",
     colQty: "כמות",
     colUnit: "מחיר יחידה",
     colDiscount: "הנחה",
-    colTotal: "סה״כ",
+    colTotal: 'סה"כ',
     subtotal: "סכום ביניים",
     discount: "הנחה",
     delivery: "משלוח",
-    grandTotal: "סה״כ לתשלום",
-    grandTotalPaid: "סה״כ ששולם",
+    grandTotal: 'סה"כ',
+    grandTotalPaid: "סכום ששולם",
     paymentDetails: "פרטי תשלום",
     confirmationNumber: "מספר אישור עסקה",
     amountPaid: "סכום ששולם",
     paidAt: "תאריך תשלום",
-    fulfillmentDetails: "אופן קבלה",
+    fulfillmentDetails: "פרטי איסוף / משלוח",
     pickup: "איסוף עצמי",
     shipping: "משלוח",
     recipient: "שם מקבל",
@@ -264,7 +275,7 @@ function getLabels(lang: PdfLang) {
     notes: "הערות להזמנה",
     thankYou: "תודה שבחרתם ב־HAGOUR BY WAEL",
     pageOf: (a: number, b: number) => `עמוד ${a} מתוך ${b}`,
-    fmt: "he-IL",
+    dateLocale: "en-GB",
   };
 }
 
@@ -390,7 +401,7 @@ export async function buildOrderConfirmationPdf(input: {
     order.status as OrderStatus,
   );
 
-  drawTitle(ctx, paid ? L.titlePaid : L.titleUnpaid);
+  drawTitle(ctx, L.title);
   drawDocInfoCard(ctx, order, paid, payment);
   drawTwoColumnInfo(ctx, order);
   drawProductsTable(ctx, order);
@@ -494,14 +505,25 @@ function drawTitle(ctx: Ctx, title: string): void {
 function drawDocInfoCard(ctx: Ctx, order: PdfOrder, paid: boolean, payment: PdfPayment | null): void {
   const { page, rtl, regular, bold, L, lang } = ctx;
   const created = new Date(order.createdAt);
-  const dateStr = created.toLocaleDateString(L.fmt);
-  const timeStr = created.toLocaleTimeString(L.fmt, { hour: "2-digit", minute: "2-digit" });
+  // Always use en-GB → Western digits + DD/MM/YYYY. Never Arabic-Indic
+  // digits (which are strong-RTL by class AN and can be reordered).
+  const dateStr = created.toLocaleDateString(L.dateLocale);
+  const timeStr = created.toLocaleTimeString(L.dateLocale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
   const paymentLabel =
     paymentMethodLabel(payment?.provider, lang) ?? (paid ? L.paid : "—");
 
+  // Document number is INV-<orderNumber> — stable across languages. The
+  // order number and doc number are ID_TOKENs so BiDi keeps them LTR
+  // even inside an RTL card.
+  const docNumberStr = `INV-${order.orderNumber}`;
+
   const rows: [string, string][] = [
-    [L.docNumber, `HAGOR-${order.orderNumber}`],
+    [L.docNumber, docNumberStr],
     [L.orderNumber, order.orderNumber],
     [L.date, dateStr],
     [L.time, timeStr],
@@ -729,9 +751,12 @@ function drawProductsTable(ctx: Ctx, order: PdfOrder): void {
   const IDX = 24, QTY = 44, UNIT = 80, DISC = 64, TOTAL = 80;
   const PROD = tableW - (IDX + QTY + UNIT + DISC + TOTAL);
   type Col = { key: string; label: string; width: number; align: "left" | "right" | "center" };
+  // In RTL PDFs the product column is right-aligned so Arabic/Hebrew
+  // product names read naturally from the right edge of the cell.
+  // Money columns stay right-aligned (numbers are always LTR).
   const cols: Col[] = [
     { key: "idx", label: L.colIndex, width: IDX, align: "center" },
-    { key: "prod", label: L.colProduct, width: PROD, align: "left" },
+    { key: "prod", label: L.colProduct, width: PROD, align: rtl ? "right" : "left" },
     { key: "qty", label: L.colQty, width: QTY, align: "center" },
     { key: "unit", label: L.colUnit, width: UNIT, align: "right" },
     { key: "disc", label: L.colDiscount, width: DISC, align: "right" },
@@ -774,7 +799,9 @@ function drawProductsTable(ctx: Ctx, order: PdfOrder): void {
         size: 9,
         font: bold,
         color: WHITE,
-        rtl: rtl && containsRtl(c.label),
+        // Use the document base direction — this ensures Arabic labels
+        // are shaped and reordered as a single RTL run.
+        rtl,
         align: c.align,
       });
     }
@@ -808,7 +835,20 @@ function drawProductsTable(ctx: Ctx, order: PdfOrder): void {
     const qty = item.quantity;
     const lineDiscount = Math.max(0, unitN * qty - totalN);
 
-    const nameLines = wrap(item.productName, regular, 10, colOf("prod").w - 16);
+    // Pick the language-specific product name — falls back through
+    //   preferred → HE → snapshot   so an AR PDF gets Arabic text where
+    // available, without translating on the fly.
+    const preferred =
+      lang === "ar" ? nz(item.productNameAr) :
+      lang === "en" ? nz(item.productNameEn) :
+      nz(item.productNameHe);
+    const productDisplayName =
+      preferred ??
+      nz(item.productNameHe) ??
+      nz(item.productNameEn) ??
+      item.productName;
+
+    const nameLines = wrap(productDisplayName, regular, 10, colOf("prod").w - 16);
     const optLinesWrapped: string[] = [];
     for (const ol of optLines) {
       optLinesWrapped.push(...wrap(ol, regular, 8, colOf("prod").w - 16));
@@ -862,7 +902,9 @@ function drawProductsTable(ctx: Ctx, order: PdfOrder): void {
           size: 10,
           font: bold,
           color: BLACK,
-          rtl: containsRtl(line),
+          // Use the document base direction for shaping so mixed lines
+          // (e.g. Arabic name + Latin variant code) BiDi correctly.
+          rtl: rtl || containsRtl(line),
           align: c.align,
         });
         ly -= 12;
@@ -874,7 +916,7 @@ function drawProductsTable(ctx: Ctx, order: PdfOrder): void {
           size: 8,
           font: regular,
           color: MUTED,
-          rtl: containsRtl(line),
+          rtl: rtl || containsRtl(line),
           align: c.align,
         });
         ly -= 10;
@@ -1036,7 +1078,7 @@ function drawPaymentAndFulfillment(
     const d = new Date(payment.paidAt);
     payRows.push([
       L.paidAt,
-      `${d.toLocaleDateString(L.fmt)} ${d.toLocaleTimeString(L.fmt, { hour: "2-digit", minute: "2-digit" })}`,
+      `${d.toLocaleDateString(L.dateLocale)} ${d.toLocaleTimeString(L.dateLocale, { hour: "2-digit", minute: "2-digit", hour12: false })}`,
     ]);
   }
   if (typeof payment?.amount === "number" && Number.isFinite(payment.amount)) {

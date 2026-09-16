@@ -5,6 +5,7 @@ import {
   buildOrderConfirmationPdf,
   type PdfLang,
 } from "@/lib/pdf/order-confirmation-pdf";
+import { attachLocalizedProductNames } from "@/lib/pdf/product-name-loader";
 
 /**
  * Server-side order-confirmation PDF renderer.
@@ -76,6 +77,7 @@ export async function renderOrderConfirmationPdfByOrderId(params: {
       notes: true,
       items: {
         select: {
+          productId: true,
           productName: true,
           quantity: true,
           unitPrice: true,
@@ -115,8 +117,9 @@ export async function renderOrderConfirmationPdfByOrderId(params: {
   });
 
   const payment = order.payments[0] ?? null;
+  const items = await attachLocalizedProductNames(params.storeId, order.items);
   const bytes = await buildOrderConfirmationPdf({
-    order,
+    order: { ...order, items },
     lang: params.lang ?? "he",
     storePhone: settings?.storePhone,
     business: {
