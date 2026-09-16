@@ -153,6 +153,42 @@ async function downloadBlob(url: string, method: "GET" | "POST", body?: unknown)
   };
 }
 
+/**
+ * Map any exception raised by `fetch()` (or a non-ok fetch response) into
+ * a friendly, localized message. We never surface raw "Failed to fetch",
+ * "NetworkError when attempting to fetch resource", "Load failed" etc. to
+ * the user — those are technical browser strings.
+ *
+ * - Passing `res` handles non-2xx HTTP: 401/403 → auth expired, 5xx → generic.
+ * - Passing `e` handles thrown errors: TypeError → network, abort → network.
+ * - Passing `json.error` from server → we use the server-provided i18n text.
+ */
+function describeSendError(
+  t: (k: string) => string,
+  input: { res?: Response; body?: { error?: string }; error?: unknown },
+): string {
+  // 1) Server-provided friendly error wins (already localized on the server or a stable code).
+  const rawServer = input.body?.error;
+  if (typeof rawServer === "string" && rawServer.trim().length > 0) {
+    // Some server codes we know about → map to localized strings.
+    if (rawServer === "unauthenticated" || rawServer === "forbidden") return t("invoicesAuthExpired");
+    if (rawServer === "email_not_configured") return t("invoicesEmailNotConfigured");
+    if (rawServer === "invalid_recipient") return t("invoicesInvalidEmail");
+    return rawServer;
+  }
+  // 2) HTTP status without a useful body.
+  if (input.res) {
+    if (input.res.status === 401 || input.res.status === 403) return t("invoicesAuthExpired");
+  }
+  // 3) Thrown errors — `TypeError` from fetch means network / CORS / DNS.
+  if (input.error instanceof TypeError) return t("invoicesNetworkError");
+  if (input.error instanceof DOMException && input.error.name === "AbortError") {
+    return t("invoicesNetworkError");
+  }
+  // 4) Fallback.
+  return t("invoicesSingleEmailFail");
+}
+
 function decodeFilenameFromContentDisposition(cd: string): string | undefined {
   // Try filename*=UTF-8''<encoded> first.
   const m1 = /filename\*=UTF-8''([^;]+)/i.exec(cd);
@@ -365,15 +401,17 @@ export function InvoicesAdminClient({
       body.archiveLabel = "all";
     }
     try {
+      // Same-origin admin API — portal → portal. Cookies flow automatically.
       const res = await fetch("/api/admin/invoices/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body),
       });
       const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok || json.ok === false) {
         setSendError({
-          error: (json.error as string) || "send_failed",
+          error: describeSendError(t, { res, body: json as { error?: string } }),
           detail: json.detail as string | undefined,
         });
       } else {
@@ -381,11 +419,13 @@ export function InvoicesAdminClient({
         startTransition(() => router.refresh());
       }
     } catch (e) {
-      setSendError({ error: e instanceof Error ? e.message : "send_failed" });
+      // eslint-disable-next-line no-console
+      console.error("[invoice-bulk-send] fetch failed", e);
+      setSendError({ error: describeSendError(t, { error: e }) });
     } finally {
       setSendPending(false);
     }
-  }, [filters.from, filters.q, filters.to, lang, recipientOverride, router, selectAllInResults, selectedIds, sendScope]);
+  }, [filters.from, filters.q, filters.to, lang, recipientOverride, router, selectAllInResults, selectedIds, sendScope, t]);
 
   const resolveModalRecipient = useCallback((): { to: string; error?: string } => {
     if (emailPicked.kind === "accountant") {
@@ -414,9 +454,14 @@ export function InvoicesAdminClient({
     }
     setEmailPending(true);
     try {
+      // NOTE: same-origin fetch. This resolves against the current
+      // page's origin (portal.hagourbywael.com in production), which is
+      // the SAME host that issued the admin session cookie. Do NOT hard-code
+      // an absolute host here — that will break cookies across sub-domains.
       const res = await fetch(`/api/admin/invoices/${emailModal.id}/email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ recipient: to, lang }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -427,8 +472,8 @@ export function InvoicesAdminClient({
         provider?: string;
       };
       if (!res.ok || !json.ok) {
-        // Show the actual provider-level error inline in the modal — no fake success.
-        setEmailError(json.error ?? t("invoicesSingleEmailFail"));
+        // Show a friendly, localized error inline in the modal — never fake success.
+        setEmailError(describeSendError(t, { res, body: json }));
       } else {
         setToast({
           kind: "ok",
@@ -440,7 +485,11 @@ export function InvoicesAdminClient({
         setEmailError(null);
       }
     } catch (e) {
-      setEmailError(e instanceof Error ? e.message : "send_failed");
+      // Network / CORS / DNS / offline → TypeError. Never surface raw
+      // "Failed to fetch" — always show a friendly, localized message.
+      // eslint-disable-next-line no-console
+      console.error("[invoice-email] fetch failed", e);
+      setEmailError(describeSendError(t, { error: e }));
     } finally {
       setEmailPending(false);
     }
@@ -1197,7 +1246,11 @@ export function InvoicesAdminClient({
                     subtitle={accountantEmail}
                     badge={t("invoicesRecipientKindAccountant")}
                   />
-                ) : null}
+                ) : (
+                  <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-2.5 text-[11px] leading-snug text-amber-900">
+                    {t("invoicesAccountantSetupHint")}
+                  </div>
+                )}
                 {savedRecipients.map((r) => (
                   <RecipientOption
                     key={r.id}
