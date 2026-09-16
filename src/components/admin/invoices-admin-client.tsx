@@ -9,6 +9,7 @@ import { useAdminI18n } from "@/lib/admin-i18n";
 import {
   deleteSavedRecipient,
   saveAccountantSettings,
+  saveBusinessDetails,
   upsertSavedRecipient,
 } from "@/app/admin/(panel)/invoices/actions";
 import type { InvoiceArchiveSummary, InvoiceRowDTO } from "@/lib/invoices/data";
@@ -20,6 +21,12 @@ export type EmailProviderStatus = {
   configured: boolean;
   missing: string[];
   fromAddress: string | null;
+};
+
+export type BusinessDetails = {
+  businessLegalName: string | null;
+  businessTaxId: string | null;
+  businessWebsite: string | null;
 };
 
 type Filters = {
@@ -170,6 +177,7 @@ export function InvoicesAdminClient({
   accountantEmail,
   savedRecipients,
   emailProvider,
+  businessDetails,
 }: {
   initialFilters: Filters;
   rows: InvoiceRowDTO[];
@@ -180,6 +188,7 @@ export function InvoicesAdminClient({
   accountantEmail: string | null;
   savedRecipients: SavedRecipient[];
   emailProvider: EmailProviderStatus;
+  businessDetails: BusinessDetails;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -447,6 +456,16 @@ export function InvoicesAdminClient({
     startTransition(() => router.refresh());
   }, [router, t]);
 
+  const saveBusiness = useCallback(async (formData: FormData) => {
+    const res = await saveBusinessDetails(formData);
+    if (!res.ok) {
+      setToast({ kind: "error", text: res.error });
+      return;
+    }
+    setToast({ kind: "ok", text: t("invoicesBusinessSaved") });
+    startTransition(() => router.refresh());
+  }, [router, t]);
+
   return (
     <div className="space-y-6">
       {toast ? (
@@ -563,12 +582,6 @@ export function InvoicesAdminClient({
               {accountantEmail ? accountantEmail : t("invoicesAccountantMissing")}
             </p>
           </div>
-          <Link
-            href="/admin/settings"
-            className="text-xs font-medium text-[#8A6A12] hover:underline"
-          >
-            {t("edit")}
-          </Link>
         </div>
         <form
           className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
@@ -612,6 +625,65 @@ export function InvoicesAdminClient({
           onError={(text) => setToast({ kind: "error", text })}
           onSuccess={(text) => setToast({ kind: "ok", text })}
         />
+      </section>
+
+      {/* Business details block — appears on the invoice PDF footer/header
+          only. Was previously edited from /admin/settings. Purely
+          presentational: never affects totals, VAT, or numbering. */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">
+              {t("invoicesBusinessTitle")}
+            </h2>
+            <p className="text-xs text-slate-500">{t("invoicesBusinessSubtitle")}</p>
+          </div>
+        </div>
+        <form
+          className="mt-3 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr_auto]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            void saveBusiness(fd);
+          }}
+        >
+          <label className="text-xs font-medium text-slate-700">
+            {t("businessLegalName")}
+            <input
+              name="businessLegalName"
+              defaultValue={businessDetails.businessLegalName ?? ""}
+              maxLength={200}
+              placeholder='אמין בריזינטים ועבודות טקסטיל בע"מ'
+              className={`mt-1 ${fieldClass}`}
+            />
+          </label>
+          <label className="text-xs font-medium text-slate-700">
+            {t("businessTaxId")}
+            <input
+              name="businessTaxId"
+              defaultValue={businessDetails.businessTaxId ?? ""}
+              maxLength={40}
+              placeholder="516025954"
+              className={`mt-1 ${fieldClass}`}
+            />
+          </label>
+          <label className="text-xs font-medium text-slate-700">
+            {t("businessWebsite")}
+            <input
+              name="businessWebsite"
+              defaultValue={businessDetails.businessWebsite ?? ""}
+              maxLength={200}
+              placeholder="hagourbywael.com"
+              className={`mt-1 ${fieldClass}`}
+            />
+          </label>
+          <button
+            type="submit"
+            className="mt-5 inline-flex h-10 items-center rounded-lg bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            {t("save")}
+          </button>
+        </form>
       </section>
 
       {/* Filters */}

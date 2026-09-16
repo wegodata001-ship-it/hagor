@@ -76,6 +76,67 @@ export async function saveAccountantSettings(formData: FormData): Promise<AdminA
   }
 }
 
+// ─── Business / legal details for invoice PDFs ───────────────────────────
+//
+// These live on `StoreSettings` too, and were previously edited from
+// /admin/settings. Since we're removing that page from the sidebar, expose
+// them directly on /admin/invoices so operators can still keep the invoice
+// PDF footer accurate. Purely presentation — no financial impact.
+const businessDetailsSchema = z.object({
+  businessLegalName: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  businessTaxId: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  businessWebsite: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+});
+
+export async function saveBusinessDetails(formData: FormData): Promise<AdminActionResult> {
+  try {
+    const { storeId, userId } = await guard();
+    const parsed = businessDetailsSchema.safeParse({
+      businessLegalName: formData.get("businessLegalName") ?? undefined,
+      businessTaxId: formData.get("businessTaxId") ?? undefined,
+      businessWebsite: formData.get("businessWebsite") ?? undefined,
+    });
+    if (!parsed.success) {
+      return err(parsed.error.issues[0]?.message ?? "פרטים לא תקינים");
+    }
+    const payload = parsed.data;
+    await prisma.storeSettings.upsert({
+      where: { storeId },
+      create: { storeId, ...payload },
+      update: payload,
+    });
+    await logAdminAction({
+      userId,
+      action: "invoices.business.save",
+      entity: "StoreSettings",
+      metadata: {
+        hasLegalName: Boolean(payload.businessLegalName),
+        hasTaxId: Boolean(payload.businessTaxId),
+      },
+    });
+    revalidatePath("/admin/invoices");
+    revalidatePath("/admin/settings");
+    return ok();
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שמירת פרטי העסק נכשלה");
+  }
+}
+
 // ─── Saved recipients (secondary email addresses) ────────────────────────
 const savedRecipientSchema = z.object({
   id: z.string().trim().max(64).optional(),

@@ -1,160 +1,25 @@
-import { prisma } from "@/lib/prisma";
-import { STORE_ID } from "@/lib/store";
+import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { SettingsAdminClient } from "@/components/admin/settings-admin-client";
-import { safeQuery } from "@/lib/server/safe-query";
 
+/**
+ * "Store settings" is intentionally hidden from the admin sidebar — the store
+ * owner rarely needs it. If someone lands on `/admin/settings` (bookmark,
+ * external link, autocomplete), redirect them to the invoice archive where
+ * the useful bits (accountant, business details, saved recipients) are
+ * managed inline.
+ *
+ * Do NOT delete this route or the underlying settings client component:
+ * - `saveStoreSettings` in `src/app/admin/actions.ts` still writes the same
+ *    StoreSettings row used by the storefront and invoice PDFs.
+ * - Sub-routes `/admin/settings/terms`, `/admin/settings/email` remain
+ *   directly reachable and unchanged.
+ * - The settings client component itself is unused for now but is preserved
+ *   in `src/components/admin/settings-admin-client.tsx` so a future admin
+ *   role/page can render it again without extra work.
+ */
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsRedirect() {
   await requireAdminSession();
-  const storeId = STORE_ID;
-
-  const payload = await safeQuery(
-    "admin.settings",
-    async () => {
-      const store = await prisma.store.findUnique({ where: { id: storeId } });
-      if (!store) return null;
-
-      let settings = await prisma.storeSettings.findUnique({
-        where: { storeId },
-        select: {
-          logoUrl: true,
-          primaryColor: true,
-          accentColor: true,
-          secondaryColor: true,
-          whatsappPhone: true,
-          storePhone: true,
-          storeAddress: true,
-          paymentProvider: true,
-          paymentPublicKey: true,
-          paymentSecretKey: true,
-          paymentWebhookSecretOverride: true,
-          freeShippingMinAmount: true,
-          supportEmail: true,
-          accountantName: true,
-          accountantEmail: true,
-          businessLegalName: true,
-          businessTaxId: true,
-          businessWebsite: true,
-          languageDefault: true,
-          orderNumberPrefix: true,
-          currency: true,
-          rtlEnabled: true,
-          registrationEnabled: true,
-          requireEmailVerificationForCheckout: true,
-          productGalleryPreset: true,
-          productGalleryMaxHeightPx: true,
-          productGalleryMaxWidthPx: true,
-          heroTitle_he: true,
-          heroTitle_ar: true,
-          heroTitle_en: true,
-          heroSubtitle_he: true,
-          heroSubtitle_ar: true,
-          heroSubtitle_en: true,
-          heroImageUrl: true,
-        },
-      });
-      if (!settings) {
-        settings = await prisma.storeSettings.create({
-          data: { storeId },
-          select: {
-            logoUrl: true,
-            primaryColor: true,
-            accentColor: true,
-            secondaryColor: true,
-            whatsappPhone: true,
-            storePhone: true,
-            storeAddress: true,
-            paymentProvider: true,
-            paymentPublicKey: true,
-            paymentSecretKey: true,
-            paymentWebhookSecretOverride: true,
-            freeShippingMinAmount: true,
-            supportEmail: true,
-            accountantName: true,
-            accountantEmail: true,
-            businessLegalName: true,
-            businessTaxId: true,
-            businessWebsite: true,
-            languageDefault: true,
-            orderNumberPrefix: true,
-            currency: true,
-            rtlEnabled: true,
-            registrationEnabled: true,
-            requireEmailVerificationForCheckout: true,
-            productGalleryPreset: true,
-            productGalleryMaxHeightPx: true,
-            productGalleryMaxWidthPx: true,
-            heroTitle_he: true,
-            heroTitle_ar: true,
-            heroTitle_en: true,
-            heroSubtitle_he: true,
-            heroSubtitle_ar: true,
-            heroSubtitle_en: true,
-            heroImageUrl: true,
-          },
-        });
-      }
-
-      return { store, settings };
-    },
-    null,
-    { timeoutMs: 25_000 },
-  );
-
-  if (!payload) {
-    return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm">
-        <p className="font-medium">Unable to load store settings right now.</p>
-        <p className="mt-2 text-sm text-amber-900/90">Please refresh the page or try again in a moment.</p>
-      </div>
-    );
-  }
-
-  const { store, settings } = payload;
-
-  return (
-    <SettingsAdminClient
-      storeName={store.name}
-      settings={{
-        logoUrl: settings.logoUrl,
-        primaryColor: settings.primaryColor,
-        accentColor: settings.accentColor,
-        secondaryColor: settings.secondaryColor,
-        whatsappPhone: settings.whatsappPhone,
-        storePhone: settings.storePhone,
-        storeAddress: settings.storeAddress,
-        paymentProvider: settings.paymentProvider,
-        paymentPublicKey: settings.paymentPublicKey,
-        paymentSecretKey: settings.paymentSecretKey,
-        paymentWebhookSecretOverride: settings.paymentWebhookSecretOverride,
-        freeShippingMinAmount: settings.freeShippingMinAmount ? Number(settings.freeShippingMinAmount) : null,
-        supportEmail: settings.supportEmail,
-        accountantName: settings.accountantName ?? null,
-        accountantEmail: settings.accountantEmail ?? null,
-        businessLegalName: settings.businessLegalName ?? null,
-        businessTaxId: settings.businessTaxId ?? null,
-        businessWebsite: settings.businessWebsite ?? null,
-        languageDefault: settings.languageDefault,
-        orderNumberPrefix: settings.orderNumberPrefix,
-        currency: settings.currency,
-        rtlEnabled: settings.rtlEnabled,
-        registrationEnabled: settings.registrationEnabled,
-        requireEmailVerificationForCheckout: settings.requireEmailVerificationForCheckout,
-        productGalleryPreset: settings.productGalleryPreset ?? "medium",
-        productGalleryMaxHeightPx: settings.productGalleryMaxHeightPx,
-        productGalleryMaxWidthPx: settings.productGalleryMaxWidthPx,
-      }}
-      hero={{
-        heroTitle_he: settings.heroTitle_he,
-        heroTitle_ar: settings.heroTitle_ar,
-        heroTitle_en: settings.heroTitle_en,
-        heroSubtitle_he: settings.heroSubtitle_he,
-        heroSubtitle_ar: settings.heroSubtitle_ar,
-        heroSubtitle_en: settings.heroSubtitle_en,
-        heroImageUrl: settings.heroImageUrl,
-      }}
-    />
-  );
+  redirect("/admin/invoices");
 }

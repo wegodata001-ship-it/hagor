@@ -1,42 +1,21 @@
-import { STORE_ID } from "@/lib/store";
+import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
-import type { ObservabilityDashboardData } from "@/lib/observability/aggregate";
-import { loadObservabilityDashboard } from "@/lib/observability/aggregate";
-import { ObservabilityAdminClient } from "@/components/admin/observability-admin-client";
-import { isEmailConfigured } from "@/lib/email/config";
-import { safeQuery } from "@/lib/server/safe-query";
-import {
-  loadSystemStatusBusinessStats,
-  type SystemStatusBusinessStats,
-} from "@/lib/system-status-stats";
 
+/**
+ * "System status" is intentionally hidden from the admin sidebar — the store
+ * owner shouldn't be looking at monitoring dashboards day-to-day. If someone
+ * lands on `/admin/observability` directly, send them back to the dashboard.
+ *
+ * The observability BACKEND is preserved and unchanged:
+ * - `/api/health`, monitoring aggregators, and every alert path still work.
+ * - `src/lib/observability/aggregate.ts` and `system-status-stats.ts` are
+ *   untouched — internal callers (cron jobs, health checks) rely on them.
+ * - `src/components/admin/observability-admin-client.tsx` is preserved so
+ *   a super-admin dashboard or CLI can re-mount it later without rework.
+ */
 export const dynamic = "force-dynamic";
 
-export default async function AdminObservabilityPage() {
+export default async function AdminObservabilityRedirect() {
   await requireAdminSession();
-  const storeId = STORE_ID;
-
-  const [data, business] = await Promise.all([
-    safeQuery<ObservabilityDashboardData | null>(
-      "admin.observability_dashboard",
-      () => loadObservabilityDashboard(storeId),
-      null,
-      { timeoutMs: 30_000 },
-    ),
-    safeQuery<SystemStatusBusinessStats | null>(
-      "admin.system_status_business",
-      () => loadSystemStatusBusinessStats(storeId),
-      null,
-      { timeoutMs: 15_000 },
-    ),
-  ]);
-
-  return (
-    <ObservabilityAdminClient
-      data={data}
-      business={business}
-      emailConfigured={isEmailConfigured()}
-      checkedAt={business?.checkedAt ?? new Date().toISOString()}
-    />
-  );
+  redirect("/admin");
 }

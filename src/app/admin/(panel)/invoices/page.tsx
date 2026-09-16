@@ -81,6 +81,9 @@ export default async function AdminInvoicesArchivePage({
           accountantName: true,
           accountantEmail: true,
           invoiceRecipients: true,
+          businessLegalName: true,
+          businessTaxId: true,
+          businessWebsite: true,
         },
       }),
     null,
@@ -105,6 +108,11 @@ export default async function AdminInvoicesArchivePage({
         configured: provider.configured,
         missing: provider.missing,
         fromAddress: provider.fromAddress ?? null,
+      }}
+      businessDetails={{
+        businessLegalName: settings?.businessLegalName ?? null,
+        businessTaxId: settings?.businessTaxId ?? null,
+        businessWebsite: settings?.businessWebsite ?? null,
       }}
     />
   );

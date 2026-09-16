@@ -9,6 +9,13 @@ import { resolvePublicAssetSrc } from "@/lib/assets-path";
 import { AdminI18nProvider, isRtl, useAdminI18n } from "@/lib/admin-i18n";
 import { PRODUCTION_SITE_URL } from "@/lib/host";
 
+// Sidebar navigation. `/admin/settings` and `/admin/observability` are
+// intentionally hidden here — the store owner doesn't need a technical
+// "Store settings" or "System status" tab. The backend for both is still
+// live: /admin/observability, /api/health, monitoring endpoints, and all
+// StoreSettings CRUD keep working for internal callers (invoice PDF,
+// storefront, checkout, seed scripts, etc.). Users landing on the old
+// paths are redirected via the corresponding page.tsx files.
 const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { href: "/admin", label: "dashboard", Icon: IconDashboard },
   { href: "/admin/products", label: "products", Icon: IconBox },
@@ -22,16 +29,11 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
   { href: "/admin/loyalty", label: "loyalty", Icon: IconStar },
   { href: "/admin/content", label: "contentManagement", Icon: IconDocument },
-  { href: "/admin/settings", label: "storeSettings", Icon: IconGear },
   { href: "/admin/webhooks", label: "paymentWebhooks", Icon: IconWebhook },
-  { href: "/admin/observability", label: "observability", Icon: IconObservability },
 ];
 
 function navActive(href: string, pathname: string) {
   if (href === "/admin") return pathname === "/admin";
-  if (href === "/admin/settings") {
-    return pathname === "/admin/settings" || pathname.startsWith("/admin/settings/");
-  }
   if (href === "/admin/content") {
     return pathname === "/admin/content" || pathname.startsWith("/admin/content/");
   }
@@ -279,13 +281,6 @@ function IconStar({ className }: { className?: string }) {
     </svg>
   );
 }
-function IconGear({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.274.152.577.225.884.225h1.89l.621-.621a1.125 1.125 0 011.587 0l1.586 1.586a1.125 1.125 0 010 1.587l-.621.621v1.89c0 .307-.073.61-.225.884-.184.332-.496.582-.87.645l-1.281.213c-.54.09-.94.56-.94 1.11v2.593c0 .55-.398 1.02-.94 1.11l-1.281.213c-.374.063-.686.313-.87.645-.152.274-.225.577-.225.884v1.89l-.621.621a1.125 1.125 0 01-1.587 0l-1.586-1.586a1.125 1.125 0 00-1.587 0l-.621.621H9.75c-.307 0-.61-.073-.884-.225a1.125 1.125 0 00-.645-.87l-.213-1.281c-.09-.54-.56-.94-1.11-.94H5.25l-.621.621a1.125 1.125 0 01-1.587 0L1.456 17.06a1.125 1.125 0 010-1.587l.621-.621V12.96c0-.307-.073-.61-.225-.884a1.125 1.125 0 00-.645-.87l-1.281-.213c-.54-.09-.94-.56-.94-1.11V7.203c0-.55.398-1.02.94-1.11l1.281-.213c.374-.063.686-.313.87-.645.152-.274.225-.577.225-.884V3.456l.621-.621a1.125 1.125 0 011.587 0l1.586 1.586a1.125 1.125 0 001.587 0l.621-.621z" />
-    </svg>
-  );
-}
 function IconDocument({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -301,14 +296,6 @@ function IconWebhook({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.232" />
-    </svg>
-  );
-}
-
-function IconObservability({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13h4l3-9 4 18 3-9h5" />
     </svg>
   );
 }
