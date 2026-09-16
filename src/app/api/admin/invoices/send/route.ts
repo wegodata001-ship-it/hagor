@@ -168,9 +168,9 @@ export async function POST(req: NextRequest) {
     archiveLabel: archiveLabel || undefined,
   });
 
-  // Never mark SENT if the provider did not confirm delivery — record failure with reason.
-  // `recordInvoiceSend` is the single source of truth for send-history (uses AdminActionLog
-  // with action="invoices.email.send"), so we do not double-log via logAdminAction here.
+  // §15: only mark "accepted" when the provider confirmed acceptance. "Delivered"
+  // requires webhook events (not implemented yet), so we never claim "delivered".
+  // `recordInvoiceSend` is the single source of truth for send-history.
   try {
     await recordInvoiceSend({
       storeId: STORE_ID,
@@ -184,8 +184,11 @@ export async function POST(req: NextRequest) {
         archiveFilename: archive.filename,
         bytes: archive.bytes,
         mode: outcome.mode ?? "attachment",
-        status: outcome.ok ? "sent" : "failed",
-        error: outcome.ok ? undefined : outcome.error,
+        status: outcome.ok ? "accepted" : "failed",
+        provider: outcome.provider,
+        providerMessageId: outcome.messageId,
+        errorCode: outcome.errorCode,
+        error: outcome.ok ? undefined : outcome.errorMessage,
       },
     });
   } catch {
@@ -195,18 +198,22 @@ export async function POST(req: NextRequest) {
   if (!outcome.ok) {
     return NextResponse.json(
       {
-        error: "שליחת החשבוניות נכשלה",
-        detail: outcome.error,
+        ok: false,
+        error: outcome.errorMessage || "שליחת החשבוניות נכשלה",
+        errorCode: outcome.errorCode,
+        provider: outcome.provider,
         fileCount: outcome.fileCount,
         bytes: outcome.bytes,
       },
-      { status: 502 },
+      { status: outcome.errorCode === "EMAIL_NOT_CONFIGURED" ? 503 : 502 },
     );
   }
 
   return NextResponse.json({
     ok: true,
     mode: outcome.mode,
+    provider: outcome.provider,
+    messageId: outcome.messageId,
     fileCount: outcome.fileCount,
     bytes: outcome.bytes,
     downloadUrl: outcome.downloadUrl,

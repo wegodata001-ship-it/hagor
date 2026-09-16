@@ -1354,7 +1354,9 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
         if (!raw) return null;
         // Basic RFC-5322 subset — same shape as zod's email().
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return null;
-        return raw.toLowerCase();
+        // §17: preserve original casing exactly as entered. Case comparisons
+        // must be done via toLowerCase() at compare time, not on save.
+        return raw;
       })(),
       businessLegalName: (() => {
         const raw = String(formData.get("businessLegalName") ?? "").trim();

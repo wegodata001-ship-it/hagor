@@ -6,9 +6,21 @@ import { useRouter } from "next/navigation";
 import { AdminModal } from "@/components/admin/admin-modal";
 import { AdminSpinner } from "@/components/admin/admin-spinner";
 import { useAdminI18n } from "@/lib/admin-i18n";
-import { saveAccountantSettings } from "@/app/admin/(panel)/invoices/actions";
+import {
+  deleteSavedRecipient,
+  saveAccountantSettings,
+  upsertSavedRecipient,
+} from "@/app/admin/(panel)/invoices/actions";
 import type { InvoiceArchiveSummary, InvoiceRowDTO } from "@/lib/invoices/data";
 import type { InvoiceSendHistoryEntry } from "@/lib/invoices/send-history";
+import type { RecipientKind, SavedRecipient } from "@/lib/invoices/recipients";
+
+export type EmailProviderStatus = {
+  provider: "smtp" | "resend" | "none";
+  configured: boolean;
+  missing: string[];
+  fromAddress: string | null;
+};
 
 type Filters = {
   q: string;
@@ -156,6 +168,8 @@ export function InvoicesAdminClient({
   history,
   accountantName,
   accountantEmail,
+  savedRecipients,
+  emailProvider,
 }: {
   initialFilters: Filters;
   rows: InvoiceRowDTO[];
@@ -164,6 +178,8 @@ export function InvoicesAdminClient({
   history: InvoiceSendHistoryEntry[];
   accountantName: string | null;
   accountantEmail: string | null;
+  savedRecipients: SavedRecipient[];
+  emailProvider: EmailProviderStatus;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -186,6 +202,14 @@ export function InvoicesAdminClient({
   const [emailModal, setEmailModal] = useState<null | InvoiceRowDTO>(null);
   const [emailPending, setEmailPending] = useState(false);
   const [emailValue, setEmailValue] = useState("");
+  // Single-invoice modal: which of the saved recipient rows is selected, or
+  // "custom" when the operator wants to type an ad-hoc address.
+  type PickedRecipient =
+    | { kind: "accountant" }
+    | { kind: "saved"; id: string }
+    | { kind: "custom" };
+  const [emailPicked, setEmailPicked] = useState<PickedRecipient>({ kind: "accountant" });
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -354,11 +378,29 @@ export function InvoicesAdminClient({
     }
   }, [filters.from, filters.q, filters.to, lang, recipientOverride, router, selectAllInResults, selectedIds, sendScope]);
 
+  const resolveModalRecipient = useCallback((): { to: string; error?: string } => {
+    if (emailPicked.kind === "accountant") {
+      if (!accountantEmail) return { to: "", error: t("invoicesAccountantMissing") };
+      return { to: accountantEmail };
+    }
+    if (emailPicked.kind === "saved") {
+      const r = savedRecipients.find((x) => x.id === emailPicked.id);
+      if (!r) return { to: "", error: t("invoicesAccountantMissing") };
+      return { to: r.email };
+    }
+    const raw = emailValue.trim();
+    if (!raw) return { to: "", error: t("invoicesEmailPromptRecipient") };
+    // Case-insensitive validation; casing preserved for display.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return { to: "", error: t("invoicesInvalidEmail") };
+    return { to: raw };
+  }, [emailPicked, accountantEmail, savedRecipients, emailValue, t]);
+
   const sendSingleInvoiceEmail = useCallback(async () => {
     if (!emailModal) return;
-    const to = emailValue.trim() || accountantEmail || "";
+    setEmailError(null);
+    const { to, error } = resolveModalRecipient();
     if (!to) {
-      setToast({ kind: "error", text: t("invoicesAccountantMissing") });
+      setEmailError(error ?? t("invoicesSingleEmailFail"));
       return;
     }
     setEmailPending(true);
@@ -368,19 +410,32 @@ export function InvoicesAdminClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipient: to, lang }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean };
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        errorCode?: string;
+        ok?: boolean;
+        messageId?: string;
+        provider?: string;
+      };
       if (!res.ok || !json.ok) {
-        setToast({ kind: "error", text: json.error ?? t("invoicesSingleEmailFail") });
+        // Show the actual provider-level error inline in the modal — no fake success.
+        setEmailError(json.error ?? t("invoicesSingleEmailFail"));
       } else {
-        setToast({ kind: "ok", text: t("invoicesSingleEmailOk") });
+        setToast({
+          kind: "ok",
+          text: json.messageId
+            ? `${t("invoicesSingleEmailOk")} · ${json.provider ?? ""} · ${json.messageId}`
+            : t("invoicesSingleEmailOk"),
+        });
         setEmailModal(null);
+        setEmailError(null);
       }
     } catch (e) {
-      setToast({ kind: "error", text: e instanceof Error ? e.message : "send_failed" });
+      setEmailError(e instanceof Error ? e.message : "send_failed");
     } finally {
       setEmailPending(false);
     }
-  }, [accountantEmail, emailModal, emailValue, lang, t]);
+  }, [emailModal, lang, resolveModalRecipient, t]);
 
   const saveAccountant = useCallback(async (formData: FormData) => {
     const res = await saveAccountantSettings(formData);
@@ -478,6 +533,27 @@ export function InvoicesAdminClient({
         <SummaryCard label={t("invoicesTotalMonth")} value={summary.totalThisMonth} />
       </section>
 
+      {/* Email provider configuration banner — shown when SMTP/Resend not configured */}
+      {!emailProvider.configured ? (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold">{t("invoicesEmailNotConfigured")}</div>
+              {emailProvider.missing.length > 0 ? (
+                <div className="mt-1 text-xs text-amber-800">
+                  {t("invoicesEmailMissingEnv")}{" "}
+                  <span className="font-mono">{emailProvider.missing.join(", ")}</span>
+                </div>
+              ) : null}
+              <div className="mt-1 text-xs text-amber-800">{t("invoicesEmailProviderHelp")}</div>
+            </div>
+            <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-amber-700">
+              {emailProvider.provider}
+            </span>
+          </div>
+        </section>
+      ) : null}
+
       {/* Accountant block */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
@@ -528,6 +604,14 @@ export function InvoicesAdminClient({
             {t("save")}
           </button>
         </form>
+
+        {/* Saved secondary recipients */}
+        <SavedRecipientsPanel
+          recipients={savedRecipients}
+          onChanged={() => startTransition(() => router.refresh())}
+          onError={(text) => setToast({ kind: "error", text })}
+          onSuccess={(text) => setToast({ kind: "ok", text })}
+        />
       </section>
 
       {/* Filters */}
@@ -681,7 +765,15 @@ export function InvoicesAdminClient({
                         <ActionButton
                           label={t("invoicesActionEmail")}
                           onClick={() => {
-                            setEmailValue(accountantEmail ?? "");
+                            setEmailValue("");
+                            setEmailError(null);
+                            setEmailPicked(
+                              accountantEmail
+                                ? { kind: "accountant" }
+                                : savedRecipients[0]
+                                  ? { kind: "saved", id: savedRecipients[0].id }
+                                  : { kind: "custom" },
+                            );
                             setEmailModal(r);
                           }}
                         />
@@ -731,7 +823,15 @@ export function InvoicesAdminClient({
                   <ActionButton
                     label={t("invoicesActionEmail")}
                     onClick={() => {
-                      setEmailValue(accountantEmail ?? "");
+                      setEmailValue("");
+                      setEmailError(null);
+                      setEmailPicked(
+                        accountantEmail
+                          ? { kind: "accountant" }
+                          : savedRecipients[0]
+                            ? { kind: "saved", id: savedRecipients[0].id }
+                            : { kind: "custom" },
+                      );
                       setEmailModal(r);
                     }}
                   />
@@ -801,13 +901,27 @@ export function InvoicesAdminClient({
                       {h.metadata.mode === "link" ? " · link" : " · attach"}
                     </td>
                     <td className="px-2 py-2">
-                      {h.metadata.status === "sent" ? (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
-                          ✓
+                      {h.metadata.status === "accepted" ? (
+                        <span
+                          className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700"
+                          title={
+                            h.metadata.providerMessageId
+                              ? `${h.metadata.provider ?? ""} · ${h.metadata.providerMessageId}`
+                              : t("invoicesStatusAccepted")
+                          }
+                        >
+                          {t("invoicesStatusAccepted")}
+                        </span>
+                      ) : h.metadata.status === "delivered" ? (
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">
+                          {t("invoicesStatusDelivered")}
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
-                          ✗
+                        <span
+                          className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700"
+                          title={h.metadata.error ?? h.metadata.errorCode ?? ""}
+                        >
+                          {t("invoicesStatusFailed")}
                         </span>
                       )}
                     </td>
@@ -936,11 +1050,13 @@ export function InvoicesAdminClient({
         )}
       </AdminModal>
 
-      {/* Single-invoice email modal */}
+      {/* Single-invoice email modal — redesigned per §9. Default recipient is
+          the saved accountant; saved secondary recipients + custom email are
+          selectable radios. Errors surface inline; no fake success. */}
       <AdminModal
         open={emailModal != null}
         title={t("invoicesEmailPromptTitle")}
-        size="sm"
+        size="md"
         onClose={() => setEmailModal(null)}
         footer={
           <div className="flex justify-end gap-2">
@@ -964,18 +1080,98 @@ export function InvoicesAdminClient({
         }
       >
         {emailModal ? (
-          <div className="space-y-2 text-sm">
-            <div className="text-xs text-slate-500">{emailModal.documentNumber} · {emailModal.orderNumber}</div>
-            <label className="text-xs font-medium text-slate-700">
-              {t("invoicesEmailPromptRecipient")}
-              <input
-                type="email"
-                value={emailValue}
-                onChange={(e) => setEmailValue(e.target.value)}
-                className={`mt-1 ${fieldClass}`}
-                placeholder="accountant@example.com"
-              />
-            </label>
+          <div className="space-y-4 text-sm">
+            {!emailProvider.configured ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                {t("invoicesEmailNotConfigured")}
+                {emailProvider.missing.length > 0 ? (
+                  <div className="mt-1 font-mono text-[10px] text-amber-800">
+                    {emailProvider.missing.join(", ")}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {t("invoicesEmailPromptDoc")}
+                </div>
+                <div className="mt-0.5 font-mono text-[13px] font-semibold text-slate-900">
+                  {emailModal.documentNumber}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {t("invoicesEmailPromptOrder")}
+                </div>
+                <div className="mt-0.5 font-mono text-[13px] font-semibold text-slate-900">
+                  {emailModal.orderNumber}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-slate-800">
+                {t("invoicesEmailPromptSendTo")}
+              </div>
+              <div className="mt-2 space-y-2">
+                {accountantEmail ? (
+                  <RecipientOption
+                    id="rcpt-accountant"
+                    checked={emailPicked.kind === "accountant"}
+                    onChange={() => setEmailPicked({ kind: "accountant" })}
+                    title={accountantName || t("invoicesAccountantTitle")}
+                    subtitle={accountantEmail}
+                    badge={t("invoicesRecipientKindAccountant")}
+                  />
+                ) : null}
+                {savedRecipients.map((r) => (
+                  <RecipientOption
+                    key={r.id}
+                    id={`rcpt-${r.id}`}
+                    checked={emailPicked.kind === "saved" && emailPicked.id === r.id}
+                    onChange={() => setEmailPicked({ kind: "saved", id: r.id })}
+                    title={r.name}
+                    subtitle={r.email}
+                    badge={t(recipientKindKey(r.kind))}
+                  />
+                ))}
+                <RecipientOption
+                  id="rcpt-custom"
+                  checked={emailPicked.kind === "custom"}
+                  onChange={() => setEmailPicked({ kind: "custom" })}
+                  title={t("invoicesEmailPromptCustom")}
+                >
+                  {emailPicked.kind === "custom" ? (
+                    <input
+                      type="email"
+                      autoFocus
+                      value={emailValue}
+                      onChange={(e) => setEmailValue(e.target.value)}
+                      onFocus={() => setEmailPicked({ kind: "custom" })}
+                      placeholder="user@example.com"
+                      className={`mt-2 ${fieldClass}`}
+                    />
+                  ) : null}
+                </RecipientOption>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                {t("invoicesEmailPromptAttachment")}
+              </div>
+              <div className="mt-0.5 font-mono text-[12px] text-slate-900">
+                {defaultInvoiceFilename(emailModal.documentNumber)}
+              </div>
+            </div>
+
+            {emailError ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                {emailError}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </AdminModal>
@@ -1038,6 +1234,229 @@ function ActionButton({ label, onClick }: { label: string; onClick: () => void }
     >
       {label}
     </button>
+  );
+}
+
+function RecipientOption({
+  id,
+  checked,
+  onChange,
+  title,
+  subtitle,
+  badge,
+  children,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={`block cursor-pointer rounded-lg border p-3 transition ${
+        checked
+          ? "border-[#c89211] bg-[#FFF8E8]"
+          : "border-slate-200 bg-white hover:border-slate-300"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <input
+          id={id}
+          type="radio"
+          name="invoice-recipient"
+          checked={checked}
+          onChange={onChange}
+          className="mt-1"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+            <span className="truncate">{title}</span>
+            {badge ? (
+              <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {subtitle ? (
+            <div className="mt-0.5 truncate font-mono text-[12px] text-slate-500">{subtitle}</div>
+          ) : null}
+          {children}
+        </div>
+      </div>
+    </label>
+  );
+}
+
+function recipientKindKey(kind: RecipientKind | undefined): string {
+  if (kind === "accountant") return "invoicesRecipientKindAccountant";
+  if (kind === "bookkeeping") return "invoicesRecipientKindBookkeeping";
+  return "invoicesRecipientKindOther";
+}
+
+function defaultInvoiceFilename(documentNumber: string): string {
+  const safe = (documentNumber || "invoice").replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 80);
+  return `${safe}.pdf`;
+}
+
+function SavedRecipientsPanel({
+  recipients,
+  onChanged,
+  onError,
+  onSuccess,
+}: {
+  recipients: SavedRecipient[];
+  onChanged: () => void;
+  onError: (text: string) => void;
+  onSuccess: (text: string) => void;
+}) {
+  const { t } = useAdminI18n();
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const handleAdd = async (fd: FormData) => {
+    setBusy("add");
+    try {
+      const res = await upsertSavedRecipient(fd);
+      if (!res.ok) {
+        onError(res.error);
+        return;
+      }
+      onSuccess(t("invoicesRecipientSaved"));
+      setAdding(false);
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(t("invoicesRecipientDeleteConfirm"))) return;
+    setBusy(id);
+    try {
+      const fd = new FormData();
+      fd.append("id", id);
+      const res = await deleteSavedRecipient(fd);
+      if (!res.ok) {
+        onError(res.error);
+        return;
+      }
+      onSuccess(t("invoicesRecipientDeleted"));
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-5 border-t border-slate-100 pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {t("invoicesSavedRecipientsTitle")}
+        </h3>
+        {!adding ? (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="text-xs font-medium text-[#8A6A12] hover:underline"
+          >
+            + {t("invoicesSavedRecipientsAdd")}
+          </button>
+        ) : null}
+      </div>
+
+      {recipients.length === 0 && !adding ? (
+        <p className="mt-2 text-xs text-slate-500">{t("invoicesSavedRecipientsEmpty")}</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {recipients.map((r) => (
+            <li
+              key={r.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <span className="truncate">{r.name}</span>
+                  <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                    {t(recipientKindKey(r.kind))}
+                  </span>
+                </div>
+                <div className="mt-0.5 truncate font-mono text-[12px] text-slate-500">
+                  {r.email}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={busy === r.id}
+                onClick={() => void handleDelete(r.id)}
+                className="text-xs text-rose-600 hover:underline disabled:opacity-40"
+              >
+                {t("delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding ? (
+        <form
+          className="mt-3 grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_140px_auto_auto]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            void handleAdd(fd);
+          }}
+        >
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            {t("invoicesAccountantName")}
+            <input
+              name="name"
+              required
+              maxLength={160}
+              placeholder={t("invoicesAccountantName")}
+              className={`mt-1 ${fieldClass}`}
+            />
+          </label>
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            {t("invoicesAccountantEmail")}
+            <input
+              name="email"
+              type="email"
+              required
+              maxLength={200}
+              placeholder="user@example.com"
+              className={`mt-1 ${fieldClass}`}
+            />
+          </label>
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            {t("invoicesSavedRecipientsKind")}
+            <select name="kind" defaultValue="other" className={`mt-1 ${fieldClass}`}>
+              <option value="accountant">{t("invoicesRecipientKindAccountant")}</option>
+              <option value="bookkeeping">{t("invoicesRecipientKindBookkeeping")}</option>
+              <option value="other">{t("invoicesRecipientKindOther")}</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setAdding(false)}
+            className="mt-5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-100"
+          >
+            {t("invoicesSendModalCancel")}
+          </button>
+          <button
+            type="submit"
+            disabled={busy === "add"}
+            className="mt-5 inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 text-xs font-medium text-white disabled:opacity-60"
+          >
+            {busy === "add" ? <AdminSpinner className="h-3 w-3 border-t-white" /> : null}
+            {t("save")}
+          </button>
+        </form>
+      ) : null}
+    </div>
   );
 }
 

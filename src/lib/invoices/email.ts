@@ -2,10 +2,12 @@ import "server-only";
 
 import { BRAND_LEGAL_NAME } from "@/lib/brand";
 import { getAppUrl } from "@/lib/app-url";
-import { getEmailConfig, isEmailConfigured } from "@/lib/email/config";
-import { logEmailFailure, logEmailSkipped, logEmailSuccess } from "@/lib/email/logger";
 import { emailButton, escapeHtml, infoRow, wrapEmailHtml } from "@/lib/email/layout";
-import { getMailTransporter } from "@/lib/email/transporter";
+import {
+  sendEmail,
+  type EmailErrorCode,
+  type EmailProvider,
+} from "@/lib/email/send";
 import {
   createSignedInvoiceArchiveToken,
   DEFAULT_INVOICE_LINK_TTL_SECONDS,
@@ -45,9 +47,24 @@ export type AccountantEmailOutcome = {
   downloadUrl?: string;
   /** Expiry timestamp (unix seconds) of the download link, if any. */
   linkExpiresAt?: number;
-  error?: string;
+  /** Machine-readable error code returned by the provider layer. */
+  errorCode?: EmailErrorCode | "MISSING_RECIPIENT" | "SIGNED_LINK_SECRET_MISSING";
+  /** Human-readable message safe for admin UI display. */
+  errorMessage?: string;
+  /** Provider that (attempted to) send the message. */
+  provider: EmailProvider;
+  /** Provider-side message identifier — only present on success. */
+  messageId?: string;
   fileCount: number;
   bytes: number;
+};
+
+export type SingleInvoiceEmailOutcome = {
+  ok: boolean;
+  provider: EmailProvider;
+  messageId?: string;
+  errorCode?: EmailErrorCode | "MISSING_RECIPIENT";
+  errorMessage?: string;
 };
 
 function buildBodyHtml(
@@ -102,24 +119,20 @@ export async function sendInvoiceArchiveToAccountant(params: {
 }): Promise<AccountantEmailOutcome> {
   const { ctx, archive } = params;
   const to = (ctx.to || "").trim();
-  const type = "generic" as const;
 
   if (!to) {
-    logEmailSkipped(type, "empty_recipient");
-    return { ok: false, mode: null, error: "missing_recipient", fileCount: archive.fileCount, bytes: archive.bytes };
-  }
-  if (!isEmailConfigured()) {
-    logEmailSkipped(type, "smtp_not_configured");
-    return { ok: false, mode: null, error: "smtp_not_configured", fileCount: archive.fileCount, bytes: archive.bytes };
-  }
-  const transporter = getMailTransporter();
-  if (!transporter) {
-    logEmailSkipped(type, "transporter_unavailable");
-    return { ok: false, mode: null, error: "transporter_unavailable", fileCount: archive.fileCount, bytes: archive.bytes };
+    return {
+      ok: false,
+      mode: null,
+      provider: "none",
+      errorCode: "MISSING_RECIPIENT",
+      errorMessage: "לא הוגדר נמען.",
+      fileCount: archive.fileCount,
+      bytes: archive.bytes,
+    };
   }
 
   const subject = `${BRAND_LEGAL_NAME} — חשבוניות ${ctx.subjectPeriod}`;
-  const cfg = getEmailConfig();
   const budget = attachmentBudget();
   const asAttachment = archive.bytes <= budget;
 
@@ -135,11 +148,13 @@ export async function sendInvoiceArchiveToAccountant(params: {
       downloadUrl = `${getAppUrl()}/api/admin/invoices/zip-download?t=${encodeURIComponent(token)}`;
       linkExpiresAt = Math.floor(Date.now() / 1000) + DEFAULT_INVOICE_LINK_TTL_SECONDS;
     } catch (err) {
-      logEmailFailure(type, to, err);
       return {
         ok: false,
         mode: null,
-        error: "signed_link_secret_missing",
+        provider: "none",
+        errorCode: "SIGNED_LINK_SECRET_MISSING",
+        errorMessage:
+          err instanceof Error ? err.message.slice(0, 200) : "signed_link_secret_missing",
         fileCount: archive.fileCount,
         bytes: archive.bytes,
       };
@@ -152,46 +167,36 @@ export async function sendInvoiceArchiveToAccountant(params: {
     `ארכיון חשבוניות ${ctx.subjectPeriod}`,
   );
 
-  try {
-    await transporter.sendMail({
-      from: `"${cfg.fromName}" <${cfg.fromAddress}>`,
-      to,
-      subject,
-      html,
-      attachments: asAttachment
-        ? [
-            {
-              filename: archive.filename,
-              content: archive.zip,
-              contentType: "application/zip",
-            },
-          ]
-        : undefined,
-    });
-    logEmailSuccess(type, to);
-    return {
-      ok: true,
-      mode: asAttachment ? "attachment" : "link",
-      downloadUrl,
-      linkExpiresAt,
-      fileCount: archive.fileCount,
-      bytes: archive.bytes,
-    };
-  } catch (err) {
-    logEmailFailure(type, to, err);
-    return {
-      ok: false,
-      mode: asAttachment ? "attachment" : "link",
-      downloadUrl,
-      linkExpiresAt,
-      fileCount: archive.fileCount,
-      bytes: archive.bytes,
-      error: err instanceof Error ? err.message.slice(0, 200) : "send_failed",
-    };
-  }
+  const result = await sendEmail({
+    to,
+    subject,
+    html,
+    attachments: asAttachment
+      ? [
+          {
+            filename: archive.filename,
+            content: archive.zip,
+            contentType: "application/zip",
+          },
+        ]
+      : undefined,
+  });
+
+  return {
+    ok: result.ok,
+    provider: result.provider,
+    mode: asAttachment ? "attachment" : "link",
+    downloadUrl,
+    linkExpiresAt,
+    messageId: result.messageId,
+    errorCode: result.errorCode,
+    errorMessage: result.errorMessage,
+    fileCount: archive.fileCount,
+    bytes: archive.bytes,
+  };
 }
 
-/** Send a single invoice PDF to the accountant. Never falls back to a link — one PDF is always small enough. */
+/** Send a single invoice PDF to a chosen recipient. Never falls back to a link — one PDF is always small enough. */
 export async function sendSingleInvoicePdfEmail(params: {
   to: string;
   toName?: string;
@@ -199,52 +204,45 @@ export async function sendSingleInvoicePdfEmail(params: {
   orderNumber: string;
   pdf: Uint8Array;
   filename: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<SingleInvoiceEmailOutcome> {
   const to = params.to.trim();
-  const type = "generic" as const;
   if (!to) {
-    logEmailSkipped(type, "empty_recipient");
-    return { ok: false, error: "missing_recipient" };
-  }
-  if (!isEmailConfigured()) {
-    logEmailSkipped(type, "smtp_not_configured");
-    return { ok: false, error: "smtp_not_configured" };
-  }
-  const transporter = getMailTransporter();
-  if (!transporter) {
-    logEmailSkipped(type, "transporter_unavailable");
-    return { ok: false, error: "transporter_unavailable" };
+    return {
+      ok: false,
+      provider: "none",
+      errorCode: "MISSING_RECIPIENT",
+      errorMessage: "לא הוגדר נמען.",
+    };
   }
 
-  const cfg = getEmailConfig();
   const greeting = params.toName?.trim() ? `שלום ${escapeHtml(params.toName.trim())},` : "שלום,";
   const html = wrapEmailHtml(
     `חשבונית ${params.documentNumber}`,
     `
       <p>${greeting}</p>
-      <p>מצורפת חשבונית ${escapeHtml(params.documentNumber)} של ${escapeHtml(BRAND_LEGAL_NAME)}.</p>
-      <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">מספר הזמנה: ${escapeHtml(params.orderNumber)}</p>
+      <p>מצורפת חשבונית מספר <strong>${escapeHtml(params.documentNumber)}</strong> עבור הזמנה <strong>${escapeHtml(params.orderNumber)}</strong>.</p>
+      <p style="margin:12px 0 0;">בברכה,<br />${escapeHtml(BRAND_LEGAL_NAME)}</p>
     `,
     `חשבונית ${params.documentNumber}`,
   );
-  try {
-    await transporter.sendMail({
-      from: `"${cfg.fromName}" <${cfg.fromAddress}>`,
-      to,
-      subject: `${BRAND_LEGAL_NAME} — חשבונית ${params.documentNumber}`,
-      html,
-      attachments: [
-        {
-          filename: params.filename,
-          content: Buffer.from(params.pdf),
-          contentType: "application/pdf",
-        },
-      ],
-    });
-    logEmailSuccess(type, to);
-    return { ok: true };
-  } catch (err) {
-    logEmailFailure(type, to, err);
-    return { ok: false, error: err instanceof Error ? err.message.slice(0, 200) : "send_failed" };
-  }
+
+  const result = await sendEmail({
+    to,
+    subject: `${BRAND_LEGAL_NAME} — חשבונית ${params.documentNumber}`,
+    html,
+    attachments: [
+      {
+        filename: params.filename,
+        content: params.pdf,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+  return {
+    ok: result.ok,
+    provider: result.provider,
+    messageId: result.messageId,
+    errorCode: result.errorCode,
+    errorMessage: result.errorMessage,
+  };
 }

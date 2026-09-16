@@ -205,6 +205,9 @@ model StoreSettings {
   accountantName    String?
   /// Accountant email for the invoice archive (bulk export / send-to-accountant).
   accountantEmail   String?
+  /// Extra saved invoice-email recipients (JSON array). Shape:
+  /// `Array<{ id: string; name: string; email: string; kind?: "accountant" | "bookkeeping" | "other" }>`.
+  invoiceRecipients Json?
   /// Legal business name for invoice/order PDFs (e.g. "אמין בריזינטים ועבודות טקסטיל בע״מ").
   businessLegalName String?
   /// Business tax ID / VAT ID for invoice PDFs (e.g. "516025954").

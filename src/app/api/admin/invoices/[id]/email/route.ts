@@ -69,9 +69,14 @@ export async function POST(
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 
+  // Recipient name: use the saved accountant name only if the accountant is the actual recipient.
+  const isAccountant =
+    !!settings?.accountantEmail && to.toLowerCase() === settings.accountantEmail.toLowerCase();
+  const toName = isAccountant ? settings?.accountantName?.trim() || undefined : undefined;
+
   const outcome = await sendSingleInvoicePdfEmail({
     to,
-    toName: settings?.accountantName?.trim() || undefined,
+    toName,
     documentNumber: pdf.documentNumber,
     orderNumber: pdf.orderNumber,
     pdf: pdf.bytes,
@@ -89,7 +94,10 @@ export async function POST(
         documentNumber: pdf.documentNumber,
         orderNumber: pdf.orderNumber,
         ok: outcome.ok,
-        error: outcome.error,
+        provider: outcome.provider,
+        providerMessageId: outcome.messageId,
+        errorCode: outcome.errorCode,
+        errorMessage: outcome.errorMessage,
       },
     });
   } catch {
@@ -98,9 +106,19 @@ export async function POST(
 
   if (!outcome.ok) {
     return NextResponse.json(
-      { error: "שליחת החשבונית נכשלה", detail: outcome.error },
-      { status: 502 },
+      {
+        ok: false,
+        error: outcome.errorMessage || "שליחת החשבונית נכשלה",
+        errorCode: outcome.errorCode,
+        provider: outcome.provider,
+      },
+      { status: outcome.errorCode === "EMAIL_NOT_CONFIGURED" ? 503 : 502 },
     );
   }
-  return NextResponse.json({ ok: true, recipient: to });
+  return NextResponse.json({
+    ok: true,
+    recipient: to,
+    provider: outcome.provider,
+    messageId: outcome.messageId,
+  });
 }

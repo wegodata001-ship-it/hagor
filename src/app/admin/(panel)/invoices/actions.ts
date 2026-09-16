@@ -7,6 +7,13 @@ import { STORE_ID } from "@/lib/store";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { err, ok, type AdminActionResult } from "@/lib/admin-action-result";
+import {
+  newRecipientId,
+  parseSavedRecipients,
+  RECIPIENT_KIND_VALUES,
+  type SavedRecipient,
+} from "@/lib/invoices/recipients";
+import type { Prisma } from "@prisma/client";
 
 async function guard() {
   const session = await requireAdminSession();
@@ -20,10 +27,12 @@ const accountantSchema = z.object({
     .max(160)
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  // §17: validate case-insensitively (via z.email regex) but preserve the
+  // original casing exactly as entered. Do NOT auto-lowercase.
   accountantEmail: z
     .union([z.string().trim().email(), z.literal("")])
     .optional()
-    .transform((v) => (v && v.trim().length > 0 ? v.trim().toLowerCase() : null)),
+    .transform((v) => (v && v.trim().length > 0 ? v.trim() : null)),
 });
 
 /**
@@ -64,5 +73,116 @@ export async function saveAccountantSettings(formData: FormData): Promise<AdminA
     return ok();
   } catch (e) {
     return err(e instanceof Error ? e.message : "שמירת פרטי רואה חשבון נכשלה");
+  }
+}
+
+// ─── Saved recipients (secondary email addresses) ────────────────────────
+const savedRecipientSchema = z.object({
+  id: z.string().trim().max(64).optional(),
+  name: z.string().trim().min(1).max(160),
+  email: z.string().trim().email().max(200),
+  kind: z.enum(RECIPIENT_KIND_VALUES).optional().default("other"),
+});
+
+/** Add or update a saved recipient. When `id` is present, update in place. */
+export async function upsertSavedRecipient(
+  formData: FormData,
+): Promise<AdminActionResult<{ recipients: SavedRecipient[] }>> {
+  try {
+    const { storeId, userId } = await guard();
+    const parsed = savedRecipientSchema.safeParse({
+      id: formData.get("id") || undefined,
+      name: formData.get("name") ?? "",
+      email: formData.get("email") ?? "",
+      kind: formData.get("kind") || undefined,
+    });
+    if (!parsed.success) {
+      return err(parsed.error.issues[0]?.message ?? "פרטי נמען לא תקינים");
+    }
+    const settings = await prisma.storeSettings.findUnique({
+      where: { storeId },
+      select: { invoiceRecipients: true },
+    });
+    const list = parseSavedRecipients(settings?.invoiceRecipients);
+
+    let next: SavedRecipient[];
+    if (parsed.data.id) {
+      let found = false;
+      next = list.map((r) => {
+        if (r.id === parsed.data.id) {
+          found = true;
+          return {
+            id: r.id,
+            name: parsed.data.name,
+            email: parsed.data.email, // preserve casing
+            kind: parsed.data.kind,
+          };
+        }
+        return r;
+      });
+      if (!found) {
+        return err("הנמען לא נמצא");
+      }
+    } else {
+      if (list.length >= 20) {
+        return err("ניתן לשמור עד 20 נמענים קבועים");
+      }
+      next = [
+        ...list,
+        {
+          id: newRecipientId(),
+          name: parsed.data.name,
+          email: parsed.data.email,
+          kind: parsed.data.kind,
+        },
+      ];
+    }
+
+    await prisma.storeSettings.upsert({
+      where: { storeId },
+      create: { storeId, invoiceRecipients: next as unknown as Prisma.InputJsonValue },
+      update: { invoiceRecipients: next as unknown as Prisma.InputJsonValue },
+    });
+    await logAdminAction({
+      userId,
+      action: parsed.data.id ? "invoices.recipient.update" : "invoices.recipient.add",
+      entity: "StoreSettings",
+      metadata: { count: next.length },
+    });
+    revalidatePath("/admin/invoices");
+    return ok({ recipients: next });
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "שמירת נמען נכשלה");
+  }
+}
+
+export async function deleteSavedRecipient(
+  formData: FormData,
+): Promise<AdminActionResult<{ recipients: SavedRecipient[] }>> {
+  try {
+    const { storeId, userId } = await guard();
+    const id = String(formData.get("id") ?? "").trim();
+    if (!id) return err("id חסר");
+    const settings = await prisma.storeSettings.findUnique({
+      where: { storeId },
+      select: { invoiceRecipients: true },
+    });
+    const list = parseSavedRecipients(settings?.invoiceRecipients);
+    const next = list.filter((r) => r.id !== id);
+    if (next.length === list.length) return err("הנמען לא נמצא");
+    await prisma.storeSettings.update({
+      where: { storeId },
+      data: { invoiceRecipients: next as unknown as Prisma.InputJsonValue },
+    });
+    await logAdminAction({
+      userId,
+      action: "invoices.recipient.delete",
+      entity: "StoreSettings",
+      metadata: { id, count: next.length },
+    });
+    revalidatePath("/admin/invoices");
+    return ok({ recipients: next });
+  } catch (e) {
+    return err(e instanceof Error ? e.message : "מחיקת נמען נכשלה");
   }
 }

@@ -14,6 +14,8 @@ import {
   listInvoiceSendHistory,
   type InvoiceSendHistoryEntry,
 } from "@/lib/invoices/send-history";
+import { describeEmailProvider } from "@/lib/email/send";
+import { parseSavedRecipients } from "@/lib/invoices/recipients";
 import { InvoicesAdminClient } from "@/components/admin/invoices-admin-client";
 
 export const dynamic = "force-dynamic";
@@ -75,11 +77,18 @@ export default async function AdminInvoicesArchivePage({
     () =>
       prisma.storeSettings.findUnique({
         where: { storeId },
-        select: { accountantName: true, accountantEmail: true },
+        select: {
+          accountantName: true,
+          accountantEmail: true,
+          invoiceRecipients: true,
+        },
       }),
     null,
     { timeoutMs: 10_000 },
   );
+
+  const provider = describeEmailProvider();
+  const savedRecipients = parseSavedRecipients(settings?.invoiceRecipients);
 
   return (
     <InvoicesAdminClient
@@ -90,6 +99,13 @@ export default async function AdminInvoicesArchivePage({
       history={data.history}
       accountantName={settings?.accountantName ?? null}
       accountantEmail={settings?.accountantEmail ?? null}
+      savedRecipients={savedRecipients}
+      emailProvider={{
+        provider: provider.provider,
+        configured: provider.configured,
+        missing: provider.missing,
+        fromAddress: provider.fromAddress ?? null,
+      }}
     />
   );
 }

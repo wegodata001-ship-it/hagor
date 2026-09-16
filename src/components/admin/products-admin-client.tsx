@@ -208,8 +208,6 @@ function SuccessBar({ message, onDismiss }: { message: string; onDismiss: () => 
 type ProductLang = "he" | "ar" | "en";
 type TranslationField = { name: string; description: string };
 type TranslationDraft = Record<ProductLang, TranslationField>;
-type TranslationMeta = Record<ProductLang, { manual: boolean; auto: boolean }>;
-
 const PRODUCT_LANGS: ProductLang[] = ["he", "ar", "en"];
 const PRODUCT_LANG_UI: Record<ProductLang, { label: string; short: string; dir: "rtl" | "ltr"; nameLabel: string; descriptionLabel: string }> = {
   he: {
@@ -243,8 +241,180 @@ function initialTranslationDraft(product?: ProductRow): TranslationDraft {
   };
 }
 
-function hasLanguageContent(field: TranslationField): boolean {
-  return field.name.trim().length > 0 || field.description.trim().length > 0;
+/**
+ * Detect the writing system of `text` from its first strong character.
+ * Used to auto-pick the source language for the compact translation UI —
+ * independent of the admin's UI language.
+ */
+function detectLangFromText(text: string): ProductLang | null {
+  if (!text) return null;
+  // Look at up to the first ~100 chars for a strong-directional character.
+  const sample = text.slice(0, 100);
+  for (const ch of sample) {
+    if (/[\u0590-\u05FF]/.test(ch)) return "he"; // Hebrew block
+    if (/[\u0600-\u06FF\u0750-\u077F]/.test(ch)) return "ar"; // Arabic + Supplement
+    if (/[A-Za-z]/.test(ch)) return "en";
+  }
+  return null;
+}
+
+/**
+ * When opening the form for an existing product, pick the language that
+ * already has content in the given field as the initial source.
+ */
+function detectDominantLang(product: ProductRow | undefined, field: "name" | "description"): ProductLang {
+  if (!product) return "he";
+  const values: Array<[ProductLang, string]> =
+    field === "name"
+      ? [
+          ["he", product.name_he ?? ""],
+          ["ar", product.name_ar ?? ""],
+          ["en", product.name_en ?? ""],
+        ]
+      : [
+          ["he", product.description_he ?? ""],
+          ["ar", product.description_ar ?? ""],
+          ["en", product.description_en ?? ""],
+        ];
+  for (const [lang, value] of values) {
+    const detected = detectLangFromText(value);
+    if (detected === lang && value.trim()) return lang;
+  }
+  // Fall back to first non-empty.
+  const first = values.find(([, v]) => v.trim());
+  return first?.[0] ?? "he";
+}
+
+/**
+ * For an existing product, any non-empty language content is considered a
+ * manual override so auto-translate won't clobber it later on.
+ */
+function initialManualEdits(product: ProductRow | undefined): Record<ProductLang, { name: boolean; description: boolean }> {
+  if (!product) {
+    return {
+      he: { name: false, description: false },
+      ar: { name: false, description: false },
+      en: { name: false, description: false },
+    };
+  }
+  return {
+    he: { name: !!product.name_he?.trim(), description: !!product.description_he?.trim() },
+    ar: { name: !!product.name_ar?.trim(), description: !!product.description_ar?.trim() },
+    en: { name: !!product.name_en?.trim(), description: !!product.description_en?.trim() },
+  };
+}
+
+// ── Compact translation UI helper components ─────────────────────────────
+type FieldStatusValue =
+  | { kind: "idle" }
+  | { kind: "pending" }
+  | { kind: "error"; code?: string; message?: string };
+
+function FieldTranslationStatus({
+  status,
+  translating,
+  failed,
+  retry,
+  onRetry,
+}: {
+  status: FieldStatusValue;
+  translating: string;
+  failed: string;
+  retry: string;
+  onRetry: () => void;
+}) {
+  if (status.kind === "idle") return null;
+  if (status.kind === "pending") {
+    return (
+      <div className="inline-flex items-center gap-2 text-xs text-slate-500 ps-2">
+        <AdminSpinner className="h-3 w-3 border-t-slate-500" />
+        <span>{translating}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="inline-flex items-center gap-2 text-xs text-red-700 ps-2">
+      <span>{status.message || failed}</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="font-medium underline underline-offset-2 hover:text-red-900"
+      >
+        {retry}
+      </button>
+    </div>
+  );
+}
+
+function TargetFieldInput({
+  lang,
+  value,
+  onChange,
+  placeholder,
+  isLoading,
+}: {
+  lang: ProductLang;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  isLoading: boolean;
+}) {
+  const ui = PRODUCT_LANG_UI[lang];
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        dir="ltr"
+        className="w-8 shrink-0 text-center font-mono text-[10px] font-semibold uppercase text-slate-500"
+      >
+        {ui.short}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        dir={ui.dir}
+        className={`w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm ${
+          isLoading ? "opacity-60" : ""
+        }`}
+      />
+    </div>
+  );
+}
+
+function TargetFieldTextarea({
+  lang,
+  value,
+  onChange,
+  placeholder,
+  isLoading,
+}: {
+  lang: ProductLang;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  isLoading: boolean;
+}) {
+  const ui = PRODUCT_LANG_UI[lang];
+  return (
+    <div className="flex items-start gap-2">
+      <span
+        dir="ltr"
+        className="mt-1 w-8 shrink-0 text-center font-mono text-[10px] font-semibold uppercase text-slate-500"
+      >
+        {ui.short}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={2}
+        dir={ui.dir}
+        className={`w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm ${
+          isLoading ? "opacity-60" : ""
+        }`}
+      />
+    </div>
+  );
 }
 
 export function ProductsAdminClient({
@@ -749,156 +919,178 @@ function ProductForm({
   const [relatedModalOpen, setRelatedModalOpen] = useState(false);
   const [relatedQuery, setRelatedQuery] = useState("");
   const { t } = useAdminI18n();
-  const [sourceLang, setSourceLang] = useState<ProductLang>("he");
+  // ────────────────────────────────────────────────────────────────────────
+  // Compact translation UI state.
+  //
+  //   - `translations` holds all 3 languages simultaneously (submitted via
+  //     hidden inputs, DB fields unchanged).
+  //   - Source language for each field (`name`, `description`) is auto-detected
+  //     from the text the user types (Hebrew script → he, Arabic script → ar,
+  //     Latin → en), independent of the admin UI language.
+  //   - Auto-translate fires per-field after a short debounce (or on blur),
+  //     and skips target fields the user has manually edited.
+  // ────────────────────────────────────────────────────────────────────────
   const [translations, setTranslations] = useState<TranslationDraft>(() => initialTranslationDraft(product));
-  const [translationMeta, setTranslationMeta] = useState<TranslationMeta>(() => ({
-    he: { manual: false, auto: false },
-    ar: { manual: !!product && hasLanguageContent({ name: product.name_ar, description: product.description_ar ?? "" }), auto: false },
-    en: { manual: !!product && hasLanguageContent({ name: product.name_en, description: product.description_en ?? "" }), auto: false },
-  }));
-  const [translationPending, setTranslationPending] = useState(false);
-  const [translationFeedback, setTranslationFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(null);
-  const [autoTranslateMode, setAutoTranslateMode] = useState(false);
-  const [overwritePrompt, setOverwritePrompt] = useState<null | { protectedTargets: ProductLang[] }>(null);
-  const lastAutoSignature = useRef("");
-
-  useEffect(() => {
-    if (product?.name_he?.trim() || product?.description_he?.trim()) {
-      setSourceLang("he");
-      return;
-    }
-    if (product?.name_ar?.trim() || product?.description_ar?.trim()) {
-      setSourceLang("ar");
-      return;
-    }
-    if (product?.name_en?.trim() || product?.description_en?.trim()) {
-      setSourceLang("en");
-    }
-  }, [product]);
-
-  const missingTranslations = useMemo(
-    () =>
-      PRODUCT_LANGS.filter((lang) => {
-        const row = translations[lang];
-        return row.name.trim() === "" || row.description.trim() === "";
-      }),
-    [translations],
+  const [nameSourceLang, setNameSourceLang] = useState<ProductLang>(() => detectDominantLang(product, "name"));
+  const [descSourceLang, setDescSourceLang] = useState<ProductLang>(() => detectDominantLang(product, "description"));
+  const [manualEdits, setManualEdits] = useState<Record<ProductLang, { name: boolean; description: boolean }>>(
+    () => initialManualEdits(product),
   );
+  const [autoTranslate, setAutoTranslate] = useState(true);
+  type FieldStatus = { kind: "idle" } | { kind: "pending" } | { kind: "error"; code?: string; message?: string };
+  const [nameStatus, setNameStatus] = useState<FieldStatus>({ kind: "idle" });
+  const [descStatus, setDescStatus] = useState<FieldStatus>({ kind: "idle" });
+  const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNameSig = useRef<string>("");
+  const lastDescSig = useRef<string>("");
+  const nameRequestId = useRef(0);
+  const descRequestId = useRef(0);
 
-  const sourceField = translations[sourceLang];
+  useEffect(() => () => {
+    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+    if (descDebounceRef.current) clearTimeout(descDebounceRef.current);
+  }, []);
 
-  const productCopy = {
-    sourceLanguage: t("productTranslationSourceLanguage"),
-    autoTranslate: t("productTranslationAutoToggle"),
-    autoTranslateAction: t("productTranslationAutoAction"),
-    completeTranslations: t("productTranslationCompleteMissing"),
-    translating: (targets: ProductLang[]) =>
-      t("productTranslationTranslatingTo").replace(
-        "{languages}",
-        targets.map((lang) => PRODUCT_LANG_UI[lang].label).join(" / "),
-      ),
-    translatedDone: t("productTranslationDone"),
-    translatedAuto: t("productTranslationAutoBadge"),
-    sourceBadge: t("productTranslationSourceBadge"),
-    manualBadge: t("productTranslationManualBadge"),
-    missingBadge: t("productTranslationMissingBadge"),
-    manualProtected: (langs: ProductLang[]) =>
-      t("productTranslationManualProtected").replace(
-        "{languages}",
-        langs.map((lang) => PRODUCT_LANG_UI[lang].label).join(" / "),
-      ),
-    retranslate: t("productTranslationRetranslate"),
-    keepExisting: t("productTranslationKeepExisting"),
-    keepExistingOnly: t("productTranslationKeptExisting"),
-    translateFailed: t("productTranslationFailed"),
+  const translationCopy = {
+    autoOn: t("productTranslationAutoOn"),
+    autoOff: t("productTranslationAutoOff"),
+    autoToggle: t("productTranslationAutoToggle"),
+    translating: t("productTranslationTranslating"),
+    failed: t("productTranslationFailed"),
     retry: t("productTranslationRetry"),
-    missingTranslations: (count: number) =>
-      t("productTranslationMissingMany").replace("{count}", String(count)),
-    missingTranslationOne: (lang: ProductLang) =>
-      t("productTranslationMissingOne").replace("{language}", PRODUCT_LANG_UI[lang].label),
-    sourceNameRequired: t("productTranslationSourceNameRequired"),
+    translateNow: t("productTranslationAutoAction"),
   };
 
-  function updateTranslation(lang: ProductLang, field: keyof TranslationField, value: string, mode: "manual" | "auto") {
+  function setSourceText(field: "name" | "description", value: string) {
+    const detected = detectLangFromText(value) ?? (field === "name" ? nameSourceLang : descSourceLang);
+    if (field === "name") setNameSourceLang(detected);
+    else setDescSourceLang(detected);
     setTranslations((prev) => ({
       ...prev,
-      [lang]: {
-        ...prev[lang],
-        [field]: value,
-      },
+      [detected]: { ...prev[detected], [field]: value },
     }));
-    setTranslationMeta((prev) => ({
+    // Typing in the source clears the "manual edit" flag for that source lang
+    // (it's the origin, not a manual override).
+    setManualEdits((prev) => ({
       ...prev,
-      [lang]:
-        mode === "auto"
-          ? { manual: false, auto: true }
-          : lang === sourceLang
-            ? { ...prev[lang], auto: false }
-            : { manual: true, auto: false },
+      [detected]: { ...prev[detected], [field]: false },
+    }));
+
+    if (autoTranslate) {
+      scheduleAutoTranslate(field, detected, value);
+    }
+  }
+
+  function setTargetText(lang: ProductLang, field: "name" | "description", value: string) {
+    setTranslations((prev) => ({
+      ...prev,
+      [lang]: { ...prev[lang], [field]: value },
+    }));
+    setManualEdits((prev) => ({
+      ...prev,
+      [lang]: { ...prev[lang], [field]: true },
     }));
   }
 
-  async function runTranslation(targetLanguages: ProductLang[]) {
-    if (!sourceField.name.trim()) {
-      setTranslationFeedback({ tone: "error", message: productCopy.sourceNameRequired });
+  function scheduleAutoTranslate(field: "name" | "description", source: ProductLang, sourceText: string) {
+    const ref = field === "name" ? nameDebounceRef : descDebounceRef;
+    if (ref.current) clearTimeout(ref.current);
+    if (!sourceText.trim()) return;
+    ref.current = setTimeout(() => {
+      void runFieldTranslation(field, source);
+    }, 800);
+  }
+
+  async function runFieldTranslation(field: "name" | "description", source: ProductLang) {
+    const sourceText = translations[source][field];
+    if (!sourceText.trim()) return;
+    const targets = PRODUCT_LANGS.filter((lang) => lang !== source);
+    // Skip targets that were manually edited and contain user text.
+    const activeTargets = targets.filter(
+      (lang) => !(manualEdits[lang][field] && translations[lang][field].trim().length > 0),
+    );
+    if (activeTargets.length === 0) {
+      // Nothing to fill; treat as idle.
+      const setStatus = field === "name" ? setNameStatus : setDescStatus;
+      setStatus({ kind: "idle" });
       return;
     }
 
-    setTranslationPending(true);
-    setTranslationFeedback({ tone: "success", message: productCopy.translating(targetLanguages) });
+    const sig = `${field}|${source}|${sourceText}|${activeTargets.join(",")}`;
+    const lastSig = field === "name" ? lastNameSig : lastDescSig;
+    if (lastSig.current === sig) return;
+
+    const requestIdRef = field === "name" ? nameRequestId : descRequestId;
+    const myId = ++requestIdRef.current;
+    const setStatus = field === "name" ? setNameStatus : setDescStatus;
+    setStatus({ kind: "pending" });
+
     try {
       const res = await fetch("/api/admin/products/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sourceLanguage: sourceLang,
-          targetLanguages,
-          name: sourceField.name.trim(),
-          description: sourceField.description,
+          sourceLanguage: source,
+          targetLanguages: activeTargets,
+          fields: [field],
+          name: field === "name" ? sourceText : "",
+          description: field === "description" ? sourceText : "",
         }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
+        code?: string;
         error?: string;
-        translations?: Partial<Record<ProductLang, TranslationField>>;
+        translations?: Partial<Record<ProductLang, { name?: string; description?: string }>>;
       };
-      if (!res.ok || !data.translations) {
-        setTranslationFeedback({ tone: "error", message: productCopy.translateFailed });
+      // Stale response — a newer request has been fired; ignore this one.
+      if (myId !== requestIdRef.current) return;
+      if (!res.ok || !data.ok || !data.translations) {
+        setStatus({
+          kind: "error",
+          code: data.code,
+          message: data.error || translationCopy.failed,
+        });
         return;
       }
-      for (const lang of targetLanguages) {
-        const next = data.translations[lang];
-        if (!next) continue;
-        updateTranslation(lang, "name", next.name, "auto");
-        updateTranslation(lang, "description", next.description, "auto");
-      }
-      lastAutoSignature.current = `${sourceLang}|${sourceField.name}|${sourceField.description}`;
-      setOverwritePrompt(null);
-      setTranslationFeedback({ tone: "success", message: productCopy.translatedDone });
-    } catch {
-      setTranslationFeedback({ tone: "error", message: productCopy.translateFailed });
-    } finally {
-      setTranslationPending(false);
+      setTranslations((prev) => {
+        const next = { ...prev };
+        for (const lang of activeTargets) {
+          const bucket = data.translations?.[lang];
+          if (!bucket) continue;
+          const value = field === "name" ? bucket.name : bucket.description;
+          if (typeof value === "string") {
+            next[lang] = { ...next[lang], [field]: value };
+          }
+        }
+        return next;
+      });
+      lastSig.current = sig;
+      setStatus({ kind: "idle" });
+    } catch (error) {
+      if (myId !== requestIdRef.current) return;
+      setStatus({
+        kind: "error",
+        message: (error as Error).message || translationCopy.failed,
+      });
     }
   }
 
-  function triggerTranslationFlow() {
-    const targets = PRODUCT_LANGS.filter((lang) => lang !== sourceLang);
-    const protectedTargets = targets.filter(
-      (lang) => translationMeta[lang].manual && hasLanguageContent(translations[lang]),
-    );
-    if (protectedTargets.length > 0) {
-      setOverwritePrompt({ protectedTargets });
-      return;
-    }
-    void runTranslation(targets);
+  function retryField(field: "name" | "description") {
+    const source = field === "name" ? nameSourceLang : descSourceLang;
+    // Force retry: clear cached signature.
+    const sig = field === "name" ? lastNameSig : lastDescSig;
+    sig.current = "";
+    void runFieldTranslation(field, source);
   }
 
-  function maybeAutoTranslate() {
-    if (!autoTranslateMode || translationPending) return;
-    const signature = `${sourceLang}|${sourceField.name}|${sourceField.description}`;
-    if (!sourceField.name.trim() || signature === lastAutoSignature.current) return;
-    triggerTranslationFlow();
+  function manualTranslateAll() {
+    // Manual "Translate now" button — force a translate of both fields.
+    lastNameSig.current = "";
+    lastDescSig.current = "";
+    if (translations[nameSourceLang].name.trim()) void runFieldTranslation("name", nameSourceLang);
+    if (translations[descSourceLang].description.trim()) void runFieldTranslation("description", descSourceLang);
   }
 
   async function internalSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -929,194 +1121,129 @@ function ProductForm({
   return (
     <form onSubmit={internalSubmit} className="grid gap-3">
       <input type="hidden" name="id" value={product?.id ?? ""} />
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900">{productCopy.sourceLanguage}</div>
-              <div className="mt-0.5 text-xs text-slate-500">HE / AR / EN</div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {PRODUCT_LANGS.map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => setSourceLang(lang)}
-                  className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                    sourceLang === lang
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
-                  }`}
-                >
-                  {PRODUCT_LANG_UI[lang].label}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Compact translation UI — one source input per field with inline AR/EN
+          (or the two non-source languages) shown below. Source is auto-detected
+          from the actual text the user types. Hidden inputs keep the DB shape
+          identical (name_he/ar/en, description_he/ar/en). */}
+      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={autoTranslate}
+              onChange={(e) => setAutoTranslate(e.target.checked)}
+            />
+            {autoTranslate ? translationCopy.autoOn : translationCopy.autoOff}
+          </label>
+          <button
+            type="button"
+            onClick={manualTranslateAll}
+            disabled={nameStatus.kind === "pending" || descStatus.kind === "pending"}
+            className="text-xs font-medium text-slate-700 underline decoration-dotted underline-offset-2 hover:text-slate-900 disabled:opacity-50"
+          >
+            {translationCopy.translateNow}
+          </button>
+        </div>
 
-          {product && missingTranslations.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <span>
-                {missingTranslations.length === 1
-                  ? productCopy.missingTranslationOne(missingTranslations[0])
-                  : productCopy.missingTranslations(missingTranslations.length)}
-              </span>
-              <button type="button" onClick={triggerTranslationFlow} className="font-medium underline">
-                {productCopy.completeTranslations}
-              </button>
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_auto]">
-            <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-700" dir={PRODUCT_LANG_UI[sourceLang].dir}>
-                {PRODUCT_LANG_UI[sourceLang].nameLabel}
-                <input
-                  value={translations[sourceLang].name}
-                  onChange={(e) => updateTranslation(sourceLang, "name", e.target.value, "manual")}
-                  onBlur={maybeAutoTranslate}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  dir={PRODUCT_LANG_UI[sourceLang].dir}
-                />
-              </label>
-              <label className="block text-xs font-medium text-slate-700" dir={PRODUCT_LANG_UI[sourceLang].dir}>
-                {PRODUCT_LANG_UI[sourceLang].descriptionLabel}
-                <textarea
-                  value={translations[sourceLang].description}
-                  onChange={(e) => updateTranslation(sourceLang, "description", e.target.value, "manual")}
-                  onBlur={maybeAutoTranslate}
-                  rows={4}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  dir={PRODUCT_LANG_UI[sourceLang].dir}
-                />
-              </label>
-            </div>
-            <div className="flex min-w-[220px] flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={autoTranslateMode}
-                  onChange={(e) => setAutoTranslateMode(e.target.checked)}
-                />
-                {productCopy.autoTranslate}
-              </label>
-              <button
-                type="button"
-                disabled={translationPending}
-                onClick={triggerTranslationFlow}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+        {/* ── NAME ─────────────────────────────────────────────────────── */}
+        <div className="grid gap-2">
+          <label className="text-xs font-medium text-slate-700" dir={PRODUCT_LANG_UI[nameSourceLang].dir}>
+            {PRODUCT_LANG_UI[nameSourceLang].nameLabel}
+            <div className="relative mt-1">
+              <input
+                required
+                value={translations[nameSourceLang].name}
+                onChange={(e) => setSourceText("name", e.target.value)}
+                onBlur={() => {
+                  if (autoTranslate) void runFieldTranslation("name", nameSourceLang);
+                }}
+                dir={PRODUCT_LANG_UI[nameSourceLang].dir}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 pe-16 text-sm"
+              />
+              <span
+                dir="ltr"
+                className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-500"
               >
-                {translationPending && <AdminSpinner className="h-4 w-4 border-t-white" />}
-                {missingTranslations.length > 0 && product ? productCopy.completeTranslations : productCopy.autoTranslateAction}
-              </button>
+                {PRODUCT_LANG_UI[nameSourceLang].short}
+              </span>
             </div>
-          </div>
+          </label>
 
-          {translationFeedback ? (
-            <div
-              className={`rounded-lg px-3 py-2 text-sm ${
-                translationFeedback.tone === "success"
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : "border border-red-200 bg-red-50 text-red-900"
-              }`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span>{translationFeedback.message}</span>
-                {translationFeedback.tone === "error" ? (
-                  <button type="button" onClick={triggerTranslationFlow} className="font-medium underline">
-                    {productCopy.retry}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
+          <FieldTranslationStatus
+            status={nameStatus}
+            translating={translationCopy.translating}
+            failed={translationCopy.failed}
+            retry={translationCopy.retry}
+            onRetry={() => retryField("name")}
+          />
 
-          {overwritePrompt ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
-              <p>{productCopy.manualProtected(overwritePrompt.protectedTargets)}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void runTranslation(PRODUCT_LANGS.filter((lang) => lang !== sourceLang))}
-                  className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-medium text-white hover:bg-amber-800"
-                >
-                  {productCopy.retranslate}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const safeTargets = PRODUCT_LANGS.filter(
-                      (lang) => lang !== sourceLang && !overwritePrompt.protectedTargets.includes(lang),
-                    );
-                    setOverwritePrompt(null);
-                    if (safeTargets.length === 0) {
-                      setTranslationFeedback({ tone: "success", message: productCopy.keepExistingOnly });
-                      return;
-                    }
-                    void runTranslation(safeTargets);
-                  }}
-                  className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100"
-                >
-                  {productCopy.keepExisting}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 lg:grid-cols-3">
-            {PRODUCT_LANGS.map((lang) => {
-              const ui = PRODUCT_LANG_UI[lang];
-              const isSource = lang === sourceLang;
-              const meta = translationMeta[lang];
-              const badge = isSource
-                ? productCopy.sourceBadge
-                : meta.auto
-                  ? productCopy.translatedAuto
-                  : meta.manual
-                    ? productCopy.manualBadge
-                    : productCopy.missingBadge;
-              const badgeClass = isSource
-                ? "bg-slate-900 text-white"
-                : meta.auto
-                  ? "bg-emerald-100 text-emerald-800"
-                  : meta.manual
-                    ? "bg-amber-100 text-amber-900"
-                    : "bg-slate-100 text-slate-600";
-              return (
-                <div key={lang} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-semibold text-slate-900">{ui.label}</div>
-                    <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${badgeClass}`}>{badge}</span>
-                  </div>
-                  <div className="mt-3 grid gap-3">
-                    <label className="text-xs font-medium text-slate-700" dir={ui.dir}>
-                      {ui.nameLabel}
-                      <input
-                        name={`name_${lang}`}
-                        required
-                        value={translations[lang].name}
-                        onChange={(e) => updateTranslation(lang, "name", e.target.value, "manual")}
-                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                        dir={ui.dir}
-                      />
-                    </label>
-                    <label className="text-xs font-medium text-slate-700" dir={ui.dir}>
-                      {ui.descriptionLabel}
-                      <textarea
-                        name={`description_${lang}`}
-                        rows={4}
-                        value={translations[lang].description}
-                        onChange={(e) => updateTranslation(lang, "description", e.target.value, "manual")}
-                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                        dir={ui.dir}
-                      />
-                    </label>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid gap-2 ps-2 sm:grid-cols-2">
+            {PRODUCT_LANGS.filter((lang) => lang !== nameSourceLang).map((lang) => (
+              <TargetFieldInput
+                key={`name-${lang}`}
+                lang={lang}
+                value={translations[lang].name}
+                onChange={(v) => setTargetText(lang, "name", v)}
+                placeholder={PRODUCT_LANG_UI[lang].nameLabel}
+                isLoading={nameStatus.kind === "pending"}
+              />
+            ))}
           </div>
         </div>
+
+        {/* ── DESCRIPTION ──────────────────────────────────────────────── */}
+        <div className="grid gap-2">
+          <label className="text-xs font-medium text-slate-700" dir={PRODUCT_LANG_UI[descSourceLang].dir}>
+            {PRODUCT_LANG_UI[descSourceLang].descriptionLabel}
+            <div className="relative mt-1">
+              <textarea
+                value={translations[descSourceLang].description}
+                onChange={(e) => setSourceText("description", e.target.value)}
+                onBlur={() => {
+                  if (autoTranslate) void runFieldTranslation("description", descSourceLang);
+                }}
+                rows={3}
+                dir={PRODUCT_LANG_UI[descSourceLang].dir}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 pe-16 text-sm"
+              />
+              <span
+                dir="ltr"
+                className="pointer-events-none absolute end-2 top-2 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-500"
+              >
+                {PRODUCT_LANG_UI[descSourceLang].short}
+              </span>
+            </div>
+          </label>
+
+          <FieldTranslationStatus
+            status={descStatus}
+            translating={translationCopy.translating}
+            failed={translationCopy.failed}
+            retry={translationCopy.retry}
+            onRetry={() => retryField("description")}
+          />
+
+          <div className="grid gap-2 ps-2 sm:grid-cols-2">
+            {PRODUCT_LANGS.filter((lang) => lang !== descSourceLang).map((lang) => (
+              <TargetFieldTextarea
+                key={`desc-${lang}`}
+                lang={lang}
+                value={translations[lang].description}
+                onChange={(v) => setTargetText(lang, "description", v)}
+                placeholder={PRODUCT_LANG_UI[lang].descriptionLabel}
+                isLoading={descStatus.kind === "pending"}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Hidden fields — actual form submission keeps the existing DB shape. */}
+        {PRODUCT_LANGS.map((lang) => (
+          <span key={`hidden-${lang}`} className="hidden">
+            <input type="hidden" name={`name_${lang}`} value={translations[lang].name} readOnly />
+            <input type="hidden" name={`description_${lang}`} value={translations[lang].description} readOnly />
+          </span>
+        ))}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs font-medium text-slate-700">

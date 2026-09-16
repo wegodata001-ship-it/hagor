@@ -18,6 +18,7 @@ import {
   type GalleryDisplayConfig,
 } from "@/lib/product-gallery-display";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
+import { AdminImageLightbox, type LightboxImage } from "@/components/admin/admin-image-lightbox";
 
 export type Img = { id: string; url: string; isMain: boolean; sortOrder: number };
 
@@ -53,6 +54,11 @@ export function ProductImagesSection({
   const [dragId, setDragId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    open: boolean;
+    scope: "saved" | "pending";
+    index: number;
+  }>({ open: false, scope: "saved", index: 0 });
 
   useEffect(() => {
     const next = sortImages(product?.images ?? []);
@@ -198,6 +204,31 @@ export function ProductImagesSection({
     };
   }, [previews]);
 
+  // Lightbox source lists — kept separate so newly-uploaded (unsaved) files
+  // preview via their blob URLs without touching persisted images.
+  const savedLightboxImages: LightboxImage[] = useMemo(
+    () =>
+      ordered.map((im) => ({
+        key: im.id,
+        src: resolvePublicAssetSrc(im.url),
+      })),
+    [ordered],
+  );
+  const pendingLightboxImages: LightboxImage[] = useMemo(
+    () => previews.map((p) => ({ key: p.url, src: p.url, label: p.name })),
+    [previews],
+  );
+
+  const openSavedLightbox = useCallback((idx: number) => {
+    setLightbox({ open: true, scope: "saved", index: idx });
+  }, []);
+  const openPendingLightbox = useCallback((idx: number) => {
+    setLightbox({ open: true, scope: "pending", index: idx });
+  }, []);
+  const closeLightbox = useCallback(() => {
+    setLightbox((s) => ({ ...s, open: false }));
+  }, []);
+
   const actionBusy = Boolean(busyId || deletingId);
 
   return (
@@ -262,15 +293,26 @@ export function ProductImagesSection({
             {t("pendingUploads")} ({selectedFiles.length}) — {t("pendingUploadsSaveHint")}
           </span>
           <ul className="mt-3 flex flex-wrap gap-3">
-            {previews.map((p) => (
+            {previews.map((p, idx) => (
               <li key={p.url}>
-                <Image
-                  src={p.url}
-                  alt=""
-                  width={88}
-                  height={88}
-                  className="h-20 w-20 rounded-lg border border-emerald-200 object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => openPendingLightbox(idx)}
+                  aria-label={t("imageLightboxOpen")}
+                  title={t("imageLightboxOpen")}
+                  className="group relative block cursor-zoom-in overflow-hidden rounded-lg border border-emerald-200"
+                >
+                  <Image
+                    src={p.url}
+                    alt=""
+                    width={88}
+                    height={88}
+                    className="h-20 w-20 object-cover transition group-hover:opacity-90"
+                  />
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                    🔍
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -289,14 +331,25 @@ export function ProductImagesSection({
                   onDragStart={() => setDragId(im.id)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => void handleDropReorder(im.id)}
-                  onClick={() => setActiveIdx(idx)}
-                  className={`relative shrink-0 overflow-hidden rounded-xl border-2 transition ${thumbClass} ${
+                  onClick={() => {
+                    setActiveIdx(idx);
+                    openSavedLightbox(idx);
+                  }}
+                  aria-label={t("imageLightboxOpen")}
+                  title={t("imageLightboxOpen")}
+                  className={`group relative shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 transition ${thumbClass} ${
                     idx === activeIdx ? "border-blue-600 ring-2 ring-blue-200" : "border-slate-200"
                   }`}
                 >
                   <div className="relative h-full w-full min-h-[3rem] min-w-[3rem]">
                     <AssetImg path={im.url} alt="" className="object-cover" />
                   </div>
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/25 group-hover:opacity-100"
+                  >
+                    🔍
+                  </span>
                   {im.isMain && (
                     <span className="absolute bottom-0 left-0 right-0 bg-blue-600/90 py-0.5 text-center text-[10px] font-bold text-white">
                       {t("main")}
@@ -307,17 +360,35 @@ export function ProductImagesSection({
             </div>
 
             <div
-              className="relative flex min-h-[260px] items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100"
+              className="group relative flex min-h-[260px] items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100"
               style={mainStyle}
             >
               {active && (
-                <div className="relative h-full w-full min-h-[240px] p-2">
-                  <AssetImg
-                    path={active.url}
-                    alt=""
-                    className="max-h-[min(68vh,680px)] w-full object-contain transition duration-300 hover:scale-[1.01]"
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openSavedLightbox(activeIdx)}
+                    aria-label={t("imageLightboxOpen")}
+                    title={t("imageLightboxOpen")}
+                    className="absolute inset-0 z-10 cursor-zoom-in bg-transparent"
                   />
-                </div>
+                  <div className="relative h-full w-full min-h-[240px] p-2">
+                    <AssetImg
+                      path={active.url}
+                      alt=""
+                      className="max-h-[min(68vh,680px)] w-full object-contain transition duration-300 group-hover:scale-[1.01]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openSavedLightbox(activeIdx)}
+                    aria-label={t("imageLightboxOpen")}
+                    title={t("imageLightboxOpen")}
+                    className="absolute end-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-slate-900"
+                  >
+                    🔍 <span className="hidden sm:inline">{t("imageLightboxOpen")}</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -402,6 +473,13 @@ export function ProductImagesSection({
           {t("noProductImagesYet")}
         </p>
       ) : null}
+
+      <AdminImageLightbox
+        open={lightbox.open}
+        images={lightbox.scope === "saved" ? savedLightboxImages : pendingLightboxImages}
+        initialIndex={lightbox.index}
+        onClose={closeLightbox}
+      />
     </div>
   );
 }

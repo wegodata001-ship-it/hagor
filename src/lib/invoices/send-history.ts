@@ -15,6 +15,17 @@ import { prisma } from "@/lib/prisma";
 
 const SEND_ACTION = "invoices.email.send" as const;
 
+/**
+ * Status semantics:
+ *  - "accepted" — the provider accepted the message for delivery. This is NOT
+ *                 a delivery confirmation; it means the SMTP/API handshake
+ *                 succeeded. Displayed as "נשלח לספק" in the UI.
+ *  - "delivered" — reserved for a future webhook-driven update. We never set
+ *                  this synchronously; a bounce/delivery webhook would.
+ *  - "failed"   — provider rejected or the transport failed.
+ */
+export type InvoiceSendStatus = "accepted" | "delivered" | "failed";
+
 export type InvoiceSendMetadata = {
   recipient: string;
   invoiceCount: number;
@@ -24,7 +35,13 @@ export type InvoiceSendMetadata = {
   archiveFilename: string;
   bytes: number;
   mode: "attachment" | "link";
-  status: "sent" | "failed";
+  status: InvoiceSendStatus;
+  /** Provider used to send: "smtp" | "resend" | "none". */
+  provider?: string;
+  /** Provider-side message ID (SMTP messageId, Resend id, …). */
+  providerMessageId?: string;
+  /** Machine-readable error code from the provider layer. */
+  errorCode?: string;
   error?: string;
   /** Never store the ZIP binary here — only the filename. */
 };
@@ -55,7 +72,16 @@ export async function recordInvoiceSend(params: {
 function coerceMetadata(raw: unknown): InvoiceSendMetadata | null {
   if (!raw || typeof raw !== "object") return null;
   const m = raw as Record<string, unknown>;
-  const status = m.status === "sent" ? "sent" : m.status === "failed" ? "failed" : null;
+  // Back-compat: older rows used status="sent" — treat as "accepted".
+  const rawStatus = m.status;
+  const status: InvoiceSendStatus | null =
+    rawStatus === "accepted" || rawStatus === "sent"
+      ? "accepted"
+      : rawStatus === "delivered"
+        ? "delivered"
+        : rawStatus === "failed"
+          ? "failed"
+          : null;
   const mode = m.mode === "attachment" ? "attachment" : m.mode === "link" ? "link" : null;
   if (!status || !mode) return null;
   return {
@@ -68,6 +94,9 @@ function coerceMetadata(raw: unknown): InvoiceSendMetadata | null {
     bytes: Number(m.bytes ?? 0) || 0,
     mode,
     status,
+    provider: typeof m.provider === "string" ? m.provider : undefined,
+    providerMessageId: typeof m.providerMessageId === "string" ? m.providerMessageId : undefined,
+    errorCode: typeof m.errorCode === "string" ? m.errorCode : undefined,
     error: typeof m.error === "string" ? m.error : undefined,
   };
 }
