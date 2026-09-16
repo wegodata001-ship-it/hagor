@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isAuthDebugLogsEnabled, SESSION_COOKIE_NAME } from "@/lib/auth/cookie-constants";
 import {
+  isAdminApiPath,
   isAdminUiPath,
   isLooseDevHostname,
   isPaymentPublicPath,
@@ -66,6 +67,17 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isAdminUiPath(pathname) && !isPaymentPublicPath(pathname)) {
+      return NextResponse.redirect(new URL(`${pathname}${search}`, portalOrigin()), 308);
+    }
+
+    // Admin server APIs must also live on the portal host — the session cookie
+    // is host-only-scoped there. If someone lands here (stale bookmark, old
+    // email link, external tool), forward the request to the portal so the
+    // browser can send the correct cookie. Payment/webhook endpoints stay on
+    // the public host and are excluded by the `isAdminApiPath` prefix check
+    // (`/api/admin/`), which never matches `/api/payments/*` or
+    // `/api/webhooks/*`.
+    if (isAdminApiPath(pathname)) {
       return NextResponse.redirect(new URL(`${pathname}${search}`, portalOrigin()), 308);
     }
   }
