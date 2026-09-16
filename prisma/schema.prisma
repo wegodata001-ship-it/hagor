@@ -82,6 +82,11 @@ enum BannerType {
   PROMO
 }
 
+enum ReviewMediaType {
+  TEXT
+  VIDEO
+}
+
 model Store {
   id          String      @id
   name        String
@@ -122,10 +127,13 @@ model Review {
   id          String   @id @default(cuid())
   storeId     String
   store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  mediaType   ReviewMediaType @default(TEXT)
   name        String
+  title       String?
   rating      Int
   comment     String   @db.Text
   imageUrl    String?
+  videoUrl    String?
   isApproved  Boolean  @default(false)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -193,6 +201,16 @@ model StoreSettings {
   storePhone        String?
   storeAddress      String?
   supportEmail      String?
+  /// Accountant name for the invoice archive (bulk export / send-to-accountant).
+  accountantName    String?
+  /// Accountant email for the invoice archive (bulk export / send-to-accountant).
+  accountantEmail   String?
+  /// Legal business name for invoice/order PDFs (e.g. "אמין בריזינטים ועבודות טקסטיל בע״מ").
+  businessLegalName String?
+  /// Business tax ID / VAT ID for invoice PDFs (e.g. "516025954").
+  businessTaxId     String?
+  /// Public website URL for invoice PDFs (e.g. "hagourbywael.com").
+  businessWebsite   String?
   paymentProvider   String?
   paymentPublicKey  String?
   paymentSecretKey  String?

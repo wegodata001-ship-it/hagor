@@ -29,6 +29,11 @@ export function SettingsAdminClient({
     paymentWebhookSecretOverride: string | null;
     freeShippingMinAmount: number | null;
     supportEmail: string | null;
+    accountantName: string | null;
+    accountantEmail: string | null;
+    businessLegalName: string | null;
+    businessTaxId: string | null;
+    businessWebsite: string | null;
     languageDefault: string;
     orderNumberPrefix: string;
     currency: string;
@@ -119,6 +124,71 @@ export function SettingsAdminClient({
             {t("supportEmail")}
             <input name="supportEmail" type="email" defaultValue={settings.supportEmail ?? ""} className="ds-input mt-1 text-sm" />
           </label>
+
+          <div className="col-span-full mt-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("invoicesAccountantTitle")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("invoicesArchiveSubtitle")}</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-medium">
+                {t("invoicesAccountantName")}
+                <input
+                  name="accountantName"
+                  defaultValue={settings.accountantName ?? ""}
+                  className="ds-input mt-1 text-sm"
+                  maxLength={160}
+                />
+              </label>
+              <label className="text-xs font-medium">
+                {t("invoicesAccountantEmail")}
+                <input
+                  name="accountantEmail"
+                  type="email"
+                  autoComplete="off"
+                  defaultValue={settings.accountantEmail ?? ""}
+                  className="ds-input mt-1 text-sm"
+                  placeholder="accountant@example.com"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="col-span-full mt-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="text-sm font-semibold text-slate-800">{t("businessLegalTitle")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("businessLegalHelp")}</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-medium sm:col-span-2">
+                {t("businessLegalName")}
+                <input
+                  name="businessLegalName"
+                  defaultValue={settings.businessLegalName ?? ""}
+                  className="ds-input mt-1 text-sm"
+                  maxLength={200}
+                  placeholder='אמין בריזינטים ועבודות טקסטיל בע"מ'
+                />
+              </label>
+              <label className="text-xs font-medium">
+                {t("businessTaxId")}
+                <input
+                  name="businessTaxId"
+                  defaultValue={settings.businessTaxId ?? ""}
+                  className="ds-input mt-1 text-sm"
+                  maxLength={40}
+                  placeholder="516025954"
+                />
+              </label>
+              <label className="text-xs font-medium">
+                {t("businessWebsite")}
+                <input
+                  name="businessWebsite"
+                  defaultValue={settings.businessWebsite ?? ""}
+                  className="ds-input mt-1 text-sm"
+                  maxLength={200}
+                  placeholder="hagourbywael.com"
+                />
+              </label>
+            </div>
+          </div>
+
           <label className="text-xs font-medium">
             {t("defaultLanguage")}
             <input name="languageDefault" defaultValue={settings.languageDefault} className="ds-input mt-1 text-sm" />

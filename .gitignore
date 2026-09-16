@@ -43,3 +43,6 @@ next-env.d.ts
 # local Hyp debug payloads (may contain Sign/Id)
 .tmp-hyp*.json
 .tmp-*.json
+
+# local scratch — generated PDFs, screenshots, etc.
+/.tmp/

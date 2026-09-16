@@ -16,6 +16,7 @@ const NAV: { href: string; label: string; Icon: React.FC<{ className?: string }>
   { href: "/admin/banners", label: "banners", Icon: IconImage },
   { href: "/admin/reviews", label: "reviewsAdmin", Icon: IconChat },
   { href: "/admin/orders", label: "orders", Icon: IconCart },
+  { href: "/admin/invoices", label: "invoicesArchive", Icon: IconInvoice },
   { href: "/admin/customers", label: "customer", Icon: IconUsers },
   { href: "/admin/delivery", label: "delivery", Icon: IconTruck },
   { href: "/admin/coupons", label: "coupons", Icon: IconTag },
@@ -308,6 +309,18 @@ function IconObservability({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13h4l3-9 4 18 3-9h5" />
+    </svg>
+  );
+}
+
+function IconInvoice({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12h6m-6 4h3m4.5 4.5L15 19l-1.5 1.5L12 19l-1.5 1.5L9 19l-1.5 1.5L6 19V5a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 18 5v14l-1.5 1.5Z"
+      />
     </svg>
   );
 }

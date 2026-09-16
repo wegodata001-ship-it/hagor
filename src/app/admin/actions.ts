@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, ReviewMediaType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { STORE_ID } from "@/lib/store";
 import { requireAdminSession } from "@/lib/admin-auth";
@@ -1098,16 +1098,24 @@ export async function upsertReview(formData: FormData): Promise<AdminActionResul
   try {
     const { storeId, userId } = await guard();
     const id = String(formData.get("id") ?? "").trim();
+    const mediaTypeRaw = String(formData.get("mediaType") ?? ReviewMediaType.TEXT).trim().toUpperCase();
+    const mediaType = mediaTypeRaw === ReviewMediaType.VIDEO ? ReviewMediaType.VIDEO : ReviewMediaType.TEXT;
     const name = String(formData.get("name") ?? "").trim();
+    const title = String(formData.get("title") ?? "").trim() || null;
     const comment = String(formData.get("comment") ?? "").trim();
-    const rating = Math.min(5, Math.max(1, Number(formData.get("rating")) || 5));
+    const rating = mediaType === ReviewMediaType.VIDEO ? 5 : Math.min(5, Math.max(1, Number(formData.get("rating")) || 5));
     const sortOrder = Number(formData.get("sortOrder")) || 0;
     const isApproved = formData.get("isApproved") === "on";
     const imageUrlRaw = String(formData.get("imageUrl") ?? "").trim();
+    const videoUrlRaw = String(formData.get("videoUrl") ?? "").trim();
 
-    if (!name || !comment) return err("שם ותוכן חובה");
+    if (!name) return err("שם חובה");
+    if (mediaType === ReviewMediaType.TEXT && !comment) return err("תוכן חוות דעת חובה");
+    if (mediaType === ReviewMediaType.VIDEO && !title) return err("כותרת וידאו חובה");
+    if (mediaType === ReviewMediaType.VIDEO && !videoUrlRaw) return err("סרטון חובה");
 
     let imageUrl: string | null = imageUrlRaw || null;
+    let videoUrl: string | null = mediaType === ReviewMediaType.VIDEO ? videoUrlRaw || null : null;
     if (imageUrl) {
       const { assertStoreAssetPath } = await import("@/lib/store-assets");
       try {
@@ -1116,8 +1124,26 @@ export async function upsertReview(formData: FormData): Promise<AdminActionResul
         return err("נתיב תמונה לא תקין");
       }
     }
+    if (videoUrl) {
+      const { assertStoreAssetPath } = await import("@/lib/store-assets");
+      try {
+        videoUrl = assertStoreAssetPath(videoUrl);
+      } catch {
+        return err("נתיב וידאו לא תקין");
+      }
+    }
 
-    const data = { name, comment, rating, sortOrder, isApproved, imageUrl };
+    const data = {
+      mediaType,
+      name,
+      title,
+      comment: mediaType === ReviewMediaType.VIDEO ? comment : comment,
+      rating,
+      sortOrder,
+      isApproved,
+      imageUrl,
+      videoUrl,
+    };
 
     if (id) {
       await prisma.review.updateMany({ where: { id, storeId }, data });
@@ -1319,6 +1345,32 @@ export async function saveStoreSettings(formData: FormData): Promise<AdminAction
         return Number.isFinite(n) && n > 0 ? n : null;
       })(),
       supportEmail: (formData.get("supportEmail") as string) || null,
+      accountantName: (() => {
+        const raw = String(formData.get("accountantName") ?? "").trim();
+        return raw.slice(0, 160) || null;
+      })(),
+      accountantEmail: (() => {
+        const raw = String(formData.get("accountantEmail") ?? "").trim();
+        if (!raw) return null;
+        // Basic RFC-5322 subset — same shape as zod's email().
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return null;
+        return raw.toLowerCase();
+      })(),
+      businessLegalName: (() => {
+        const raw = String(formData.get("businessLegalName") ?? "").trim();
+        return raw.slice(0, 200) || null;
+      })(),
+      businessTaxId: (() => {
+        const raw = String(formData.get("businessTaxId") ?? "").trim();
+        // Keep only digits + a few punctuation chars — never HTML.
+        const cleaned = raw.replace(/[^0-9A-Za-z./\- ]/g, "").slice(0, 40);
+        return cleaned || null;
+      })(),
+      businessWebsite: (() => {
+        const raw = String(formData.get("businessWebsite") ?? "").trim();
+        if (!raw) return null;
+        return raw.slice(0, 200);
+      })(),
       orderNumberPrefix,
       registrationEnabled,
       requireEmailVerificationForCheckout,

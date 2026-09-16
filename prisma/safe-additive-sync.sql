@@ -40,6 +40,13 @@ ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "heroImageUrl" TEXT;
 ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "productGalleryPreset" TEXT NOT NULL DEFAULT 'medium';
 ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "productGalleryMaxHeightPx" INTEGER;
 ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "productGalleryMaxWidthPx" INTEGER;
+-- Invoice archive: accountant contact (used for bulk send-to-accountant only).
+ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "accountantName" TEXT;
+ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "accountantEmail" TEXT;
+-- Invoice / order PDF: legal business fields (used only for presentation).
+ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "businessLegalName" TEXT;
+ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "businessTaxId" TEXT;
+ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "businessWebsite" TEXT;
 
 CREATE TABLE IF NOT EXISTS "StorePage" (
   "id" TEXT NOT NULL,

@@ -253,14 +253,37 @@ export async function loadOrderForConfirmationPdf(token: string) {
       ...publicSelect,
       customerEmail: true,
       customerPhone: true,
+      notes: true,
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          provider: true,
+          amount: true,
+          status: true,
+          confirmationNumber: true,
+          createdAt: true,
+        },
+      },
     },
   });
   if (!order) return null;
 
   const settings = await prisma.storeSettings.findUnique({
     where: { storeId: STORE_ID },
-    select: { storePhone: true },
+    select: {
+      storePhone: true,
+      storeAddress: true,
+      supportEmail: true,
+      businessLegalName: true,
+      businessTaxId: true,
+      businessWebsite: true,
+    },
+  });
+  const store = await prisma.store.findUnique({
+    where: { id: STORE_ID },
+    select: { name: true },
   });
 
-  return { order, settings };
+  return { order, settings, store };
 }
