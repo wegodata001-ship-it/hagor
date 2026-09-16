@@ -1,5 +1,6 @@
 "use client";
 
+import { ReviewMediaType } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -42,9 +43,13 @@ type RelatedProduct = {
 
 type ReviewItem = {
   id: string;
+  mediaType: ReviewMediaType;
   name: string;
+  title: string | null;
   rating: number;
   comment: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
 };
 
 type ProductDetails = {
@@ -438,8 +443,11 @@ function TabBody({
         <li key={r.id} className="rounded-xl border border-[rgba(212,160,23,0.12)] bg-[#080808] p-3">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-[#f7f7f7]">{r.name}</span>
-            <span className="text-xs text-[#d3a20e]">{"★".repeat(Math.max(1, Math.min(5, r.rating)))}</span>
+            <span className="text-xs text-[#d3a20e]">
+              {r.mediaType === ReviewMediaType.VIDEO ? t("reviewVideoLabel") : "★".repeat(Math.max(1, Math.min(5, r.rating)))}
+            </span>
           </div>
+          {r.title ? <p className="mt-1 text-sm font-semibold text-white">{r.title}</p> : null}
           {r.comment ? <p className="mt-1 text-sm">{r.comment}</p> : null}
         </li>
       ))}

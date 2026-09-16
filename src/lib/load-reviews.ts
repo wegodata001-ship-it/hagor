@@ -1,11 +1,15 @@
+import type { ReviewMediaType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type StorefrontReview = {
   id: string;
+  mediaType: ReviewMediaType;
   name: string;
+  title: string | null;
   rating: number;
   comment: string;
   imageUrl: string | null;
+  videoUrl: string | null;
 };
 
 /** Approved reviews for homepage — safe when Prisma client or DB table is not ready yet. */
@@ -19,7 +23,7 @@ export async function loadApprovedReviews(storeId: string, take = 12): Promise<S
       where: { storeId, isApproved: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       take,
-      select: { id: true, name: true, rating: true, comment: true, imageUrl: true },
+      select: { id: true, mediaType: true, name: true, title: true, rating: true, comment: true, imageUrl: true, videoUrl: true },
     });
     return rows;
   } catch (err) {

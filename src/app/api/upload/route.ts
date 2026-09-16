@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 
 /** Hard cap per file — aligns with client compression target */
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+const MAX_REVIEW_VIDEO_BYTES = 40 * 1024 * 1024;
+const REVIEW_VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 
 export async function POST(req: Request) {
   try {
@@ -39,15 +41,22 @@ export async function POST(req: Request) {
     );
   }
 
-  if (file.size > MAX_UPLOAD_BYTES) {
+  const mime = (file.type || "").toLowerCase();
+  const isReviewVideo = folder === "reviews" && REVIEW_VIDEO_MIME_TYPES.has(mime);
+  const maxBytes = isReviewVideo ? MAX_REVIEW_VIDEO_BYTES : MAX_UPLOAD_BYTES;
+
+  if (file.size > maxBytes) {
     return NextResponse.json(
-      { error: `File too large (max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)` },
+      { error: `File too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` },
       { status: 413 },
     );
   }
 
-  const mime = (file.type || "").toLowerCase();
-  if (folder !== "logo" && !mime.startsWith("image/")) {
+  if (folder === "reviews") {
+    if (!mime.startsWith("image/") && !REVIEW_VIDEO_MIME_TYPES.has(mime)) {
+      return NextResponse.json({ error: "Reviews accept image, MP4, or WebM uploads only" }, { status: 400 });
+    }
+  } else if (folder !== "logo" && !mime.startsWith("image/")) {
     return NextResponse.json({ error: "Only image uploads allowed for this kind" }, { status: 400 });
   }
 

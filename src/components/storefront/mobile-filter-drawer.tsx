@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { HagourNavIcon } from "@/components/storefront/hagour-icon";
+import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 export function MobileFilterDrawer({
   open,
@@ -14,6 +15,8 @@ export function MobileFilterDrawer({
   title: string;
   children: React.ReactNode;
 }) {
+  const { t } = useStoreI18n();
+
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
@@ -21,20 +24,34 @@ export function MobileFilterDrawer({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   return (
     <>
-      <div
+      <button
+        type="button"
         onClick={onClose}
+        aria-label={t("close")}
         className={`fixed inset-0 z-40 bg-black/70 transition ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-zinc-700 bg-zinc-950 p-5 shadow-2xl transition-transform ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-white">{title}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300" aria-label="close">
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300" aria-label={t("close")}>
             <HagourNavIcon name="close" />
           </button>
         </div>

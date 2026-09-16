@@ -21,6 +21,7 @@ export function assertBannerImagePath(pathOrUrl: string): string {
 /** Use for any image that may be Supabase-relative, public static (/…), or absolute URL. */
 export function resolvePublicAssetSrc(path: string): string {
   const p = path.trim();
+  if (p.startsWith("blob:") || p.startsWith("data:")) return p;
   if (p.startsWith("http://") || p.startsWith("https://")) return p;
   if (p.startsWith("/")) return p;
   return publicStorageUrl(p);

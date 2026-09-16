@@ -21,6 +21,72 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+:focus-visible {
+  outline: 2px solid #c89211;
+  outline-offset: 3px;
+}
+
+html[data-a11y-text-scale="sm"] [data-store-shell="true"] {
+  font-size: 15px;
+}
+
+html[data-a11y-text-scale="md"] [data-store-shell="true"] {
+  font-size: 16px;
+}
+
+html[data-a11y-text-scale="lg"] [data-store-shell="true"] {
+  font-size: 18px;
+}
+
+html[data-a11y-readable-font="on"] [data-store-shell="true"],
+html[data-a11y-readable-font="on"] [data-store-shell="true"] input,
+html[data-a11y-readable-font="on"] [data-store-shell="true"] textarea,
+html[data-a11y-readable-font="on"] [data-store-shell="true"] select,
+html[data-a11y-readable-font="on"] [data-store-shell="true"] button {
+  font-family: Arial, "Segoe UI", sans-serif !important;
+  letter-spacing: 0.01em;
+}
+
+html[data-a11y-highlight-links="on"] [data-store-shell="true"] a {
+  text-decoration: underline !important;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 0.14em;
+}
+
+html[data-a11y-highlight-links="on"] [data-store-shell="true"] a:focus-visible,
+html[data-a11y-highlight-links="on"] [data-store-shell="true"] a:hover {
+  color: #f0c14b !important;
+}
+
+html[data-a11y-contrast="high"] [data-store-shell="true"] {
+  filter: contrast(1.18) brightness(1.08);
+}
+
+html[data-a11y-grayscale="on"] [data-store-shell="true"] {
+  filter: grayscale(1);
+}
+
+html[data-a11y-contrast="high"][data-a11y-grayscale="on"] [data-store-shell="true"] {
+  filter: grayscale(1) contrast(1.18) brightness(1.08);
+}
+
+html[data-a11y-large-cursor="on"] [data-store-shell="true"],
+html[data-a11y-large-cursor="on"] [data-store-shell="true"] * {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'%3E%3Cpath fill='%23f0c14b' stroke='%23000000' stroke-width='2' d='M5 4l18 14-8 2 4 10-5 2-4-10-5 6z'/%3E%3C/svg%3E")
+      4 2,
+    auto !important;
+}
+
+html[data-a11y-stop-animations="on"] [data-store-shell="true"],
+html[data-a11y-stop-animations="on"] [data-store-shell="true"] *,
+html[data-a11y-stop-animations="on"] [data-store-shell="true"] *::before,
+html[data-a11y-stop-animations="on"] [data-store-shell="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
 @layer components {
   .ds-input,
   .ds-textarea,

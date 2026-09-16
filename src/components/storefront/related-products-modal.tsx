@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AssetImg } from "@/components/asset-img";
 import { useCart } from "@/components/cart-context";
 import { pickLocalized } from "@/lib/localized";
@@ -39,10 +39,24 @@ export function RelatedProductsModal({
   related: RelatedProduct[];
 }) {
   const { addItem } = useCart();
-  const { lang, dir } = useStoreI18n();
+  const { lang, dir, t } = useStoreI18n();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   const items = useMemo(() => related.filter((p) => p.stock > 0), [related]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => closeRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -63,23 +77,26 @@ export function RelatedProductsModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/70" onClick={onClose} />
+      <button type="button" className="fixed inset-0 z-50 bg-black/70" onClick={onClose} aria-label={t("close")} />
       <div
         dir={dir}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="related-products-title"
         className="fixed inset-x-0 bottom-0 z-[60] mx-auto w-full max-w-xl rounded-t-3xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl md:inset-y-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:rounded-3xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-lg font-black text-white">השלם את הקנייה שלך</div>
-            <div className="mt-1 text-sm text-zinc-400">לקוחות קונים גם את המוצרים האלו</div>
+            <div id="related-products-title" className="text-lg font-black text-white">{t("relatedProductsTitle")}</div>
+            <div className="mt-1 text-sm text-zinc-400">{t("relatedProductsSubtitle")}</div>
           </div>
-          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200" aria-label="close">
+          <button ref={closeRef} type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200" aria-label={t("close")}>
             <HagourNavIcon name="close" />
           </button>
         </div>
 
         <div className="mt-4 rounded-2xl border border-blue-500/40 bg-blue-500/10 p-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-blue-300">המוצר הראשי</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-blue-300">{t("relatedMainProduct")}</div>
           <div className="mt-2 flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
               <AssetImg path={mainDisplay?.image ?? null} alt={main.title} className="h-full w-full object-cover" />
@@ -127,7 +144,7 @@ export function RelatedProductsModal({
               </button>
             );
           })}
-          {items.length === 0 && <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-400">אין מוצרים משלימים זמינים.</div>}
+          {items.length === 0 && <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-400">{t("relatedNoProducts")}</div>}
         </div>
 
         <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -136,7 +153,7 @@ export function RelatedProductsModal({
             onClick={addAll}
             className="rounded-2xl bg-gradient-to-r from-hagor-gold to-amber-700 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5"
           >
-            הוסף לסל והמשך
+            {t("relatedAddAndContinue")}
           </button>
           <button
             type="button"
@@ -146,7 +163,7 @@ export function RelatedProductsModal({
             }}
             className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-200 hover:border-zinc-700"
           >
-            דלג
+            {t("relatedSkip")}
           </button>
         </div>
       </div>

@@ -149,10 +149,13 @@ export default async function HomePage() {
       products={products.map(toCard)}
       reviews={reviews.map((r) => ({
         id: r.id,
+        mediaType: r.mediaType,
         name: r.name,
+        title: r.title,
         rating: r.rating,
         comment: r.comment,
         imageUrl: r.imageUrl,
+        videoUrl: r.videoUrl,
       }))}
     />
   );

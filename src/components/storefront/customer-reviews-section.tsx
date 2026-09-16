@@ -1,5 +1,6 @@
 "use client";
 
+import { ReviewMediaType } from "@prisma/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { resolvePublicAssetSrc } from "@/lib/assets-path";
@@ -7,10 +8,13 @@ import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 export type CustomerReviewItem = {
   id: string;
+  mediaType: ReviewMediaType;
   name: string;
+  title: string | null;
   rating: number;
   comment: string;
   imageUrl: string | null;
+  videoUrl: string | null;
 };
 
 function StarRow({ rating }: { rating: number }) {
@@ -37,9 +41,55 @@ function ReviewCard({
   review: CustomerReviewItem;
   onOpen: (review: CustomerReviewItem) => void;
 }) {
+  const { t } = useStoreI18n();
   const hasImage = Boolean(review.imageUrl?.trim());
   const blurb = hasImage ? shortComment(review.comment) : review.comment.trim() || null;
   const lines = !hasImage && blurb ? blurb.split("\n").filter(Boolean) : null;
+  const isVideo = review.mediaType === ReviewMediaType.VIDEO;
+
+  if (isVideo) {
+    return (
+      <article className="hagour-review-card">
+        <button
+          type="button"
+          className="hagour-review-card__media relative"
+          onClick={() => onOpen(review)}
+          aria-label={t("reviewOpenVideo").replace("{name}", review.name)}
+        >
+          {hasImage ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolvePublicAssetSrc(review.imageUrl!)}
+                alt={review.title || review.name}
+                className="hagour-review-card__image"
+                loading="lazy"
+              />
+              <span className="absolute inset-0 bg-black/25" aria-hidden />
+            </>
+          ) : (
+            <div className="flex h-[340px] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-900 via-black to-zinc-800 text-hagor-gold">
+              <span className="text-6xl" aria-hidden>▶</span>
+            </div>
+          )}
+          <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+            <span className="flex h-16 w-16 items-center justify-center rounded-full border border-hagor-gold/50 bg-black/70 text-3xl text-hagor-gold shadow-lg">
+              ▶
+            </span>
+          </span>
+        </button>
+        <div className="hagour-review-card__body items-start text-start">
+          <span className="rounded-full bg-hagor-gold/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-hagor-gold">
+            {t("reviewVideoLabel")}
+          </span>
+          <p className="hagour-review-card__name">{review.name}</p>
+          {review.title ? <p className="text-sm font-semibold text-white">{review.title}</p> : null}
+          {review.comment ? <p className="hagour-review-card__blurb">{review.comment}</p> : null}
+          <span className="mt-1 text-sm font-semibold text-hagor-gold">{t("reviewWatchVideo")}</span>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article className="hagour-review-card">
@@ -48,12 +98,12 @@ function ReviewCard({
           type="button"
           className="hagour-review-card__media"
           onClick={() => onOpen(review)}
-          aria-label={`הגדלת חוות דעת של ${review.name}`}
+          aria-label={t("reviewOpenImage").replace("{name}", review.name)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={resolvePublicAssetSrc(review.imageUrl!)}
-            alt={`חוות דעת של ${review.name}`}
+            alt={review.name}
             className="hagour-review-card__image"
             loading="lazy"
           />
@@ -86,6 +136,7 @@ function ReviewLightbox({
   review: CustomerReviewItem;
   onClose: () => void;
 }) {
+  const { t } = useStoreI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -100,23 +151,30 @@ function ReviewLightbox({
   }, [onClose]);
 
   return (
-    <div className="hagour-review-lightbox" role="dialog" aria-modal="true" aria-label={review.name}>
-      <button type="button" className="hagour-review-lightbox__backdrop" aria-label="סגור" onClick={onClose} />
+    <div className="hagour-review-lightbox" role="dialog" aria-modal="true" aria-label={review.title || review.name}>
+      <button type="button" className="hagour-review-lightbox__backdrop" aria-label={t("close")} onClick={onClose} />
       <div className="hagour-review-lightbox__panel">
-        <button type="button" className="hagour-review-lightbox__close" onClick={onClose} aria-label="סגור">
+        <button type="button" className="hagour-review-lightbox__close" onClick={onClose} aria-label={t("close")}>
           <X className="h-5 w-5" />
         </button>
-        {review.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={resolvePublicAssetSrc(review.imageUrl)}
-            alt={`חוות דעת של ${review.name}`}
+        {review.mediaType === ReviewMediaType.VIDEO && review.videoUrl ? (
+          <video
+            controls
+            playsInline
+            preload="metadata"
+            poster={review.imageUrl ? resolvePublicAssetSrc(review.imageUrl) : undefined}
             className="hagour-review-lightbox__image"
+            src={resolvePublicAssetSrc(review.videoUrl)}
           />
+        ) : review.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={resolvePublicAssetSrc(review.imageUrl)} alt={review.name} className="hagour-review-lightbox__image" />
         ) : null}
         <div className="hagour-review-lightbox__meta">
-          <StarRow rating={review.rating} />
+          {review.mediaType === ReviewMediaType.TEXT ? <StarRow rating={review.rating} /> : null}
           <p className="hagour-review-card__name">{review.name}</p>
+          {review.title ? <p className="text-sm font-semibold text-white">{review.title}</p> : null}
+          {review.comment ? <p className="max-w-2xl text-center text-sm leading-6 text-zinc-300">{review.comment}</p> : null}
         </div>
       </div>
     </div>
@@ -144,6 +202,7 @@ function ReviewsCarousel({
   reviews: CustomerReviewItem[];
   onOpen: (review: CustomerReviewItem) => void;
 }) {
+  const { t } = useStoreI18n();
   const perView = usePerView();
   const slides = useMemo(() => {
     const chunks: CustomerReviewItem[][] = [];
@@ -154,7 +213,16 @@ function ReviewsCarousel({
   }, [reviews, perView]);
 
   const [index, setIndex] = useState(0);
+  const [autoRotate, setAutoRotate] = useState(true);
   const slideCount = slides.length;
+
+  useEffect(() => {
+    const sync = () => setAutoRotate(document.documentElement.dataset.a11yStopAnimations !== "on");
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-a11y-stop-animations"] });
+    return () => observer.disconnect();
+  }, []);
 
   const go = useCallback(
     (next: number) => {
@@ -169,10 +237,10 @@ function ReviewsCarousel({
   }, [slideCount]);
 
   useEffect(() => {
-    if (slideCount <= 1) return;
+    if (slideCount <= 1 || !autoRotate) return;
     const id = window.setInterval(() => go(index + 1), 6000);
     return () => window.clearInterval(id);
-  }, [go, index, slideCount]);
+  }, [autoRotate, go, index, slideCount]);
 
   return (
     <div className="hagour-reviews-carousel mt-8 md:mt-10">
@@ -182,7 +250,7 @@ function ReviewsCarousel({
             type="button"
             className="hagour-reviews-carousel__arrow hagour-reviews-carousel__arrow--prev"
             onClick={() => go(index - 1)}
-            aria-label="הקודם"
+            aria-label={t("reviewsPrev")}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -190,7 +258,7 @@ function ReviewsCarousel({
             type="button"
             className="hagour-reviews-carousel__arrow hagour-reviews-carousel__arrow--next"
             onClick={() => go(index + 1)}
-            aria-label="הבא"
+            aria-label={t("reviewsNext")}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -211,14 +279,14 @@ function ReviewsCarousel({
       </div>
 
       {slideCount > 1 ? (
-        <div className="hagour-reviews-carousel__dots" role="tablist" aria-label="חוות דעת">
+        <div className="hagour-reviews-carousel__dots" role="tablist" aria-label={t("reviewsCarouselLabel")}>
           {slides.map((_, i) => (
             <button
               key={i}
               type="button"
               role="tab"
               aria-selected={i === index}
-              aria-label={`מקטע ${i + 1}`}
+              aria-label={t("reviewsSlide").replace("{index}", String(i + 1))}
               className={`hagour-reviews-carousel__dot ${i === index ? "is-active" : ""}`}
               onClick={() => setIndex(i)}
             />
@@ -260,7 +328,7 @@ export function CustomerReviewsSection({ reviews }: { reviews: CustomerReviewIte
         </div>
       )}
 
-      {lightbox?.imageUrl ? <ReviewLightbox review={lightbox} onClose={() => setLightbox(null)} /> : null}
+      {lightbox ? <ReviewLightbox review={lightbox} onClose={() => setLightbox(null)} /> : null}
     </section>
   );
 }

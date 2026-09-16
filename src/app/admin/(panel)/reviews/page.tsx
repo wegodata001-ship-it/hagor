@@ -1,4 +1,5 @@
 import { ReviewsAdminClient, type ReviewDTO } from "@/components/admin/reviews-admin-client";
+import { ReviewMediaType } from "@prisma/client";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { getStoreId } from "@/lib/store-config";
@@ -19,10 +20,13 @@ export default async function AdminReviewsPage() {
       });
       return rows.map((r) => ({
         id: r.id,
+        mediaType: r.mediaType ?? ReviewMediaType.TEXT,
         name: r.name,
+        title: r.title ?? null,
         rating: r.rating,
         comment: r.comment,
         imageUrl: r.imageUrl,
+        videoUrl: r.videoUrl ?? null,
         isApproved: r.isApproved,
         sortOrder: r.sortOrder,
         createdAt: r.createdAt.toISOString(),

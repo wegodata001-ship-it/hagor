@@ -63,6 +63,15 @@ export function MainNavbar({
     };
   }, []);
 
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileSearchOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mobileSearchOpen]);
+
   function submitSearch(e?: { preventDefault?: () => void }) {
     e?.preventDefault?.();
     const q = search.trim();
@@ -90,7 +99,7 @@ export function MainNavbar({
             type="button"
             onClick={() => setMobileOpen(true)}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-hagor-gold/25 text-zinc-100 transition-colors duration-150 hover:text-hagor-gold lg:hidden"
-            aria-label="open-menu"
+            aria-label={t("openMenu")}
           >
             <HagourNavIcon name="menu" />
           </button>
@@ -140,7 +149,7 @@ export function MainNavbar({
               type="button"
               onClick={() => setMobileSearchOpen(true)}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-hagor-gold/25 text-zinc-100 transition-colors duration-150 hover:text-hagor-gold md:hidden"
-              aria-label="search"
+              aria-label={t("openSearch")}
             >
               <HagourNavIcon name="search" />
             </button>
@@ -192,7 +201,7 @@ export function MainNavbar({
               type="button"
               onClick={() => setMobileSearchOpen(false)}
               className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700 text-white"
-              aria-label="close"
+              aria-label={t("close")}
             >
               <HagourNavIcon name="close" />
             </button>

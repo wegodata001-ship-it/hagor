@@ -138,18 +138,26 @@ export function BeltProductOptions({
       ) : null}
 
       {guideOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4" onClick={() => setGuideOpen(false)}>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/75"
+            onClick={() => setGuideOpen(false)}
+            aria-label={t("close")}
+          />
           <div
-            className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-2xl border border-[rgba(212,160,23,0.18)] bg-[#111113] p-4"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="belt-size-guide-title"
+            className="relative max-h-[85vh] w-full max-w-lg overflow-auto rounded-2xl border border-[rgba(212,160,23,0.18)] bg-[#111113] p-4"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">{t("sizeGuide")}</h3>
+              <h3 id="belt-size-guide-title" className="text-base font-bold text-white">{t("sizeGuide")}</h3>
               <button
                 type="button"
                 onClick={() => setGuideOpen(false)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700"
-                aria-label="close"
+                aria-label={t("close")}
               >
                 <HagourNavIcon name="close" />
               </button>

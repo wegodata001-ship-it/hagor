@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AssetImg } from "@/components/asset-img";
 import { HagourNavIcon } from "@/components/storefront/hagour-icon";
+import { useStoreI18n } from "@/components/storefront/store-i18n";
 
 export function ProductGallery({
   images,
@@ -11,6 +12,7 @@ export function ProductGallery({
   images: { id: string; url: string }[];
   title: string;
 }) {
+  const { t } = useStoreI18n();
   const safe = useMemo(() => images.filter((i) => !!i.url), [images]);
   const [selected, setSelected] = useState(0);
   const [lightbox, setLightbox] = useState(false);
@@ -125,19 +127,22 @@ export function ProductGallery({
       </div>
 
       {lightbox && current ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightbox(false)}
-        >
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <button
             type="button"
-            className="absolute end-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 text-white"
-            aria-label="close"
+            className="absolute inset-0 bg-black/90"
+            onClick={() => setLightbox(false)}
+            aria-label={t("close")}
+          />
+          <button
+            type="button"
+            className="absolute end-4 top-4 z-[1] inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 text-white"
+            aria-label={t("close")}
             onClick={() => setLightbox(false)}
           >
             <HagourNavIcon name="close" />
           </button>
-          <div className="max-h-[90vh] max-w-4xl" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label={title} className="relative max-h-[90vh] max-w-4xl">
             <AssetImg path={current.url} alt={title} className="max-h-[90vh] w-auto object-contain" />
           </div>
         </div>

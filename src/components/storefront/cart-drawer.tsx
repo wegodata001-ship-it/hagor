@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AssetImg } from "@/components/asset-img";
@@ -26,6 +26,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const [products, setProducts] = useState<Record<string, ProductRow>>({});
   const [freeShippingMin, setFreeShippingMin] = useState(499);
   const [mounted, setMounted] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -62,11 +63,18 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
     const prevTouch = document.body.style.touchAction;
     document.body.style.overflow = "hidden";
     document.body.style.touchAction = "none";
+    const timer = window.setTimeout(() => closeRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
     return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = prevOverflow;
       document.body.style.touchAction = prevTouch;
     };
-  }, [open]);
+  }, [open, onClose]);
 
   const subtotal = useMemo(() => {
     let sum = 0;
@@ -92,9 +100,10 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   return createPortal(
     <>
-      <div
+      <button
+        type="button"
         onClick={onClose}
-        aria-hidden={!open}
+        aria-label={t("close")}
         className={`cart-drawer-overlay bg-black/60 transition-opacity duration-300 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
@@ -114,10 +123,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
         <header className="cart-drawer__header flex items-center justify-between px-4 pb-3">
           <h3 className="text-lg font-semibold">{t("cart")}</h3>
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-300"
-            aria-label="close"
+            aria-label={t("close")}
           >
             <HagourNavIcon name="close" />
           </button>
@@ -168,7 +178,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                         onClick={() => removeItem(line.key)}
                         className="ms-auto text-xs text-red-400"
                       >
-                        הסר
+                        {t("remove")}
                       </button>
                     </div>
                   </div>
@@ -183,7 +193,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-zinc-400">
                 <span>{t("freeShipping")}</span>
-                <span>₪{(freeShippingMin - subtotal).toFixed(0)} נותר</span>
+                <span>{t("freeShippingRemaining").replace("{amount}", `₪${(freeShippingMin - subtotal).toFixed(0)}`)}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
                 <div
