@@ -11,6 +11,7 @@ import { formatSelectedOptionsLines, parseSelectedOptions } from "@/lib/hagour-p
 import {
   deleteOrderItemImage,
   getAdminOrderDetail,
+  resendCustomerConfirmationEmail,
   updateOrderStatus,
   type AdminOrderDetailDTO,
 } from "@/app/admin/actions";
@@ -226,6 +227,7 @@ export function OrdersAdminClient({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<OrderFilters>(initialFilters);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const { t, lang } = useAdminI18n();
 
   const summary = useMemo(() => {
@@ -258,6 +260,31 @@ export function OrdersAdminClient({
       setToast({ message: t("savedSuccessfully") });
       refresh();
       if (detailId) await openDetail(detailId);
+    }
+  }
+
+  /**
+   * Admin manual resend of the customer's order-confirmation email + PDF.
+   * Prompts once for confirmation to prevent accidental double-sends
+   * (per the "לבקש confirmation" requirement).
+   */
+  async function handleResendConfirmationEmail() {
+    if (!detail || resendingEmail) return;
+    if (!window.confirm(t("resendConfirmationConfirm"))) return;
+    setResendingEmail(true);
+    try {
+      const res = await resendCustomerConfirmationEmail(detail.id);
+      if (!res.ok) {
+        setToast({ message: res.error, error: true });
+        return;
+      }
+      setToast({ message: t("resendConfirmationOk") });
+      // Refresh the detail so the block shows the new "sent at" timestamp.
+      if (detailId) await openDetail(detailId);
+    } catch {
+      setToast({ message: t("resendConfirmationFail"), error: true });
+    } finally {
+      setResendingEmail(false);
     }
   }
 
@@ -822,6 +849,15 @@ export function OrdersAdminClient({
               </p>
             </div>
 
+            {/* Customer confirmation email — read-only status + manual retry. */}
+            <CustomerConfirmationBlock
+              detail={detail}
+              t={t}
+              dateLocale={dateLocale}
+              onResend={handleResendConfirmationEmail}
+              busy={resendingEmail}
+            />
+
             <div className="border-t border-slate-200 pt-3 text-base font-bold">
               {t("total")}: ₪{detail.total.toFixed(2)}
             </div>
@@ -858,6 +894,117 @@ export function OrdersAdminClient({
           </div>
         )}
       </AdminModal>
+    </div>
+  );
+}
+
+/**
+ * "Customer confirmation" panel inside the order detail modal. Shows the
+ * last known send state (recipient / provider / message id / timestamp)
+ * and a retry button. Read-only view — the mutation goes through the
+ * `resendCustomerConfirmationEmail` server action.
+ */
+function CustomerConfirmationBlock({
+  detail,
+  t,
+  dateLocale,
+  onResend,
+  busy,
+}: {
+  detail: AdminOrderDetailDTO;
+  t: (k: string) => string;
+  dateLocale: string;
+  onResend: () => void;
+  busy: boolean;
+}) {
+  const email = detail.customerConfirmationEmail;
+  const noCustomerEmail = !detail.customerEmail?.trim();
+  const paid =
+    (detail.paymentStatus === "PAID" ||
+      detail.paymentStatus === "TEST_PAID" ||
+      detail.paymentStatus === "DEMO_PAID") &&
+    detail.status === "PAID";
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm">
+      <h4 className="text-sm font-semibold text-slate-800">{t("customerConfirmationTitle")}</h4>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <Field label={t("customerConfirmationRecipient")}>
+          {noCustomerEmail ? (
+            <span className="text-slate-400">{t("customerConfirmationNoEmail")}</span>
+          ) : (
+            <span className="font-mono text-[12px] text-slate-900">
+              {email.recipient ?? detail.customerEmail}
+            </span>
+          )}
+        </Field>
+        <Field label={t("customerConfirmationPdf")}>
+          <span className="font-mono text-[12px] text-slate-900">
+            {email.filename ?? `HAGOUR-ORDER-${detail.orderNumber}.pdf`}
+          </span>
+        </Field>
+        <Field label={t("customerConfirmationStatus")}>
+          {email.sent ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">
+              <span aria-hidden>✓</span>
+              {t("customerConfirmationStatusSent")}
+            </span>
+          ) : email.lastError ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800 ring-1 ring-inset ring-rose-200">
+              <span aria-hidden>⚠</span>
+              {t("customerConfirmationStatusFailed")}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+              {t("customerConfirmationStatusPending")}
+            </span>
+          )}
+        </Field>
+        <Field label={t("customerConfirmationDate")}>
+          {email.lastSentAt ? (
+            new Date(email.lastSentAt).toLocaleString(dateLocale)
+          ) : (
+            <span className="text-slate-400">—</span>
+          )}
+        </Field>
+        {email.provider ? (
+          <Field label={t("customerConfirmationProvider")}>
+            <span className="font-mono text-[11px] text-slate-700">
+              {email.provider}
+              {email.messageId ? ` · ${email.messageId}` : ""}
+            </span>
+          </Field>
+        ) : null}
+      </div>
+      {email.lastError ? (
+        <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-800">
+          {email.lastError}
+          {email.lastErrorAt ? (
+            <span className="ms-2 text-rose-700/70">
+              ({new Date(email.lastErrorAt).toLocaleString(dateLocale)})
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={busy || noCustomerEmail || !paid}
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? t("customerConfirmationSending") : t("customerConfirmationResend")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-0.5 text-sm text-slate-900">{children}</div>
     </div>
   );
 }

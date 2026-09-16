@@ -9,6 +9,8 @@ import { assertAssetPath, assertBannerImagePath } from "@/lib/assets-path";
 import { logAdminAction } from "@/lib/admin-audit";
 import { err, ok, type AdminActionResult } from "@/lib/admin-action-result";
 import { deleteStoreAssetIfUnreferenced } from "@/lib/store-asset-references";
+import { getCustomerConfirmationEmailStatus } from "@/lib/email/email-idempotency";
+import { sendOrderConfirmationEmail } from "@/lib/email/email-service";
 import type { PolicyTab } from "@/lib/legal-defaults";
 import { LEGAL_FALLBACK } from "@/lib/legal-defaults";
 import {
@@ -102,6 +104,22 @@ export type AdminOrderDetailDTO = {
     userName: string | null;
     userEmail: string | null;
   } | null;
+  /**
+   * "Customer confirmation" email history for THIS order — read-only
+   * projection of the AdminActionLog audit trail. `null` means we have
+   * never attempted to send.
+   */
+  customerConfirmationEmail: {
+    sent: boolean;
+    lastSentAt: string | null;
+    recipient: string | null;
+    filename: string | null;
+    provider: string | null;
+    messageId: string | null;
+    manual: boolean;
+    lastError: string | null;
+    lastErrorAt: string | null;
+  };
 };
 
 export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDetailDTO | null> {
@@ -129,6 +147,8 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
   const notesFlag = (order.notes || "").includes("REQUIRES_RECONCILIATION");
   const paymentAttempts: AdminOrderDetailDTO["paymentAttempts"] = [];
   const requiresPaymentReconciliation = notesFlag;
+
+  const emailStatus = await getCustomerConfirmationEmailStatus(order.id);
 
   return {
     id: order.id,
@@ -189,7 +209,80 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
           userEmail: order.customerProfile.user?.email ?? null,
         }
       : null,
+    customerConfirmationEmail: {
+      sent: emailStatus.sent,
+      lastSentAt: emailStatus.lastSentAt ?? null,
+      recipient: emailStatus.recipient ?? null,
+      filename: emailStatus.filename ?? null,
+      provider: emailStatus.provider ?? null,
+      messageId: emailStatus.messageId ?? null,
+      manual: emailStatus.manual ?? false,
+      lastError: emailStatus.lastError ?? null,
+      lastErrorAt: emailStatus.lastErrorAt ?? null,
+    },
   };
+}
+
+/**
+ * Admin manual resend of the customer's order-confirmation email + PDF.
+ *
+ * - Requires an authenticated admin session (`guard()`).
+ * - Uses the same internal renderer + provider as the automatic post-payment
+ *   send, so the customer always receives an identical document.
+ * - Bypasses the "already sent" short-circuit (this is the whole point of a
+ *   manual resend) but still audit-logs the attempt with the admin's userId.
+ * - **Never** mutates the order, payment, inventory or invoice — it only
+ *   attempts to (re-)send an email.
+ */
+export async function resendCustomerConfirmationEmail(
+  orderId: string,
+): Promise<AdminActionResult<{ recipient: string | null; provider: string | null; messageId: string | null }>> {
+  try {
+    const { storeId, userId } = await guard();
+    if (!orderId?.trim()) return err("Missing order id");
+
+    // Confirm the order belongs to this store before we do anything else.
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, storeId },
+      select: { id: true, customerEmail: true, paymentStatus: true, status: true },
+    });
+    if (!order) return err("Order not found");
+    const paid =
+      (order.paymentStatus === "PAID" ||
+        order.paymentStatus === "TEST_PAID" ||
+        order.paymentStatus === "DEMO_PAID") &&
+      order.status === "PAID";
+    if (!paid) {
+      return err("ההזמנה עדיין לא סומנה כשולמה — לא ניתן לשלוח אישור.");
+    }
+    if (!order.customerEmail?.trim()) {
+      return err("ללקוח אין כתובת מייל שמורה — לא ניתן לשלוח אישור.");
+    }
+
+    const sent = await sendOrderConfirmationEmail(orderId, { manual: true, adminUserId: userId });
+    if (!sent) {
+      // The idempotency layer already logged the failure with the exact
+      // provider error code. Surface a generic user-friendly message here.
+      return err("שליחת האישור נכשלה. בדוק את הגדרות שרת המייל ונסה שוב.");
+    }
+    await logAdminAction({
+      userId,
+      action: "order.confirmation.manual_resend",
+      entity: "Order",
+      entityId: orderId,
+      metadata: { recipient: order.customerEmail },
+    });
+    revalidatePath("/admin/orders");
+    const status = await getCustomerConfirmationEmailStatus(orderId);
+    return ok({
+      recipient: status.recipient ?? order.customerEmail,
+      provider: status.provider ?? null,
+      messageId: status.messageId ?? null,
+    });
+  } catch (e) {
+    console.error("[admin] resendCustomerConfirmationEmail_failed", e);
+    return err("שליחת האישור נכשלה");
+  }
 }
 
 /** Remove one image from an order line. Never deletes the order or the line itself. Admin only. */
